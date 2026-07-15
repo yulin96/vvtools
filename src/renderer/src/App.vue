@@ -1,26 +1,72 @@
 <script setup lang="ts">
-import Versions from './components/Versions.vue'
+import { onMounted } from 'vue'
+import { Images, ListTodo, Settings, Video, X } from '@lucide/vue'
+import { useAppStore } from './stores/app'
+import appIcon from '../../../resources/icon.png'
 
-const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
+const store = useAppStore()
+const navigation = [
+  { to: '/video', label: '视频压缩', icon: Video },
+  { to: '/image', label: '图片压缩', icon: Images },
+  { to: '/queue', label: '任务队列', icon: ListTodo },
+  { to: '/settings', label: '设置', icon: Settings }
+]
+
+onMounted(() => store.initialize())
 </script>
 
 <template>
-  <img alt="logo" class="logo" src="./assets/electron.svg" />
-  <div class="creator">Powered by electron-vite</div>
-  <div class="text">
-    Build an Electron app with
-    <span class="vue">Vue</span>
-    and
-    <span class="ts">TypeScript</span>
+  <div class="flex h-screen min-h-0 bg-workspace text-foreground">
+    <aside class="flex w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4">
+      <div class="mb-7 flex items-center gap-3 px-2">
+        <img :src="appIcon" alt="VVTools" class="size-9 rounded-[10px]" />
+        <div>
+          <p class="text-sm font-semibold tracking-tight text-sidebar-foreground">VVTools</p>
+          <p class="text-[11px] text-sidebar-muted">媒体批处理工具</p>
+        </div>
+      </div>
+      <nav class="space-y-1" aria-label="主导航">
+        <RouterLink
+          v-for="item in navigation"
+          :key="item.to"
+          :to="item.to"
+          class="group flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium text-sidebar-muted transition-colors hover:bg-sidebar-hover hover:text-sidebar-foreground"
+          active-class="!bg-sidebar-active !text-sidebar-foreground"
+        >
+          <component :is="item.icon" class="size-4" />
+          <span>{{ item.label }}</span>
+          <span
+            v-if="item.to === '/queue' && store.activeCount"
+            class="ml-auto min-w-5 rounded-full bg-signal px-1.5 py-0.5 text-center text-[10px] font-semibold text-slate-950"
+          >
+            {{ store.activeCount }}
+          </span>
+        </RouterLink>
+      </nav>
+      <div
+        class="mt-auto border-t border-sidebar-border px-2 pt-4 text-[11px] leading-5 text-sidebar-muted"
+      >
+        <p>本地处理，不上传媒体文件</p>
+        <p>v1.0.0</p>
+      </div>
+    </aside>
+
+    <main class="relative min-w-0 flex-1 overflow-auto">
+      <div
+        v-if="store.errorMessage"
+        role="alert"
+        class="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-red-200 bg-red-50 px-6 py-2.5 text-sm text-red-900"
+      >
+        <span>{{ store.errorMessage }}</span>
+        <button
+          class="rounded p-1 hover:bg-red-100"
+          aria-label="关闭错误提示"
+          @click="store.errorMessage = ''"
+        >
+          <X class="size-4" />
+        </button>
+      </div>
+      <RouterView :key="$route.path" />
+    </main>
   </div>
-  <p class="tip">Please try pressing <code>F12</code> to open the devTool</p>
-  <div class="actions">
-    <div class="action">
-      <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">Documentation</a>
-    </div>
-    <div class="action">
-      <a target="_blank" rel="noreferrer" @click="ipcHandle">Send IPC</a>
-    </div>
-  </div>
-  <Versions />
 </template>

@@ -1,46 +1,65 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { FailureLogService } from './services/failure-log'
+import { SettingsStore } from './services/settings-store'
+import { TaskQueue } from './services/task-queue'
+import { processVideo } from './media/video-processor'
+import { processImage } from './media/image-processor'
+import { registerIpc } from './ipc'
+
+let mainWindow: BrowserWindow | null = null
+let queue: TaskQueue | null = null
+let unregisterIpc: (() => void) | null = null
+
+app.setName('VVTools')
 
 function createWindow(): void {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+  const window = new BrowserWindow({
+    title: 'VVTools',
+    width: 1180,
+    height: 760,
+    minWidth: 960,
+    minHeight: 640,
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      navigateOnDragDrop: false
     }
   })
+  mainWindow = window
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+  window.on('ready-to-show', () => {
+    window.show()
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  window.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    window.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    window.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  window.on('closed', () => {
+    if (mainWindow === window) mainWindow = null
+  })
 }
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.vvtools.app')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -49,8 +68,17 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  const settings = new SettingsStore(app.getPath('userData'), app.getPath('downloads'))
+  const failureLogs = new FailureLogService(app.getPath('userData'))
+  queue = new TaskQueue(
+    settings.get().concurrency,
+    (task, signal, onProgress) =>
+      task.kind === 'video'
+        ? processVideo(task, signal, onProgress, failureLogs)
+        : processImage(task, signal),
+    failureLogs
+  )
+  unregisterIpc = registerIpc(() => mainWindow, queue, settings)
 
   createWindow()
 
@@ -70,5 +98,7 @@ app.on('window-all-closed', () => {
   }
 })
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.
+app.on('before-quit', () => {
+  queue?.shutdown()
+  unregisterIpc?.()
+})

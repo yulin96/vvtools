@@ -1,22 +1,26 @@
-import { contextBridge } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import { IPC_CHANNELS } from '../shared/constants'
+import type { MediaTask, VVToolsApi } from '../shared/types'
 
-// Custom APIs for renderer
-const api = {}
-
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
-if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    console.error(error)
+const api: VVToolsApi = {
+  selectFiles: (kind) => ipcRenderer.invoke(IPC_CHANNELS.selectFiles, kind),
+  getDroppedFilePath: (file) => webUtils.getPathForFile(file),
+  selectOutputDirectory: (current) =>
+    ipcRenderer.invoke(IPC_CHANNELS.selectOutputDirectory, current),
+  createTasks: (request) => ipcRenderer.invoke(IPC_CHANNELS.createTasks, request),
+  getTasks: () => ipcRenderer.invoke(IPC_CHANNELS.getTasks),
+  cancelTask: (taskId) => ipcRenderer.invoke(IPC_CHANNELS.cancelTask, taskId),
+  retryTask: (taskId) => ipcRenderer.invoke(IPC_CHANNELS.retryTask, taskId),
+  openTaskOutput: (taskId) => ipcRenderer.invoke(IPC_CHANNELS.openTaskOutput, taskId),
+  getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.getSettings),
+  updateSettings: (settings) => ipcRenderer.invoke(IPC_CHANNELS.updateSettings, settings),
+  getCapabilities: () => ipcRenderer.invoke(IPC_CHANNELS.getCapabilities),
+  onTasksChanged: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, tasks: MediaTask[]): void =>
+      callback(tasks)
+    ipcRenderer.on(IPC_CHANNELS.tasksChanged, listener)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.tasksChanged, listener)
   }
-} else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.api = api
 }
+
+contextBridge.exposeInMainWorld('api', api)
