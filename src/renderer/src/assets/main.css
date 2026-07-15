@@ -3,6 +3,7 @@
 :root {
   --operations-navy: #242b3d;
   --signal: #76bfd1;
+  --signal-strong: #14758c;
   --accessible-cyan: #14758c;
   --workspace: #f5f7f9;
   --background: #ffffff;
@@ -34,6 +35,7 @@
   --color-destructive: var(--destructive);
   --color-ring: var(--ring);
   --color-signal: var(--signal);
+  --color-signal-strong: var(--signal-strong);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-muted: var(--sidebar-muted);
@@ -235,6 +237,214 @@ input[type='range'] {
   max-width: 360px;
   align-items: flex-start;
   gap: 10px;
+}
+
+.video-drop-workspace {
+  position: relative;
+  height: 100%;
+  min-height: 620px;
+  overflow: hidden;
+  background: var(--workspace);
+  transition: background-color 180ms ease-out;
+}
+
+.video-drop-workspace::after {
+  position: absolute;
+  inset: 14px;
+  border: 1px dashed transparent;
+  border-radius: 12px;
+  content: '';
+  pointer-events: none;
+  transition:
+    border-color 180ms ease-out,
+    background-color 180ms ease-out;
+}
+
+.video-drop-workspace-active::after {
+  border-color: var(--accessible-cyan);
+  background: rgb(118 191 209 / 8%);
+}
+
+.video-config-panel {
+  position: absolute;
+  z-index: 20;
+  top: 20px;
+  right: 24px;
+  left: 24px;
+  border-radius: 10px;
+  background: var(--background);
+  box-shadow: 0 4px 8px rgb(36 43 61 / 12%);
+}
+
+.video-config-heading {
+  display: flex;
+  height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 12px 0 16px;
+}
+
+.video-config-primary,
+.video-config-expanded {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding: 12px 16px 14px;
+}
+
+.video-config-expanded {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  background: #f8fafb;
+}
+
+.video-config-directory {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding: 10px 16px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.compact-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+.compact-field select,
+.compact-field input,
+.directory-picker {
+  width: 100%;
+  height: 32px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  padding: 0 9px;
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+}
+
+.compact-field select:focus,
+.compact-field input:focus,
+.directory-picker:focus-visible {
+  border-color: var(--accessible-cyan);
+  box-shadow: 0 0 0 2px rgb(20 117 140 / 14%);
+}
+
+.number-field {
+  position: relative;
+}
+
+.number-field input {
+  padding-right: 42px;
+}
+
+.number-field span {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.directory-picker {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+}
+
+.directory-picker span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-drop-prompt {
+  position: absolute;
+  z-index: 2;
+  top: 54%;
+  left: 50%;
+  display: flex;
+  width: min(520px, calc(100% - 80px));
+  transform: translate(-50%, -50%);
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition:
+    transform 180ms ease-out,
+    color 180ms ease-out;
+}
+
+.video-drop-prompt-active {
+  transform: translate(-50%, -50%) scale(1.025);
+  color: var(--accessible-cyan);
+}
+
+.video-drop-icon {
+  display: flex;
+  width: 66px;
+  height: 66px;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: #e5f4f7;
+  color: var(--accessible-cyan);
+}
+
+.floating-task-panel {
+  position: fixed;
+  z-index: 30;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  width: 360px;
+  max-width: calc(100vw - 264px);
+  flex-direction: column;
+  border-radius: 10px;
+  background: var(--background);
+  box-shadow: 0 4px 8px rgb(36 43 61 / 16%);
+  transition:
+    width 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.floating-task-panel-expanded {
+  width: min(860px, calc(100vw - 280px));
+  height: min(540px, calc(100vh - 80px));
+}
+
+.floating-task-header {
+  display: flex;
+  min-height: 46px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px 6px 14px;
+}
+
+.floating-task-summary {
+  border-top: 1px solid var(--border);
+  padding: 10px 14px 12px;
 }
 
 .indeterminate-progress {

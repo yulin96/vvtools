@@ -26,6 +26,7 @@ async function enqueue(paths: string[]): Promise<void> {
     await store.createTasks({
       kind: 'video',
       sourcePaths: uniquePaths,
+      outputMode: store.settings.videoOutputMode,
       outputDirectory: store.settings.outputDirectory,
       options: { ...store.settings.video }
     })
@@ -206,9 +207,6 @@ function updateImageFormat(value: Event): void {
             <component :is="isVideo ? Film : FileImage" class="size-4 text-signal" />
             <h2>最近任务</h2>
           </div>
-          <RouterLink to="/queue" class="text-xs font-medium text-primary hover:underline"
-            >查看全部</RouterLink
-          >
         </div>
         <TaskTable :tasks="recentTasks" :empty-text="`尚未添加${isVideo ? '视频' : '图片'}任务`" />
       </section>

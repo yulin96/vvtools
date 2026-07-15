@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { Images, ListTodo, Settings, Video, X } from '@lucide/vue'
+import { Images, Settings, Video, X } from '@lucide/vue'
 import { useAppStore } from './stores/app'
 import appIcon from '../../../resources/icon.png'
+import FloatingTaskPanel from './components/FloatingTaskPanel.vue'
 
 const store = useAppStore()
 const navigation = [
   { to: '/video', label: '视频压缩', icon: Video },
   { to: '/image', label: '图片压缩', icon: Images },
-  { to: '/queue', label: '任务队列', icon: ListTodo },
   { to: '/settings', label: '设置', icon: Settings }
 ]
 
@@ -35,12 +35,6 @@ onMounted(() => store.initialize())
         >
           <component :is="item.icon" class="size-4" />
           <span>{{ item.label }}</span>
-          <span
-            v-if="item.to === '/queue' && store.activeCount"
-            class="ml-auto min-w-5 rounded-full bg-signal px-1.5 py-0.5 text-center text-[10px] font-semibold text-slate-950"
-          >
-            {{ store.activeCount }}
-          </span>
         </RouterLink>
       </nav>
       <div
@@ -67,6 +61,7 @@ onMounted(() => store.initialize())
         </button>
       </div>
       <RouterView :key="$route.path" />
+      <FloatingTaskPanel />
     </main>
   </div>
 </template>

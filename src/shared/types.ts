@@ -3,11 +3,24 @@ export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'ca
 
 export type VideoQuality = 'high' | 'balanced' | 'small'
 export type VideoResolution = 'source' | '1080p' | '720p'
+export type VideoFormat = 'mp4' | 'mov' | 'mkv'
+export type VideoCodec = 'h264' | 'h265'
+export type VideoRateControl = 'quality' | 'bitrate'
+export type VideoFrameRate = 'source' | '24' | '25' | '30' | '60'
+export type VideoAudioMode = 'aac' | 'copy' | 'none'
+export type VideoOutputMode = 'source' | 'custom'
 export type ImageFormat = 'original' | 'jpeg' | 'png' | 'webp'
 
 export interface VideoOptions {
   quality: VideoQuality
   resolution: VideoResolution
+  format: VideoFormat
+  codec: VideoCodec
+  rateControl: VideoRateControl
+  bitrateMbps: number
+  frameRate: VideoFrameRate
+  audioMode: VideoAudioMode
+  audioBitrateKbps: number
 }
 
 export interface ImageOptions {
@@ -18,6 +31,7 @@ export interface ImageOptions {
 export interface AppSettings {
   concurrency: number
   outputDirectory: string
+  videoOutputMode: VideoOutputMode
   video: VideoOptions
   image: ImageOptions
 }
@@ -57,7 +71,8 @@ export type CreateTasksRequest =
   | {
       kind: 'video'
       sourcePaths: string[]
-      outputDirectory: string
+      outputMode: VideoOutputMode
+      outputDirectory?: string
       options: VideoOptions
     }
   | {

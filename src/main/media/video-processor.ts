@@ -29,24 +29,37 @@ export function buildVideoArgs(task: MediaTask): string[] {
     '-map',
     '0:a?',
     '-c:v',
-    'libx264',
-    '-preset',
-    'medium',
-    '-crf',
-    CRF_BY_QUALITY[options.quality],
-    '-pix_fmt',
-    'yuv420p',
-    '-c:a',
-    'aac',
-    '-b:a',
-    '128k',
-    '-movflags',
-    '+faststart',
-    '-progress',
-    'pipe:1',
-    '-nostats',
-    task.outputPath
+    options.codec === 'h265' ? 'libx265' : 'libx264'
   )
+
+  if (options.rateControl === 'bitrate') {
+    args.push(
+      '-b:v',
+      `${options.bitrateMbps}M`,
+      '-maxrate',
+      `${options.bitrateMbps}M`,
+      '-bufsize',
+      `${options.bitrateMbps * 2}M`
+    )
+  } else {
+    args.push('-crf', CRF_BY_QUALITY[options.quality])
+  }
+
+  args.push('-preset', 'medium', '-pix_fmt', 'yuv420p')
+
+  if (options.frameRate !== 'source') args.push('-r', options.frameRate)
+
+  if (options.audioMode === 'none') {
+    args.push('-an')
+  } else if (options.audioMode === 'copy') {
+    args.push('-c:a', 'copy')
+  } else {
+    args.push('-c:a', 'aac', '-b:a', `${options.audioBitrateKbps}k`)
+  }
+
+  if (options.format === 'mp4' || options.format === 'mov') args.push('-movflags', '+faststart')
+
+  args.push('-progress', 'pipe:1', '-nostats', task.outputPath)
   return args
 }
 

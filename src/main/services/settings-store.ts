@@ -12,6 +12,7 @@ export class SettingsStore {
     const defaults: AppSettings = {
       concurrency: 1,
       outputDirectory: join(downloadsPath, 'VVTools'),
+      videoOutputMode: 'source',
       video: { ...DEFAULT_VIDEO_OPTIONS },
       image: { ...DEFAULT_IMAGE_OPTIONS }
     }
@@ -29,6 +30,10 @@ export class SettingsStore {
         typeof input.outputDirectory === 'string' && input.outputDirectory.trim()
           ? input.outputDirectory
           : this.settings.outputDirectory,
+      videoOutputMode:
+        input.videoOutputMode === 'source' || input.videoOutputMode === 'custom'
+          ? input.videoOutputMode
+          : this.settings.videoOutputMode,
       video: { ...this.settings.video, ...input.video },
       image: {
         ...this.settings.image,

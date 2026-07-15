@@ -2,7 +2,14 @@ import type { ImageOptions, VideoOptions } from './types'
 
 export const DEFAULT_VIDEO_OPTIONS: VideoOptions = {
   quality: 'balanced',
-  resolution: 'source'
+  resolution: 'source',
+  format: 'mp4',
+  codec: 'h264',
+  rateControl: 'quality',
+  bitrateMbps: 6,
+  frameRate: 'source',
+  audioMode: 'aac',
+  audioBitrateKbps: 128
 }
 
 export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {

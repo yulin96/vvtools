@@ -2,7 +2,13 @@ import { randomUUID } from 'crypto'
 import { mkdirSync, statSync } from 'fs'
 import { dirname } from 'path'
 import { EventEmitter } from 'events'
-import type { CreateTasksRequest, MediaTask, TaskFailure } from '../../shared/types'
+import type {
+  CreateTasksRequest,
+  ImageOptions,
+  MediaTask,
+  TaskFailure,
+  VideoOptions
+} from '../../shared/types'
 import { FailureLogService } from './failure-log'
 import { MediaProcessError, TaskCancelledError } from '../media/errors'
 import { createAvailableOutputPath, getOutputExtension } from '../media/output-path'
@@ -31,12 +37,18 @@ export class TaskQueue extends EventEmitter {
   }
 
   create(request: CreateTasksRequest): MediaTask[] {
-    mkdirSync(request.outputDirectory, { recursive: true })
     const created = request.sourcePaths.map((sourcePath) => {
+      const outputDirectory =
+        request.kind === 'video' && request.outputMode === 'source'
+          ? dirname(sourcePath)
+          : request.outputDirectory
+      if (!outputDirectory) throw new Error('缺少输出目录')
+      mkdirSync(outputDirectory, { recursive: true })
       const extension = getOutputExtension(
         request.kind,
         sourcePath,
-        request.kind === 'image' ? request.options.format : undefined
+        request.kind === 'image' ? request.options.format : undefined,
+        request.kind === 'video' ? request.options.format : undefined
       )
       const task: MediaTask = {
         id: randomUUID(),
@@ -44,7 +56,7 @@ export class TaskQueue extends EventEmitter {
         sourcePath,
         outputPath: createAvailableOutputPath(
           sourcePath,
-          request.outputDirectory,
+          outputDirectory,
           extension,
           this.reservedPaths
         ),
@@ -79,12 +91,21 @@ export class TaskQueue extends EventEmitter {
   retry(taskId: string): MediaTask | null {
     const original = this.tasks.get(taskId)
     if (!original || original.status !== 'failed') return null
-    const request = {
-      kind: original.kind,
-      sourcePaths: [original.sourcePath],
-      outputDirectory: dirname(original.outputPath),
-      options: structuredClone(original.options)
-    } as CreateTasksRequest
+    const request: CreateTasksRequest =
+      original.kind === 'video'
+        ? {
+            kind: 'video',
+            sourcePaths: [original.sourcePath],
+            outputMode: 'custom',
+            outputDirectory: dirname(original.outputPath),
+            options: structuredClone(original.options) as VideoOptions
+          }
+        : {
+            kind: 'image',
+            sourcePaths: [original.sourcePath],
+            outputDirectory: dirname(original.outputPath),
+            options: structuredClone(original.options) as ImageOptions
+          }
     const task = this.create(request)[0]
     const stored = this.tasks.get(task.id)
     if (stored) stored.retryOf = original.id

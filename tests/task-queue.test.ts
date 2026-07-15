@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { FailureLogService } from '../src/main/services/failure-log'
 import { TaskQueue, type TaskRunner } from '../src/main/services/task-queue'
 import { MediaProcessError, TaskCancelledError } from '../src/main/media/errors'
+import { DEFAULT_VIDEO_OPTIONS } from '../src/shared/constants'
 
 const directories: string[] = []
 
@@ -99,5 +100,17 @@ describe('TaskQueue', () => {
     await waitFor(() =>
       queue.list().some((task) => task.id === retry?.id && task.status === 'completed')
     )
+  })
+
+  it('writes source-mode video output beside each source file', () => {
+    const paths = fixture()
+    const queue = new TaskQueue(1, async () => 1, new FailureLogService(paths.userData))
+    const [task] = queue.create({
+      kind: 'video',
+      sourcePaths: [paths.source],
+      outputMode: 'source',
+      options: { ...DEFAULT_VIDEO_OPTIONS, format: 'mkv' }
+    })
+    expect(task.outputPath).toBe(join(paths.source, '..', 'source_compressed.mkv'))
   })
 })
