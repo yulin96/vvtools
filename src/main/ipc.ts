@@ -1,10 +1,11 @@
 import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { existsSync, mkdirSync, statSync } from 'fs'
-import { dirname, extname, isAbsolute } from 'path'
+import { dirname, extname, isAbsolute, normalize, sep } from 'path'
 import type {
   AppSettings,
   CreateTasksRequest,
   ImageFormat,
+  ImageOptions,
   RuntimeCapabilities,
   TaskKind,
   VideoOptions,
@@ -14,6 +15,7 @@ import type {
 } from '../shared/types'
 import { IMAGE_EXTENSIONS, IPC_CHANNELS, VIDEO_EXTENSIONS } from '../shared/constants'
 import { getRuntimeCapabilities } from './media/ffmpeg-runtime'
+import { collectImageInputs } from './media/image-inputs'
 import { SettingsStore, clampConcurrency } from './services/settings-store'
 import { TaskQueue } from './services/task-queue'
 
@@ -47,28 +49,55 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
   if (!value || typeof value !== 'object') throw new Error('任务参数无效')
   const request = value as CreateTasksRequest
   if (!['video', 'image'].includes(request.kind)) throw new Error('任务类型无效')
-  if (!Array.isArray(request.sourcePaths) || request.sourcePaths.length === 0) {
-    throw new Error('请至少选择一个文件')
-  }
-  if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
-  if (!request.outputDirectory || !isAbsolute(request.outputDirectory)) {
+  if (!['source', 'custom'].includes(request.outputMode)) throw new Error('输出位置参数无效')
+  if (
+    request.outputMode === 'custom' &&
+    (!request.outputDirectory || !isAbsolute(request.outputDirectory))
+  ) {
     throw new Error('输出目录无效')
   }
-  request.sourcePaths.forEach((path) => validateSourcePath(path, request.kind))
+  request.outputSuffix = sanitizeOutputSuffix(request.outputSuffix)
 
   if (request.kind === 'video') {
+    if (!Array.isArray(request.sourcePaths) || request.sourcePaths.length === 0) {
+      throw new Error('请至少选择一个视频文件')
+    }
+    if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
+    request.sourcePaths.forEach((path) => validateSourcePath(path, 'video'))
     validateVideoOptions(request.options, '视频任务参数无效')
   } else {
-    if (
-      !Number.isInteger(request.options.quality) ||
-      request.options.quality < 1 ||
-      request.options.quality > 100
-    ) {
-      throw new Error('图片质量必须是 1–100 的整数')
+    if (!Array.isArray(request.sources) || request.sources.length === 0) {
+      throw new Error('请至少选择一张图片')
     }
-    if (!IMAGE_FORMATS.has(request.options.format)) throw new Error('图片输出格式无效')
+    if (request.sources.length > 500) throw new Error('单次最多添加 500 张图片')
+    for (const source of request.sources) {
+      if (!source || typeof source !== 'object') throw new Error('图片来源参数无效')
+      validateSourcePath(source.path, 'image')
+      validateRelativeDirectory(source.relativeDirectory)
+    }
+    validateImageOptions(request.options, '图片任务参数无效')
   }
   return structuredClone(request)
+}
+
+function sanitizeOutputSuffix(value: unknown): string {
+  if (typeof value !== 'string') throw new Error('输出文件后缀无效')
+  const suffix = value.trim()
+  const invalidCharacter = [...suffix].some(
+    (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*'.includes(character)
+  )
+  if (suffix.length > 50 || suffix.endsWith('.') || invalidCharacter) {
+    throw new Error('输出文件后缀不能超过 50 个字符，且不能包含文件名非法字符')
+  }
+  return suffix
+}
+
+function validateRelativeDirectory(value: string): void {
+  if (typeof value !== 'string' || isAbsolute(value)) throw new Error('图片相对目录无效')
+  const normalized = normalize(value)
+  if (normalized === '..' || normalized.startsWith(`..${sep}`)) {
+    throw new Error('图片相对目录无效')
+  }
 }
 
 function validateVideoOptions(options: VideoOptions, message: string): void {
@@ -85,6 +114,34 @@ function validateVideoOptions(options: VideoOptions, message: string): void {
     !VIDEO_FRAME_RATES.has(options.frameRate) ||
     !VIDEO_AUDIO_MODES.has(options.audioMode) ||
     ![96, 128, 192, 256].includes(options.audioBitrateKbps)
+  ) {
+    throw new Error(message)
+  }
+}
+
+function validateImageOptions(options: ImageOptions, message: string): void {
+  if (
+    !options ||
+    !['quality', 'targetSize'].includes(options.compressionMode) ||
+    !Number.isInteger(options.quality) ||
+    options.quality < 1 ||
+    options.quality > 100 ||
+    !Number.isInteger(options.targetSizeKb) ||
+    options.targetSizeKb < 1 ||
+    options.targetSizeKb > 100_000 ||
+    !['source', 'width', 'height', 'percentage'].includes(options.resizeMode) ||
+    !Number.isInteger(options.width) ||
+    options.width < 1 ||
+    options.width > 32_768 ||
+    !Number.isInteger(options.height) ||
+    options.height < 1 ||
+    options.height > 32_768 ||
+    !Number.isInteger(options.percentage) ||
+    options.percentage < 1 ||
+    options.percentage > 1000 ||
+    typeof options.allowEnlargement !== 'boolean' ||
+    typeof options.preserveStructure !== 'boolean' ||
+    !IMAGE_FORMATS.has(options.format)
   ) {
     throw new Error(message)
   }
@@ -114,11 +171,18 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
   const value = input as Partial<AppSettings>
   const result: Partial<AppSettings> = {}
   if (value.concurrency !== undefined) result.concurrency = clampConcurrency(value.concurrency)
+  if (value.outputMode !== undefined) {
+    if (!['source', 'custom'].includes(value.outputMode)) throw new Error('输出位置参数无效')
+    result.outputMode = value.outputMode
+  }
   if (value.outputDirectory !== undefined) {
     if (typeof value.outputDirectory !== 'string' || !isAbsolute(value.outputDirectory)) {
       throw new Error('输出目录无效')
     }
     result.outputDirectory = value.outputDirectory
+  }
+  if (value.outputSuffix !== undefined) {
+    result.outputSuffix = sanitizeOutputSuffix(value.outputSuffix)
   }
   if (value.video) {
     validateVideoOptions(value.video, '视频默认参数无效')
@@ -128,14 +192,7 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
     result.videoPresets = validateVideoPresets(value.videoPresets)
   }
   if (value.image) {
-    if (
-      !Number.isInteger(value.image.quality) ||
-      value.image.quality < 1 ||
-      value.image.quality > 100 ||
-      !IMAGE_FORMATS.has(value.image.format)
-    ) {
-      throw new Error('图片默认参数无效')
-    }
+    validateImageOptions(value.image, '图片默认参数无效')
     result.image = structuredClone(value.image)
   }
   return result
@@ -176,6 +233,17 @@ export function registerIpc(
       properties: ['openDirectory', 'createDirectory']
     })
     return result.canceled ? null : result.filePaths[0]
+  })
+
+  handle(IPC_CHANNELS.selectImageDirectory, async (event) => {
+    assertTrusted(event, window())
+    const result = await dialog.showOpenDialog(window(), { properties: ['openDirectory'] })
+    return result.canceled ? [] : collectImageInputs(result.filePaths)
+  })
+
+  handle(IPC_CHANNELS.expandImageInputs, (event, paths: string[]) => {
+    assertTrusted(event, window())
+    return collectImageInputs(paths)
   })
 
   handle(IPC_CHANNELS.openOutputDirectory, async (event) => {

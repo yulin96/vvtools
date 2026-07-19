@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { FailureLogService } from '../src/main/services/failure-log'
 import { TaskQueue, type TaskRunner } from '../src/main/services/task-queue'
 import { MediaProcessError, TaskCancelledError } from '../src/main/media/errors'
-import { DEFAULT_VIDEO_OPTIONS } from '../src/shared/constants'
+import { DEFAULT_IMAGE_OPTIONS, DEFAULT_VIDEO_OPTIONS } from '../src/shared/constants'
 
 const directories: string[] = []
 
@@ -46,9 +46,14 @@ describe('TaskQueue', () => {
     const queue = new TaskQueue(2, runner, new FailureLogService(paths.userData))
     queue.create({
       kind: 'image',
-      sourcePaths: [paths.source, paths.source, paths.source],
+      sources: [paths.source, paths.source, paths.source].map((path) => ({
+        path,
+        relativeDirectory: ''
+      })),
+      outputMode: 'custom',
       outputDirectory: paths.output,
-      options: { format: 'original', quality: 80 }
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
     })
     await waitFor(() => queue.list().every((task) => task.status === 'completed'))
     expect(maximum).toBe(2)
@@ -66,9 +71,11 @@ describe('TaskQueue', () => {
     const queue = new TaskQueue(1, runner, new FailureLogService(paths.userData))
     const tasks = queue.create({
       kind: 'image',
-      sourcePaths: [paths.source, paths.source],
+      sources: [paths.source, paths.source].map((path) => ({ path, relativeDirectory: '' })),
+      outputMode: 'custom',
       outputDirectory: paths.output,
-      options: { format: 'webp', quality: 80 }
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS, format: 'webp' }
     })
     expect(queue.cancel(tasks[1].id)).toBe(true)
     release()
@@ -88,9 +95,11 @@ describe('TaskQueue', () => {
     const queue = new TaskQueue(1, runner, new FailureLogService(paths.userData))
     const [original] = queue.create({
       kind: 'image',
-      sourcePaths: [paths.source],
+      sources: [{ path: paths.source, relativeDirectory: '' }],
+      outputMode: 'custom',
       outputDirectory: paths.output,
-      options: { format: 'png', quality: 70 }
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS, format: 'png', quality: 70 }
     })
     await waitFor(() => queue.list()[0].status === 'failed')
     expect(queue.list()[0].failure?.logPath).toBeTruthy()
@@ -108,9 +117,39 @@ describe('TaskQueue', () => {
     const [task] = queue.create({
       kind: 'video',
       sourcePaths: [paths.source],
+      outputMode: 'custom',
       outputDirectory: paths.output,
+      outputSuffix: '',
       options: { ...DEFAULT_VIDEO_OPTIONS, format: 'mkv' }
     })
-    expect(task.outputPath).toBe(join(paths.output, 'source_compressed.mkv'))
+    expect(task.outputPath).toBe(join(paths.output, 'source.mkv'))
+  })
+
+  it('preserves image directory structure when requested', () => {
+    const paths = fixture()
+    const queue = new TaskQueue(1, async () => 1, new FailureLogService(paths.userData))
+    const [task] = queue.create({
+      kind: 'image',
+      sources: [{ path: paths.source, relativeDirectory: join('album', 'day-1') }],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS, preserveStructure: true }
+    })
+    expect(task.outputPath).toBe(join(paths.output, 'album', 'day-1', 'source.jpg'))
+  })
+
+  it('writes output beside the source and applies a shared suffix', () => {
+    const paths = fixture()
+    const queue = new TaskQueue(1, async () => 1, new FailureLogService(paths.userData))
+    const [task] = queue.create({
+      kind: 'image',
+      sources: [{ path: paths.source, relativeDirectory: '' }],
+      outputMode: 'source',
+      outputDirectory: paths.output,
+      outputSuffix: '_optimized',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+    expect(task.outputPath).toBe(join(paths.source, '..', 'source_optimized.jpg'))
   })
 })

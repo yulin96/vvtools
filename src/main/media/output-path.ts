@@ -28,13 +28,14 @@ export function createAvailableOutputPath(
   sourcePath: string,
   outputDirectory: string,
   extension: string,
-  reservedPaths: Set<string>
+  reservedPaths: Set<string>,
+  outputSuffix = ''
 ): string {
   const baseName = parse(sourcePath).name
   let index = 0
 
   while (true) {
-    const suffix = index === 0 ? '_compressed' : `_compressed_${index}`
+    const suffix = index === 0 ? outputSuffix : `${outputSuffix}_${index}`
     const candidate = join(outputDirectory, `${baseName}${suffix}${extension}`)
     if (!existsSync(candidate) && !reservedPaths.has(candidate)) {
       reservedPaths.add(candidate)

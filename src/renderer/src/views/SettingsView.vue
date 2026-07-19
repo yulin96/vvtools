@@ -355,35 +355,130 @@ function copiesVideo(options: VideoOptions): boolean {
         </div>
       </section>
 
-      <section class="settings-card">
+      <section class="settings-card settings-card-stack">
         <div class="settings-card-title">
           <Image class="size-4" />
           <div>
             <h2>图片默认参数</h2>
-            <p>保持原尺寸并自动纠正图片方向。</p>
+            <p>作为图片工作区的初始参数；修改只影响之后开始的任务。</p>
           </div>
         </div>
-        <div class="flex flex-wrap gap-4">
-          <label class="field-label w-56">
-            <span>质量</span>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              :value="store.settings.image.quality"
-              class="field-control"
+        <div class="preset-fields w-full">
+          <label class="compact-field">
+            <span>压缩模式</span>
+            <select
+              :value="store.settings.image.compressionMode"
               @change="
                 updateNested('image', {
-                  quality: Number(($event.target as HTMLInputElement).value)
+                  compressionMode: ($event.target as HTMLSelectElement)
+                    .value as AppSettings['image']['compressionMode']
                 })
               "
-            />
+            >
+              <option value="quality">按图片质量</option>
+              <option value="targetSize">按目标大小</option>
+            </select>
           </label>
-          <label class="field-label w-56">
-            <span>格式</span>
+          <label class="compact-field">
+            <span>{{
+              store.settings.image.compressionMode === 'quality' ? '图片质量' : '目标大小'
+            }}</span>
+            <div class="number-field">
+              <input
+                v-if="store.settings.image.compressionMode === 'quality'"
+                type="number"
+                min="1"
+                max="100"
+                :value="store.settings.image.quality"
+                @change="
+                  updateNested('image', {
+                    quality: Number(($event.target as HTMLInputElement).value)
+                  })
+                "
+              />
+              <input
+                v-else
+                type="number"
+                min="1"
+                max="100000"
+                :value="store.settings.image.targetSizeKb"
+                @change="
+                  updateNested('image', {
+                    targetSizeKb: Number(($event.target as HTMLInputElement).value)
+                  })
+                "
+              />
+              <span>{{ store.settings.image.compressionMode === 'quality' ? '/ 100' : 'KB' }}</span>
+            </div>
+          </label>
+          <label class="compact-field">
+            <span>调整方式</span>
+            <select
+              :value="store.settings.image.resizeMode"
+              @change="
+                updateNested('image', {
+                  resizeMode: ($event.target as HTMLSelectElement)
+                    .value as AppSettings['image']['resizeMode']
+                })
+              "
+            >
+              <option value="source">保持原始尺寸</option>
+              <option value="width">指定宽度</option>
+              <option value="height">指定高度</option>
+              <option value="percentage">按百分比</option>
+            </select>
+          </label>
+          <label
+            class="compact-field"
+            :class="{ 'opacity-45': store.settings.image.resizeMode === 'source' }"
+          >
+            <span>尺寸参数</span>
+            <div class="number-field">
+              <input
+                v-if="store.settings.image.resizeMode === 'width'"
+                type="number"
+                min="1"
+                max="32768"
+                :value="store.settings.image.width"
+                @change="
+                  updateNested('image', {
+                    width: Number(($event.target as HTMLInputElement).value)
+                  })
+                "
+              />
+              <input
+                v-else-if="store.settings.image.resizeMode === 'height'"
+                type="number"
+                min="1"
+                max="32768"
+                :value="store.settings.image.height"
+                @change="
+                  updateNested('image', {
+                    height: Number(($event.target as HTMLInputElement).value)
+                  })
+                "
+              />
+              <input
+                v-else-if="store.settings.image.resizeMode === 'percentage'"
+                type="number"
+                min="1"
+                max="1000"
+                :value="store.settings.image.percentage"
+                @change="
+                  updateNested('image', {
+                    percentage: Number(($event.target as HTMLInputElement).value)
+                  })
+                "
+              />
+              <input v-else value="无需设置" disabled />
+              <span v-if="['width', 'height'].includes(store.settings.image.resizeMode)">px</span>
+              <span v-else-if="store.settings.image.resizeMode === 'percentage'">%</span>
+            </div>
+          </label>
+          <label class="compact-field">
+            <span>输出格式</span>
             <select
               :value="store.settings.image.format"
-              class="field-control"
               @change="
                 updateNested('image', {
                   format: ($event.target as HTMLSelectElement)
@@ -395,6 +490,34 @@ function copiesVideo(options: VideoOptions): boolean {
               <option value="jpeg">JPEG</option>
               <option value="png">PNG</option>
               <option value="webp">WebP</option>
+            </select>
+          </label>
+          <label class="compact-field">
+            <span>目录结构</span>
+            <select
+              :value="store.settings.image.preserveStructure ? 'preserve' : 'flat'"
+              @change="
+                updateNested('image', {
+                  preserveStructure: ($event.target as HTMLSelectElement).value === 'preserve'
+                })
+              "
+            >
+              <option value="preserve">保留原目录层级</option>
+              <option value="flat">全部放在输出目录</option>
+            </select>
+          </label>
+          <label class="compact-field">
+            <span>较小图片</span>
+            <select
+              :value="store.settings.image.allowEnlargement ? 'allow' : 'prevent'"
+              @change="
+                updateNested('image', {
+                  allowEnlargement: ($event.target as HTMLSelectElement).value === 'allow'
+                })
+              "
+            >
+              <option value="prevent">不放大</option>
+              <option value="allow">允许放大</option>
             </select>
           </label>
         </div>

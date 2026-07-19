@@ -15,7 +15,9 @@ export class SettingsStore {
     this.path = join(userDataPath, 'settings.json')
     const defaults: AppSettings = {
       concurrency: 1,
+      outputMode: 'custom',
       outputDirectory: join(downloadsPath, 'VVTools'),
+      outputSuffix: '',
       video: { ...DEFAULT_VIDEO_OPTIONS },
       videoPresets: structuredClone(DEFAULT_VIDEO_PRESETS),
       image: { ...DEFAULT_IMAGE_OPTIONS }
@@ -30,10 +32,16 @@ export class SettingsStore {
   update(input: Partial<AppSettings>): AppSettings {
     this.settings = {
       concurrency: clampConcurrency(input.concurrency ?? this.settings.concurrency),
+      outputMode:
+        input.outputMode === 'source' || input.outputMode === 'custom'
+          ? input.outputMode
+          : this.settings.outputMode,
       outputDirectory:
         typeof input.outputDirectory === 'string' && input.outputDirectory.trim()
           ? input.outputDirectory
           : this.settings.outputDirectory,
+      outputSuffix:
+        typeof input.outputSuffix === 'string' ? input.outputSuffix : this.settings.outputSuffix,
       video: { ...this.settings.video, ...input.video },
       videoPresets: input.videoPresets
         ? structuredClone(input.videoPresets)
@@ -55,10 +63,16 @@ export class SettingsStore {
       }
       return {
         concurrency: clampConcurrency(saved.concurrency ?? defaults.concurrency),
+        outputMode:
+          saved.outputMode === 'source' || saved.outputMode === 'custom'
+            ? saved.outputMode
+            : defaults.outputMode,
         outputDirectory:
           typeof saved.outputDirectory === 'string' && isAbsolute(saved.outputDirectory)
             ? saved.outputDirectory
             : defaults.outputDirectory,
+        outputSuffix:
+          typeof saved.outputSuffix === 'string' ? saved.outputSuffix : defaults.outputSuffix,
         video: migrateVideoOptions(saved.video, defaults.video),
         videoPresets: migrateVideoPresets(saved.videoPresets, defaults.videoPresets),
         image: { ...defaults.image, ...saved.image }

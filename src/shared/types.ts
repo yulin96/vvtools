@@ -9,6 +9,9 @@ export type VideoRateControl = 'quality' | 'bitrate'
 export type VideoFrameRate = 'source' | '24' | '25' | '30' | '60'
 export type VideoAudioMode = 'aac' | 'copy' | 'none'
 export type ImageFormat = 'original' | 'jpeg' | 'png' | 'webp'
+export type ImageCompressionMode = 'quality' | 'targetSize'
+export type ImageResizeMode = 'source' | 'width' | 'height' | 'percentage'
+export type OutputMode = 'source' | 'custom'
 
 export interface VideoOptions {
   quality: VideoQuality
@@ -29,13 +32,28 @@ export interface VideoPreset {
 }
 
 export interface ImageOptions {
+  compressionMode: ImageCompressionMode
   quality: number
+  targetSizeKb: number
+  resizeMode: ImageResizeMode
+  width: number
+  height: number
+  percentage: number
+  allowEnlargement: boolean
   format: ImageFormat
+  preserveStructure: boolean
+}
+
+export interface ImageInputFile {
+  path: string
+  relativeDirectory: string
 }
 
 export interface AppSettings {
   concurrency: number
+  outputMode: OutputMode
   outputDirectory: string
+  outputSuffix: string
   video: VideoOptions
   videoPresets: VideoPreset[]
   image: ImageOptions
@@ -69,6 +87,7 @@ export interface MediaTask {
   startedAt?: string
   completedAt?: string
   retryOf?: string
+  outputSuffix?: string
   failure?: TaskFailure
 }
 
@@ -76,13 +95,17 @@ export type CreateTasksRequest =
   | {
       kind: 'video'
       sourcePaths: string[]
+      outputMode: OutputMode
       outputDirectory: string
+      outputSuffix: string
       options: VideoOptions
     }
   | {
       kind: 'image'
-      sourcePaths: string[]
+      sources: ImageInputFile[]
+      outputMode: OutputMode
       outputDirectory: string
+      outputSuffix: string
       options: ImageOptions
     }
 
@@ -96,6 +119,8 @@ export interface VVToolsApi {
   selectFiles: (kind: TaskKind) => Promise<string[]>
   getDroppedFilePath: (file: File) => string
   selectOutputDirectory: (current?: string) => Promise<string | null>
+  selectImageDirectory: () => Promise<ImageInputFile[]>
+  expandImageInputs: (paths: string[]) => Promise<ImageInputFile[]>
   openOutputDirectory: () => Promise<void>
   createTasks: (request: CreateTasksRequest) => Promise<MediaTask[]>
   getTasks: () => Promise<MediaTask[]>

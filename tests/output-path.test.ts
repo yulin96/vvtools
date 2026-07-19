@@ -22,11 +22,14 @@ describe('output paths', () => {
   it('never overwrites existing or reserved outputs', () => {
     const directory = mkdtempSync(join(tmpdir(), 'vvtools-output-'))
     directories.push(directory)
-    writeFileSync(join(directory, 'clip_compressed.mp4'), '')
+    writeFileSync(join(directory, 'clip.mp4'), '')
     const reserved = new Set<string>()
     const first = createAvailableOutputPath('/input/clip.mov', directory, '.mp4', reserved)
     const second = createAvailableOutputPath('/input/clip.mov', directory, '.mp4', reserved)
-    expect(first).toBe(join(directory, 'clip_compressed_1.mp4'))
-    expect(second).toBe(join(directory, 'clip_compressed_2.mp4'))
+    expect(first).toBe(join(directory, 'clip_1.mp4'))
+    expect(second).toBe(join(directory, 'clip_2.mp4'))
+    expect(
+      createAvailableOutputPath('/input/photo.jpg', directory, '.webp', reserved, '_optimized')
+    ).toBe(join(directory, 'photo_optimized.webp'))
   })
 })

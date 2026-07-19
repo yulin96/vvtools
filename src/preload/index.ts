@@ -7,6 +7,8 @@ const api: VVToolsApi = {
   getDroppedFilePath: (file) => webUtils.getPathForFile(file),
   selectOutputDirectory: (current) =>
     ipcRenderer.invoke(IPC_CHANNELS.selectOutputDirectory, current),
+  selectImageDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.selectImageDirectory),
+  expandImageInputs: (paths) => ipcRenderer.invoke(IPC_CHANNELS.expandImageInputs, paths),
   openOutputDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.openOutputDirectory),
   createTasks: (request) => ipcRenderer.invoke(IPC_CHANNELS.createTasks, request),
   getTasks: () => ipcRenderer.invoke(IPC_CHANNELS.getTasks),

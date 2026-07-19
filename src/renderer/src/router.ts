@@ -1,5 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import MediaWorkspace from './views/MediaWorkspace.vue'
+import ImageWorkspace from './views/ImageWorkspace.vue'
 import SettingsView from './views/SettingsView.vue'
 import VideoWorkspace from './views/VideoWorkspace.vue'
 
@@ -8,7 +8,7 @@ export const router = createRouter({
   routes: [
     { path: '/', redirect: '/video' },
     { path: '/video', component: VideoWorkspace },
-    { path: '/image', component: MediaWorkspace, props: { kind: 'image' } },
+    { path: '/image', component: ImageWorkspace },
     { path: '/queue', redirect: '/video' },
     { path: '/settings', component: SettingsView }
   ]

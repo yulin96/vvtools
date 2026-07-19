@@ -292,7 +292,8 @@ input[type='range'] {
   gap: 8px;
 }
 
-.preset-picker select {
+.preset-picker select,
+.output-mode-picker select {
   height: 32px;
   min-width: 112px;
   border: 1px solid var(--border);
@@ -305,7 +306,12 @@ input[type='range'] {
   outline: none;
 }
 
-.preset-picker select:focus {
+.output-mode-picker select {
+  min-width: 132px;
+}
+
+.preset-picker select:focus,
+.output-mode-picker select:focus {
   border-color: var(--accessible-cyan);
   box-shadow: 0 0 0 2px rgb(20 117 140 / 14%);
 }
@@ -314,17 +320,6 @@ input[type='range'] {
   display: flex;
   align-items: center;
   gap: 4px;
-}
-
-.output-directory-button {
-  max-width: 168px;
-  justify-content: flex-start;
-}
-
-.output-directory-button span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .video-config-primary,
@@ -337,6 +332,14 @@ input[type='range'] {
 
 .video-config-primary {
   grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.image-config-primary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding: 12px 16px 16px;
 }
 
 .video-config-expanded {
@@ -621,6 +624,10 @@ input[type='range'] {
   }
 
   .video-config-primary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .image-config-primary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 

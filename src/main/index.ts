@@ -75,7 +75,7 @@ app.whenReady().then(() => {
     (task, signal, onProgress) =>
       task.kind === 'video'
         ? processVideo(task, signal, onProgress, failureLogs)
-        : processImage(task, signal),
+        : processImage(task, signal, onProgress),
     failureLogs
   )
   unregisterIpc = registerIpc(() => mainWindow, queue, settings)

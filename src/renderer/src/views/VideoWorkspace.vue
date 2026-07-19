@@ -4,8 +4,6 @@ import {
   ChevronDown,
   ChevronUp,
   FileVideo2,
-  Folder,
-  FolderOpen,
   ListTodo,
   Play,
   Plus,
@@ -28,6 +26,8 @@ import { useAppStore } from '../stores/app'
 import { fileName } from '../lib/utils'
 import Button from '../components/ui/Button.vue'
 import TaskTable from '../components/TaskTable.vue'
+import OutputControls from '../components/OutputControls.vue'
+import OutputSuffixField from '../components/OutputSuffixField.vue'
 
 const store = useAppStore()
 const configExpanded = ref(false)
@@ -68,7 +68,6 @@ const formatLabel = computed(() => {
   const format = store.settings?.video.format
   return format === 'source' ? '保持原格式' : (format?.toUpperCase() ?? '')
 })
-const outputDirectoryLabel = computed(() => fileName(store.settings?.outputDirectory ?? ''))
 
 function optionsEqual(left: VideoOptions, right: VideoOptions): boolean {
   return (
@@ -96,12 +95,6 @@ function applyPreset(event: Event): void {
   if (preset) void store.updateSettings({ video: { ...preset.options } })
 }
 
-async function chooseOutput(): Promise<void> {
-  if (!store.settings) return
-  const path = await window.api.selectOutputDirectory(store.settings.outputDirectory)
-  if (path) await store.updateSettings({ outputDirectory: path })
-}
-
 function stageFiles(paths: string[]): void {
   if (paths.length === 0) return
   pendingPaths.value = [...new Set([...pendingPaths.value, ...paths])]
@@ -119,7 +112,9 @@ async function startProcessing(): Promise<void> {
   const created = await store.createTasks({
     kind: 'video',
     sourcePaths: paths,
+    outputMode: settings.outputMode,
     outputDirectory: settings.outputDirectory,
+    outputSuffix: settings.outputSuffix,
     options: { ...settings.video }
   })
   if (created) {
@@ -201,28 +196,7 @@ onBeforeUnmount(() => {
               </option>
             </select>
           </label>
-          <div class="header-output-control">
-            <Button
-              variant="secondary"
-              size="sm"
-              class="output-directory-button"
-              :title="store.settings.outputDirectory"
-              :aria-label="`选择输出目录，当前为 ${store.settings.outputDirectory}`"
-              @click="chooseOutput"
-            >
-              <Folder class="size-4 shrink-0" />
-              <span>输出：{{ outputDirectoryLabel }}</span>
-            </Button>
-            <Button
-              variant="secondary"
-              size="icon"
-              title="打开输出目录"
-              aria-label="打开输出目录"
-              @click="store.openOutputDirectory()"
-            >
-              <FolderOpen class="size-4" />
-            </Button>
-          </div>
+          <OutputControls />
           <Button
             variant="ghost"
             size="sm"
@@ -349,6 +323,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-if="configExpanded" class="video-config-expanded">
+        <OutputSuffixField />
         <label class="compact-field">
           <span>音频</span>
           <select

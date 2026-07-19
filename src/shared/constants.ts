@@ -55,8 +55,16 @@ export const DEFAULT_VIDEO_PRESETS: VideoPreset[] = [
 ]
 
 export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
+  compressionMode: 'quality',
   quality: 80,
-  format: 'original'
+  targetSizeKb: 500,
+  resizeMode: 'source',
+  width: 1920,
+  height: 1080,
+  percentage: 100,
+  allowEnlargement: false,
+  format: 'original',
+  preserveStructure: true
 }
 
 export const VIDEO_EXTENSIONS = new Set([
@@ -75,6 +83,8 @@ export const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 export const IPC_CHANNELS = {
   selectFiles: 'files:select',
   selectOutputDirectory: 'directory:select-output',
+  selectImageDirectory: 'directory:select-images',
+  expandImageInputs: 'images:expand-inputs',
   openOutputDirectory: 'directory:open-output',
   createTasks: 'tasks:create',
   getTasks: 'tasks:get',

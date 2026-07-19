@@ -6,8 +6,8 @@ import appIcon from '../../../resources/icon.png'
 
 const store = useAppStore()
 const navigation = [
-  { to: '/video', label: '视频压缩', icon: Video },
-  { to: '/image', label: '图片压缩', icon: Images },
+  { to: '/video', label: '视频处理', icon: Video },
+  { to: '/image', label: '图片处理', icon: Images },
   { to: '/settings', label: '设置', icon: Settings }
 ]
 

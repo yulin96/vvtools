@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { mkdirSync, statSync } from 'fs'
-import { dirname } from 'path'
+import { dirname, join } from 'path'
 import { EventEmitter } from 'events'
 import type {
   CreateTasksRequest,
@@ -37,8 +37,20 @@ export class TaskQueue extends EventEmitter {
   }
 
   create(request: CreateTasksRequest): MediaTask[] {
-    const created = request.sourcePaths.map((sourcePath) => {
-      const outputDirectory = request.outputDirectory
+    const sources =
+      request.kind === 'video'
+        ? request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
+        : request.sources
+    const created = sources.map((source) => {
+      const sourcePath = source.path
+      const outputDirectory =
+        request.outputMode === 'source'
+          ? dirname(sourcePath)
+          : request.kind === 'image' &&
+              request.options.preserveStructure &&
+              source.relativeDirectory
+            ? join(request.outputDirectory, source.relativeDirectory)
+            : request.outputDirectory
       mkdirSync(outputDirectory, { recursive: true })
       const extension = getOutputExtension(
         request.kind,
@@ -54,11 +66,13 @@ export class TaskQueue extends EventEmitter {
           sourcePath,
           outputDirectory,
           extension,
-          this.reservedPaths
+          this.reservedPaths,
+          request.outputSuffix
         ),
         status: 'pending',
         progress: 0,
         options: structuredClone(request.options),
+        outputSuffix: request.outputSuffix,
         sourceSize: statSync(sourcePath).size,
         createdAt: new Date().toISOString()
       }
@@ -92,13 +106,17 @@ export class TaskQueue extends EventEmitter {
         ? {
             kind: 'video',
             sourcePaths: [original.sourcePath],
+            outputMode: 'custom',
             outputDirectory: dirname(original.outputPath),
+            outputSuffix: original.outputSuffix ?? '',
             options: structuredClone(original.options) as VideoOptions
           }
         : {
             kind: 'image',
-            sourcePaths: [original.sourcePath],
+            sources: [{ path: original.sourcePath, relativeDirectory: '' }],
+            outputMode: 'custom',
             outputDirectory: dirname(original.outputPath),
+            outputSuffix: original.outputSuffix ?? '',
             options: structuredClone(original.options) as ImageOptions
           }
     const task = this.create(request)[0]
@@ -135,7 +153,7 @@ export class TaskQueue extends EventEmitter {
     const controller = new AbortController()
     this.running.set(task.id, controller)
     task.status = 'processing'
-    task.progress = task.kind === 'image' ? null : 0
+    task.progress = 0
     task.startedAt = new Date().toISOString()
     this.changed()
 

@@ -18,6 +18,12 @@ describe('SettingsStore', () => {
     const store = new SettingsStore(root, join(root, 'downloads'))
 
     expect(store.get().outputDirectory).toBe(join(root, 'downloads', 'VVTools'))
+    expect(store.get()).toMatchObject({ outputMode: 'custom', outputSuffix: '' })
+    expect(store.get().image).toMatchObject({
+      compressionMode: 'quality',
+      resizeMode: 'source',
+      preserveStructure: true
+    })
 
     expect(store.get().videoPresets.map((preset) => preset.name)).toEqual([
       '保持原始',
