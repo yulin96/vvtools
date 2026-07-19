@@ -14,7 +14,11 @@ export function getOutputExtension(
   imageFormat?: ImageFormat,
   videoFormat?: VideoFormat
 ): string {
-  if (kind === 'video') return `.${videoFormat || 'mp4'}`
+  if (kind === 'video') {
+    if (!videoFormat) return '.mp4'
+    if (videoFormat === 'source') return extname(sourcePath).toLowerCase()
+    return `.${videoFormat}`
+  }
   if (imageFormat && imageFormat !== 'original') return IMAGE_EXTENSIONS[imageFormat]
   const extension = extname(sourcePath).toLowerCase()
   return extension === '.jpeg' ? '.jpg' : extension

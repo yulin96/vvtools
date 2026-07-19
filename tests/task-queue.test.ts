@@ -102,15 +102,15 @@ describe('TaskQueue', () => {
     )
   })
 
-  it('writes source-mode video output beside each source file', () => {
+  it('writes video output to the selected output directory', () => {
     const paths = fixture()
     const queue = new TaskQueue(1, async () => 1, new FailureLogService(paths.userData))
     const [task] = queue.create({
       kind: 'video',
       sourcePaths: [paths.source],
-      outputMode: 'source',
+      outputDirectory: paths.output,
       options: { ...DEFAULT_VIDEO_OPTIONS, format: 'mkv' }
     })
-    expect(task.outputPath).toBe(join(paths.source, '..', 'source_compressed.mkv'))
+    expect(task.outputPath).toBe(join(paths.output, 'source_compressed.mkv'))
   })
 })

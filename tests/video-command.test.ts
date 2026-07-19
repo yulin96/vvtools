@@ -56,4 +56,47 @@ describe('video command', () => {
     expect(args).toContain('-an')
     expect(args).not.toContain('+faststart')
   })
+
+  it('keeps untouched source video and audio streams without transcoding', () => {
+    const args = buildVideoArgs(
+      task({
+        codec: 'source',
+        format: 'source',
+        audioMode: 'copy',
+        resolution: 'source',
+        frameRate: 'source'
+      }),
+      'h264'
+    )
+    expect(args[args.indexOf('-c:v') + 1]).toBe('copy')
+    expect(args[args.indexOf('-c:a') + 1]).toBe('copy')
+    expect(args).toContain('0:v:0')
+    expect(args).toContain('0:a?')
+    expect(args).not.toContain('libx264')
+    expect(args).not.toContain('-crf')
+    expect(args).not.toContain('-vf')
+    expect(args).toContain('+faststart')
+  })
+
+  it('keeps the source codec while re-encoding only a changed resolution', () => {
+    const args = buildVideoArgs(
+      task({
+        codec: 'source',
+        resolution: '1080p',
+        frameRate: 'source',
+        audioMode: 'copy'
+      }),
+      'hevc'
+    )
+    expect(args[args.indexOf('-c:v') + 1]).toBe('libx265')
+    expect(args[args.indexOf('-c:a') + 1]).toBe('copy')
+    expect(args).toContain('-vf')
+    expect(args).toContain('-crf')
+  })
+
+  it('rejects preserving an unsupported source codec when video changes are required', () => {
+    expect(() => buildVideoArgs(task({ codec: 'source', resolution: '720p' }), 'vp9')).toThrow(
+      '请选择 H.264 或 H.265'
+    )
+  })
 })

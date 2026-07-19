@@ -38,11 +38,7 @@ export class TaskQueue extends EventEmitter {
 
   create(request: CreateTasksRequest): MediaTask[] {
     const created = request.sourcePaths.map((sourcePath) => {
-      const outputDirectory =
-        request.kind === 'video' && request.outputMode === 'source'
-          ? dirname(sourcePath)
-          : request.outputDirectory
-      if (!outputDirectory) throw new Error('缺少输出目录')
+      const outputDirectory = request.outputDirectory
       mkdirSync(outputDirectory, { recursive: true })
       const extension = getOutputExtension(
         request.kind,
@@ -96,7 +92,6 @@ export class TaskQueue extends EventEmitter {
         ? {
             kind: 'video',
             sourcePaths: [original.sourcePath],
-            outputMode: 'custom',
             outputDirectory: dirname(original.outputPath),
             options: structuredClone(original.options) as VideoOptions
           }

@@ -3,12 +3,11 @@ export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'ca
 
 export type VideoQuality = 'high' | 'balanced' | 'small'
 export type VideoResolution = 'source' | '1080p' | '720p'
-export type VideoFormat = 'mp4' | 'mov' | 'mkv'
-export type VideoCodec = 'h264' | 'h265'
+export type VideoFormat = 'source' | 'mp4' | 'mov' | 'mkv'
+export type VideoCodec = 'source' | 'h264' | 'h265'
 export type VideoRateControl = 'quality' | 'bitrate'
 export type VideoFrameRate = 'source' | '24' | '25' | '30' | '60'
 export type VideoAudioMode = 'aac' | 'copy' | 'none'
-export type VideoOutputMode = 'source' | 'custom'
 export type ImageFormat = 'original' | 'jpeg' | 'png' | 'webp'
 
 export interface VideoOptions {
@@ -23,6 +22,12 @@ export interface VideoOptions {
   audioBitrateKbps: number
 }
 
+export interface VideoPreset {
+  id: string
+  name: string
+  options: VideoOptions
+}
+
 export interface ImageOptions {
   quality: number
   format: ImageFormat
@@ -31,8 +36,8 @@ export interface ImageOptions {
 export interface AppSettings {
   concurrency: number
   outputDirectory: string
-  videoOutputMode: VideoOutputMode
   video: VideoOptions
+  videoPresets: VideoPreset[]
   image: ImageOptions
 }
 
@@ -71,8 +76,7 @@ export type CreateTasksRequest =
   | {
       kind: 'video'
       sourcePaths: string[]
-      outputMode: VideoOutputMode
-      outputDirectory?: string
+      outputDirectory: string
       options: VideoOptions
     }
   | {
@@ -92,6 +96,7 @@ export interface VVToolsApi {
   selectFiles: (kind: TaskKind) => Promise<string[]>
   getDroppedFilePath: (file: File) => string
   selectOutputDirectory: (current?: string) => Promise<string | null>
+  openOutputDirectory: () => Promise<void>
   createTasks: (request: CreateTasksRequest) => Promise<MediaTask[]>
   getTasks: () => Promise<MediaTask[]>
   cancelTask: (taskId: string) => Promise<boolean>

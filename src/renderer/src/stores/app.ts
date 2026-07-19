@@ -42,17 +42,20 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  async function createTasks(request: CreateTasksRequest): Promise<void> {
+  async function createTasks(request: CreateTasksRequest): Promise<boolean> {
     try {
       await window.api.createTasks(request)
+      return true
     } catch (error) {
       reportError(error)
+      return false
     }
   }
 
   async function updateSettings(input: Partial<AppSettings>): Promise<void> {
     try {
-      settings.value = await window.api.updateSettings(input)
+      const serializableInput = JSON.parse(JSON.stringify(input)) as Partial<AppSettings>
+      settings.value = await window.api.updateSettings(serializableInput)
     } catch (error) {
       reportError(error)
     }
@@ -82,6 +85,14 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  async function openOutputDirectory(): Promise<void> {
+    try {
+      await window.api.openOutputDirectory()
+    } catch (error) {
+      reportError(error)
+    }
+  }
+
   function reportError(error: unknown): void {
     errorMessage.value = error instanceof Error ? error.message : String(error)
   }
@@ -98,6 +109,7 @@ export const useAppStore = defineStore('app', () => {
     updateSettings,
     cancelTask,
     retryTask,
-    openTaskOutput
+    openTaskOutput,
+    openOutputDirectory
   }
 })

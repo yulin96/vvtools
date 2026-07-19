@@ -57,37 +57,40 @@ function outputFormat(task: MediaTask): string {
       <p class="mt-1 text-xs text-muted-foreground">导入文件后，处理状态会显示在这里。</p>
     </div>
     <div v-else class="overflow-x-auto">
-      <table class="w-full min-w-[760px] table-fixed text-left text-sm">
+      <table class="task-table w-full min-w-[620px] table-fixed text-left text-sm">
         <thead class="border-b border-border bg-muted/45 text-xs text-muted-foreground">
           <tr>
-            <th class="w-[31%] px-4 py-2.5 font-medium">文件</th>
-            <th class="w-[10%] px-3 py-2.5 font-medium">格式</th>
-            <th class="w-[13%] px-3 py-2.5 font-medium">状态</th>
-            <th class="w-[22%] px-3 py-2.5 font-medium">进度</th>
-            <th class="w-[10%] px-3 py-2.5 font-medium">结果</th>
-            <th class="w-[14%] px-4 py-2.5 text-right font-medium">操作</th>
+            <th class="task-col-file w-[31%] px-4 py-2.5 font-medium">文件</th>
+            <th class="task-col-format w-[10%] px-3 py-2.5 font-medium">格式</th>
+            <th class="task-col-status w-[13%] px-3 py-2.5 font-medium">状态</th>
+            <th class="task-col-progress w-[22%] px-3 py-2.5 font-medium">进度</th>
+            <th class="task-col-result w-[10%] px-3 py-2.5 font-medium">结果</th>
+            <th class="task-col-actions w-[14%] px-4 py-2.5 text-right font-medium">操作</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-border">
           <tr v-for="task in sortedTasks" :key="task.id" class="hover:bg-muted/25">
-            <td class="px-4 py-3">
+            <td class="task-col-file px-4 py-3">
               <p class="truncate font-medium text-foreground" :title="task.sourcePath">
                 {{ fileName(task.sourcePath) }}
               </p>
-              <p class="mt-0.5 truncate text-xs text-muted-foreground" :title="task.sourcePath">
+              <p
+                class="task-source-path mt-0.5 truncate text-xs text-muted-foreground"
+                :title="task.sourcePath"
+              >
                 {{ task.sourcePath }}
               </p>
             </td>
-            <td class="px-3 py-3 font-mono text-xs text-muted-foreground">
+            <td class="task-col-format px-3 py-3 font-mono text-xs text-muted-foreground">
               {{ outputFormat(task) }}
             </td>
-            <td class="px-3 py-3">
+            <td class="task-col-status px-3 py-3">
               <Badge :tone="statusMeta[task.status].tone">
                 <component :is="statusMeta[task.status].icon" class="mr-1 size-3" />
                 {{ statusMeta[task.status].label }}
               </Badge>
             </td>
-            <td class="px-3 py-3">
+            <td class="task-col-progress px-3 py-3">
               <div class="flex items-center gap-2">
                 <Progress :value="task.progress" />
                 <span class="w-9 text-right text-xs tabular-nums text-muted-foreground">
@@ -102,10 +105,10 @@ function outputFormat(task: MediaTask): string {
                 {{ task.failure.message }}
               </p>
             </td>
-            <td class="px-3 py-3 text-xs text-muted-foreground">
+            <td class="task-col-result px-3 py-3 text-xs text-muted-foreground">
               {{ task.status === 'completed' ? formatBytes(task.outputSize) : '—' }}
             </td>
-            <td class="px-4 py-3">
+            <td class="task-col-actions px-4 py-3">
               <div class="flex justify-end gap-1">
                 <Button
                   v-if="task.status === 'pending' || task.status === 'processing'"

@@ -26,7 +26,6 @@ async function enqueue(paths: string[]): Promise<void> {
     await store.createTasks({
       kind: 'video',
       sourcePaths: uniquePaths,
-      outputMode: store.settings.videoOutputMode,
       outputDirectory: store.settings.outputDirectory,
       options: { ...store.settings.video }
     })

@@ -3,7 +3,6 @@ import { onMounted } from 'vue'
 import { Images, Settings, Video, X } from '@lucide/vue'
 import { useAppStore } from './stores/app'
 import appIcon from '../../../resources/icon.png'
-import FloatingTaskPanel from './components/FloatingTaskPanel.vue'
 
 const store = useAppStore()
 const navigation = [
@@ -61,7 +60,6 @@ onMounted(() => store.initialize())
         </button>
       </div>
       <RouterView :key="$route.path" />
-      <FloatingTaskPanel />
     </main>
   </div>
 </template>

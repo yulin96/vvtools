@@ -1,5 +1,5 @@
 import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
-import { existsSync, statSync } from 'fs'
+import { existsSync, mkdirSync, statSync } from 'fs'
 import { dirname, extname, isAbsolute } from 'path'
 import type {
   AppSettings,
@@ -7,6 +7,8 @@ import type {
   ImageFormat,
   RuntimeCapabilities,
   TaskKind,
+  VideoOptions,
+  VideoPreset,
   VideoQuality,
   VideoResolution
 } from '../shared/types'
@@ -17,8 +19,8 @@ import { TaskQueue } from './services/task-queue'
 
 const VIDEO_QUALITIES = new Set<VideoQuality>(['high', 'balanced', 'small'])
 const VIDEO_RESOLUTIONS = new Set<VideoResolution>(['source', '1080p', '720p'])
-const VIDEO_FORMATS = new Set(['mp4', 'mov', 'mkv'])
-const VIDEO_CODECS = new Set(['h264', 'h265'])
+const VIDEO_FORMATS = new Set(['source', 'mp4', 'mov', 'mkv'])
+const VIDEO_CODECS = new Set(['source', 'h264', 'h265'])
 const VIDEO_RATE_CONTROLS = new Set(['quality', 'bitrate'])
 const VIDEO_FRAME_RATES = new Set(['source', '24', '25', '30', '60'])
 const VIDEO_AUDIO_MODES = new Set(['aac', 'copy', 'none'])
@@ -49,32 +51,13 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
     throw new Error('请至少选择一个文件')
   }
   if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
-  if (request.kind === 'image' || (request.kind === 'video' && request.outputMode === 'custom')) {
-    if (!request.outputDirectory || !isAbsolute(request.outputDirectory)) {
-      throw new Error('输出目录无效')
-    }
+  if (!request.outputDirectory || !isAbsolute(request.outputDirectory)) {
+    throw new Error('输出目录无效')
   }
   request.sourcePaths.forEach((path) => validateSourcePath(path, request.kind))
 
   if (request.kind === 'video') {
-    if (!VIDEO_QUALITIES.has(request.options.quality)) throw new Error('视频质量参数无效')
-    if (!VIDEO_RESOLUTIONS.has(request.options.resolution)) throw new Error('视频分辨率参数无效')
-    if (!['source', 'custom'].includes(request.outputMode)) throw new Error('输出位置参数无效')
-    if (!VIDEO_FORMATS.has(request.options.format)) throw new Error('视频格式参数无效')
-    if (!VIDEO_CODECS.has(request.options.codec)) throw new Error('视频编码参数无效')
-    if (!VIDEO_RATE_CONTROLS.has(request.options.rateControl)) throw new Error('码率模式参数无效')
-    if (
-      !Number.isFinite(request.options.bitrateMbps) ||
-      request.options.bitrateMbps < 0.5 ||
-      request.options.bitrateMbps > 100
-    ) {
-      throw new Error('视频码率必须在 0.5–100 Mbps 之间')
-    }
-    if (!VIDEO_FRAME_RATES.has(request.options.frameRate)) throw new Error('帧率参数无效')
-    if (!VIDEO_AUDIO_MODES.has(request.options.audioMode)) throw new Error('音频模式参数无效')
-    if (![96, 128, 192, 256].includes(request.options.audioBitrateKbps)) {
-      throw new Error('音频码率参数无效')
-    }
+    validateVideoOptions(request.options, '视频任务参数无效')
   } else {
     if (
       !Number.isInteger(request.options.quality) ||
@@ -88,6 +71,44 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
   return structuredClone(request)
 }
 
+function validateVideoOptions(options: VideoOptions, message: string): void {
+  if (
+    !options ||
+    !VIDEO_QUALITIES.has(options.quality) ||
+    !VIDEO_RESOLUTIONS.has(options.resolution) ||
+    !VIDEO_FORMATS.has(options.format) ||
+    !VIDEO_CODECS.has(options.codec) ||
+    !VIDEO_RATE_CONTROLS.has(options.rateControl) ||
+    !Number.isFinite(options.bitrateMbps) ||
+    options.bitrateMbps < 0.5 ||
+    options.bitrateMbps > 100 ||
+    !VIDEO_FRAME_RATES.has(options.frameRate) ||
+    !VIDEO_AUDIO_MODES.has(options.audioMode) ||
+    ![96, 128, 192, 256].includes(options.audioBitrateKbps)
+  ) {
+    throw new Error(message)
+  }
+}
+
+function validateVideoPresets(value: unknown): VideoPreset[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 20) {
+    throw new Error('视频预设数量必须在 1–20 个之间')
+  }
+  const ids = new Set<string>()
+  return value.map((item) => {
+    if (!item || typeof item !== 'object') throw new Error('视频预设参数无效')
+    const preset = item as VideoPreset
+    const name = typeof preset.name === 'string' ? preset.name.trim() : ''
+    if (!/^[a-zA-Z0-9_-]{1,64}$/u.test(preset.id) || ids.has(preset.id)) {
+      throw new Error('视频预设标识无效或重复')
+    }
+    if (!name || name.length > 30) throw new Error('视频预设名称必须是 1–30 个字符')
+    validateVideoOptions(preset.options, `视频预设“${name}”的参数无效`)
+    ids.add(preset.id)
+    return { id: preset.id, name, options: structuredClone(preset.options) }
+  })
+}
+
 function sanitizeSettings(input: unknown): Partial<AppSettings> {
   if (!input || typeof input !== 'object') throw new Error('设置参数无效')
   const value = input as Partial<AppSettings>
@@ -99,27 +120,12 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
     }
     result.outputDirectory = value.outputDirectory
   }
-  if (value.videoOutputMode !== undefined) {
-    if (!['source', 'custom'].includes(value.videoOutputMode)) throw new Error('输出位置参数无效')
-    result.videoOutputMode = value.videoOutputMode
-  }
   if (value.video) {
-    if (
-      !VIDEO_QUALITIES.has(value.video.quality) ||
-      !VIDEO_RESOLUTIONS.has(value.video.resolution) ||
-      !VIDEO_FORMATS.has(value.video.format) ||
-      !VIDEO_CODECS.has(value.video.codec) ||
-      !VIDEO_RATE_CONTROLS.has(value.video.rateControl) ||
-      !Number.isFinite(value.video.bitrateMbps) ||
-      value.video.bitrateMbps < 0.5 ||
-      value.video.bitrateMbps > 100 ||
-      !VIDEO_FRAME_RATES.has(value.video.frameRate) ||
-      !VIDEO_AUDIO_MODES.has(value.video.audioMode) ||
-      ![96, 128, 192, 256].includes(value.video.audioBitrateKbps)
-    ) {
-      throw new Error('视频默认参数无效')
-    }
+    validateVideoOptions(value.video, '视频默认参数无效')
     result.video = structuredClone(value.video)
+  }
+  if (value.videoPresets !== undefined) {
+    result.videoPresets = validateVideoPresets(value.videoPresets)
   }
   if (value.image) {
     if (
@@ -170,6 +176,14 @@ export function registerIpc(
       properties: ['openDirectory', 'createDirectory']
     })
     return result.canceled ? null : result.filePaths[0]
+  })
+
+  handle(IPC_CHANNELS.openOutputDirectory, async (event) => {
+    assertTrusted(event, window())
+    const outputDirectory = settings.get().outputDirectory
+    mkdirSync(outputDirectory, { recursive: true })
+    const error = await shell.openPath(outputDirectory)
+    if (error) throw new Error(error)
   })
 
   handle(IPC_CHANNELS.createTasks, (event, request: unknown) => {

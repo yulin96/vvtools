@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { rmSync, statSync } from 'fs'
+import { extname } from 'path'
 import type { MediaTask, VideoOptions } from '../../shared/types'
 import { FailureLogService } from '../services/failure-log'
 import { MediaProcessError, TaskCancelledError } from './errors'
@@ -11,11 +12,13 @@ const CRF_BY_QUALITY: Record<VideoOptions['quality'], string> = {
   small: '28'
 }
 
-export function buildVideoArgs(task: MediaTask): string[] {
+export function buildVideoArgs(task: MediaTask, sourceVideoCodec?: string): string[] {
   const options = task.options as VideoOptions
   const args = ['-hide_banner', '-nostdin', '-n', '-i', task.sourcePath]
+  const copyVideo =
+    options.codec === 'source' && options.resolution === 'source' && options.frameRate === 'source'
 
-  if (options.resolution !== 'source') {
+  if (!copyVideo && options.resolution !== 'source') {
     const bounds = options.resolution === '1080p' ? [1920, 1080] : [1280, 720]
     args.push(
       '-vf',
@@ -23,31 +26,30 @@ export function buildVideoArgs(task: MediaTask): string[] {
     )
   }
 
-  args.push(
-    '-map',
-    '0:v:0',
-    '-map',
-    '0:a?',
-    '-c:v',
-    options.codec === 'h265' ? 'libx265' : 'libx264'
-  )
+  args.push('-map', '0:v:0', '-map', '0:a?')
 
-  if (options.rateControl === 'bitrate') {
-    args.push(
-      '-b:v',
-      `${options.bitrateMbps}M`,
-      '-maxrate',
-      `${options.bitrateMbps}M`,
-      '-bufsize',
-      `${options.bitrateMbps * 2}M`
-    )
+  if (copyVideo) {
+    args.push('-c:v', 'copy')
   } else {
-    args.push('-crf', CRF_BY_QUALITY[options.quality])
+    args.push('-c:v', resolveVideoEncoder(options.codec, sourceVideoCodec))
+
+    if (options.rateControl === 'bitrate') {
+      args.push(
+        '-b:v',
+        `${options.bitrateMbps}M`,
+        '-maxrate',
+        `${options.bitrateMbps}M`,
+        '-bufsize',
+        `${options.bitrateMbps * 2}M`
+      )
+    } else {
+      args.push('-crf', CRF_BY_QUALITY[options.quality])
+    }
+
+    args.push('-preset', 'medium', '-pix_fmt', 'yuv420p')
+
+    if (options.frameRate !== 'source') args.push('-r', options.frameRate)
   }
-
-  args.push('-preset', 'medium', '-pix_fmt', 'yuv420p')
-
-  if (options.frameRate !== 'source') args.push('-r', options.frameRate)
 
   if (options.audioMode === 'none') {
     args.push('-an')
@@ -57,15 +59,42 @@ export function buildVideoArgs(task: MediaTask): string[] {
     args.push('-c:a', 'aac', '-b:a', `${options.audioBitrateKbps}k`)
   }
 
-  if (options.format === 'mp4' || options.format === 'mov') args.push('-movflags', '+faststart')
+  const outputExtension =
+    options.format === 'source' ? extname(task.outputPath).toLowerCase() : `.${options.format}`
+  if (['.mp4', '.mov'].includes(outputExtension)) {
+    args.push('-movflags', '+faststart')
+  }
 
   args.push('-progress', 'pipe:1', '-nostats', task.outputPath)
   return args
 }
 
-function runProbe(sourcePath: string, signal: AbortSignal): Promise<number> {
+function resolveVideoEncoder(codec: VideoOptions['codec'], sourceVideoCodec?: string): string {
+  if (codec === 'h264') return 'libx264'
+  if (codec === 'h265') return 'libx265'
+  if (sourceVideoCodec === 'h264') return 'libx264'
+  if (sourceVideoCodec === 'hevc' || sourceVideoCodec === 'h265') return 'libx265'
+  throw new Error(
+    `源视频编码 ${sourceVideoCodec || '未知'} 暂不支持保持编码后重新处理，请选择 H.264 或 H.265`
+  )
+}
+
+interface VideoProbe {
+  duration: number
+  videoCodec: string
+}
+
+function runProbe(sourcePath: string, signal: AbortSignal): Promise<VideoProbe> {
   const executable = getFfprobePath()
-  const args = ['-v', 'error', '-show_entries', 'format=duration', '-of', 'json', sourcePath]
+  const args = [
+    '-v',
+    'error',
+    '-show_entries',
+    'format=duration:stream=codec_type,codec_name',
+    '-of',
+    'json',
+    sourcePath
+  ]
   const command = createTaskCommand(executable, args)
 
   return new Promise((resolve, reject) => {
@@ -92,11 +121,17 @@ function runProbe(sourcePath: string, signal: AbortSignal): Promise<number> {
         )
       }
       try {
-        const duration = Number(
-          (JSON.parse(stdout) as { format?: { duration?: string } }).format?.duration
-        )
+        const result = JSON.parse(stdout) as {
+          format?: { duration?: string }
+          streams?: Array<{ codec_type?: string; codec_name?: string }>
+        }
+        const duration = Number(result.format?.duration)
+        const videoCodec = result.streams?.find(
+          (stream) => stream.codec_type === 'video'
+        )?.codec_name
         if (!Number.isFinite(duration) || duration <= 0) throw new Error('无有效时长')
-        resolve(duration)
+        if (!videoCodec) throw new Error('无有效视频编码')
+        resolve({ duration, videoCodec })
       } catch {
         reject(
           new MediaProcessError('FFprobe 未返回有效的视频时长', { command, stderrTail: stderr })
@@ -112,11 +147,11 @@ export async function processVideo(
   onProgress: (progress: number) => void,
   failureLogs: FailureLogService
 ): Promise<number> {
-  const duration = await runProbe(task.sourcePath, signal)
+  const probe = await runProbe(task.sourcePath, signal)
   if (signal.aborted) throw new TaskCancelledError()
 
   const executable = getFfmpegPath()
-  const args = buildVideoArgs(task)
+  const args = buildVideoArgs(task, probe.videoCodec)
   const command = createTaskCommand(executable, args)
   const log = failureLogs.create(task, command)
 
@@ -147,7 +182,7 @@ export async function processVideo(
       for (const line of lines) {
         const [key, value] = line.split('=', 2)
         if (key === 'out_time_us') {
-          const progress = (Number(value) / (duration * 1_000_000)) * 100
+          const progress = (Number(value) / (probe.duration * 1_000_000)) * 100
           if (Number.isFinite(progress)) onProgress(Math.min(99, Math.max(0, progress)))
         }
       }

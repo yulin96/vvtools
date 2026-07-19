@@ -1,7 +1,11 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
-import { dirname, join } from 'path'
-import type { AppSettings } from '../../shared/types'
-import { DEFAULT_IMAGE_OPTIONS, DEFAULT_VIDEO_OPTIONS } from '../../shared/constants'
+import { dirname, isAbsolute, join } from 'path'
+import type { AppSettings, VideoOptions, VideoPreset } from '../../shared/types'
+import {
+  DEFAULT_IMAGE_OPTIONS,
+  DEFAULT_VIDEO_OPTIONS,
+  DEFAULT_VIDEO_PRESETS
+} from '../../shared/constants'
 
 export class SettingsStore {
   private readonly path: string
@@ -12,8 +16,8 @@ export class SettingsStore {
     const defaults: AppSettings = {
       concurrency: 1,
       outputDirectory: join(downloadsPath, 'VVTools'),
-      videoOutputMode: 'source',
       video: { ...DEFAULT_VIDEO_OPTIONS },
+      videoPresets: structuredClone(DEFAULT_VIDEO_PRESETS),
       image: { ...DEFAULT_IMAGE_OPTIONS }
     }
     this.settings = this.read(defaults)
@@ -30,11 +34,10 @@ export class SettingsStore {
         typeof input.outputDirectory === 'string' && input.outputDirectory.trim()
           ? input.outputDirectory
           : this.settings.outputDirectory,
-      videoOutputMode:
-        input.videoOutputMode === 'source' || input.videoOutputMode === 'custom'
-          ? input.videoOutputMode
-          : this.settings.videoOutputMode,
       video: { ...this.settings.video, ...input.video },
+      videoPresets: input.videoPresets
+        ? structuredClone(input.videoPresets)
+        : this.settings.videoPresets,
       image: {
         ...this.settings.image,
         ...input.image,
@@ -47,12 +50,17 @@ export class SettingsStore {
 
   private read(defaults: AppSettings): AppSettings {
     try {
-      const saved = JSON.parse(readFileSync(this.path, 'utf8')) as Partial<AppSettings>
+      const saved = JSON.parse(readFileSync(this.path, 'utf8')) as Partial<AppSettings> & {
+        video?: LegacyVideoOptions
+      }
       return {
-        ...defaults,
-        ...saved,
         concurrency: clampConcurrency(saved.concurrency ?? defaults.concurrency),
-        video: { ...defaults.video, ...saved.video },
+        outputDirectory:
+          typeof saved.outputDirectory === 'string' && isAbsolute(saved.outputDirectory)
+            ? saved.outputDirectory
+            : defaults.outputDirectory,
+        video: migrateVideoOptions(saved.video, defaults.video),
+        videoPresets: migrateVideoPresets(saved.videoPresets, defaults.videoPresets),
         image: { ...defaults.image, ...saved.image }
       }
     } catch {
@@ -66,6 +74,59 @@ export class SettingsStore {
     writeFileSync(temporaryPath, JSON.stringify(this.settings, null, 2), 'utf8')
     renameSync(temporaryPath, this.path)
   }
+}
+
+type LegacyVideoOptions = Omit<Partial<VideoOptions>, 'codec'> & {
+  codec?: VideoOptions['codec'] | 'copy'
+}
+
+interface LegacyVideoPreset {
+  id: string
+  name: string
+  options: LegacyVideoOptions
+}
+
+function migrateVideoOptions(
+  value: LegacyVideoOptions | undefined,
+  fallback: VideoOptions,
+  keepOriginal = false
+): VideoOptions {
+  const legacyCopy = value?.codec === 'copy'
+  return {
+    ...fallback,
+    ...value,
+    format: keepOriginal || legacyCopy ? 'source' : (value?.format ?? fallback.format),
+    codec: value?.codec === 'copy' ? 'source' : (value?.codec ?? fallback.codec)
+  }
+}
+
+function migrateVideoPresets(value: unknown, defaults: VideoPreset[]): VideoPreset[] {
+  if (!isStoredPresetList(value)) return structuredClone(defaults)
+  const presets = value.map((preset) => {
+    const keepOriginal = preset.id === 'copy-stream'
+    return {
+      id: keepOriginal ? 'keep-original' : preset.id,
+      name: keepOriginal ? '保持原始' : preset.name,
+      options: migrateVideoOptions(preset.options, DEFAULT_VIDEO_OPTIONS, keepOriginal)
+    }
+  })
+  return [...new Map(presets.map((preset) => [preset.id, preset])).values()]
+}
+
+function isStoredPresetList(value: unknown): value is LegacyVideoPreset[] {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every(
+      (preset) =>
+        preset &&
+        typeof preset === 'object' &&
+        typeof preset.id === 'string' &&
+        typeof preset.name === 'string' &&
+        preset.options &&
+        typeof preset.options === 'object'
+    )
+  )
 }
 
 export function clampConcurrency(value: number): number {
