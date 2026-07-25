@@ -29,7 +29,7 @@ const stateText = computed(() => (props.modelValue ? props.enabledText : props.d
       <span class="switch-track" aria-hidden="true">
         <span class="switch-thumb" />
       </span>
-      <span>{{ stateText }}</span>
+      <span class="switch-state-text">{{ stateText }}</span>
     </button>
   </div>
 </template>

@@ -343,8 +343,8 @@ onBeforeUnmount(() => {
             <ToggleSwitch
               label="目录结构"
               :model-value="store.settings.image.preserveStructure"
-              enabled-text="保留原目录层级"
-              disabled-text="合并到输出目录"
+              enabled-text="保留层级"
+              disabled-text="合并输出"
               @update:model-value="updateImage({ preserveStructure: $event })"
             />
           </div>
