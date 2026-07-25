@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import type {
   AppSettings,
   CreateTasksRequest,
+  MediaInspection,
   MediaTask,
   RuntimeCapabilities
 } from '../../../shared/types'
@@ -49,6 +50,15 @@ export const useAppStore = defineStore('app', () => {
     } catch (error) {
       reportError(error)
       return false
+    }
+  }
+
+  async function inspectTasks(request: CreateTasksRequest): Promise<MediaInspection[] | null> {
+    try {
+      return await window.api.inspectTasks(request)
+    } catch (error) {
+      reportError(error)
+      return null
     }
   }
 
@@ -122,6 +132,7 @@ export const useAppStore = defineStore('app', () => {
     initialize,
     refreshCapabilities,
     createTasks,
+    inspectTasks,
     updateSettings,
     cancelTask,
     retryTask,

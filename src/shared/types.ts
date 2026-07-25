@@ -102,6 +102,19 @@ export interface MediaTask {
   failure?: TaskFailure
 }
 
+export interface MediaInspection {
+  sourcePath: string
+  outputPath: string
+  valid: boolean
+  sourceSize: number
+  format?: string
+  width?: number
+  height?: number
+  duration?: number
+  videoCodec?: string
+  error?: string
+}
+
 export type CreateTasksRequest =
   | {
       kind: 'video'
@@ -134,6 +147,7 @@ export interface VVToolsApi {
   expandImageInputs: (paths: string[]) => Promise<ImageInputFile[]>
   openOutputDirectory: () => Promise<void>
   createTasks: (request: CreateTasksRequest) => Promise<MediaTask[]>
+  inspectTasks: (request: CreateTasksRequest) => Promise<MediaInspection[]>
   getTasks: () => Promise<MediaTask[]>
   cancelTask: (taskId: string) => Promise<boolean>
   retryTask: (taskId: string) => Promise<MediaTask | null>

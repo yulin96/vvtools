@@ -13,6 +13,8 @@ import {
   X
 } from '@lucide/vue'
 import type {
+  CreateTasksRequest,
+  MediaInspection,
   VideoAudioMode,
   VideoCodec,
   VideoFormat,
@@ -28,12 +30,16 @@ import Button from '../components/ui/Button.vue'
 import TaskTable from '../components/TaskTable.vue'
 import OutputControls from '../components/OutputControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
+import PreflightModal from '../components/PreflightModal.vue'
 
 const store = useAppStore()
 const configExpanded = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
 const pendingPaths = ref<string[]>([])
+const preflightOpen = ref(false)
+const inspections = ref<MediaInspection[]>([])
+const preparedRequest = ref<CreateTasksRequest | null>(null)
 const videoExtensions = new Set(['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v', 'mpeg', 'mpg'])
 
 const videoTasks = computed(() => store.tasks.filter((task) => task.kind === 'video').slice(-20))
@@ -106,22 +112,40 @@ async function chooseFiles(): Promise<void> {
 
 async function startProcessing(): Promise<void> {
   if (!store.settings || pendingPaths.value.length === 0 || starting.value) return
-  const paths = [...pendingPaths.value]
   const settings = store.settings
-  starting.value = true
-  const created = await store.createTasks({
+  const request: CreateTasksRequest = {
     kind: 'video',
-    sourcePaths: paths,
+    sourcePaths: [...pendingPaths.value],
     outputMode: settings.outputMode,
     outputDirectory: settings.outputDirectory,
     outputSuffix: settings.outputSuffix,
     options: { ...settings.video }
+  }
+  starting.value = true
+  const results = await store.inspectTasks(request)
+  starting.value = false
+  if (!results) return
+  preparedRequest.value = request
+  inspections.value = results
+  preflightOpen.value = true
+}
+
+async function confirmProcessing(): Promise<void> {
+  const request = preparedRequest.value
+  if (!request || request.kind !== 'video') return
+  const validPaths = new Set(
+    inspections.value.filter((item) => item.valid).map((item) => item.sourcePath)
+  )
+  preflightOpen.value = false
+  const created = await store.createTasks({
+    ...request,
+    sourcePaths: request.sourcePaths.filter((path) => validPaths.has(path))
   })
   if (created) {
-    const startedPaths = new Set(paths)
-    pendingPaths.value = pendingPaths.value.filter((path) => !startedPaths.has(path))
-  }
-  starting.value = false
+    pendingPaths.value = pendingPaths.value.filter((path) => !validPaths.has(path))
+    preparedRequest.value = null
+    inspections.value = []
+  } else preflightOpen.value = true
 }
 
 function removePending(path: string): void {
@@ -213,7 +237,7 @@ onBeforeUnmount(() => {
             <Play class="size-4" />
             {{
               starting
-                ? '正在加入…'
+                ? '正在检查…'
                 : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
             }}
           </Button>
@@ -477,4 +501,10 @@ onBeforeUnmount(() => {
       </section>
     </div>
   </div>
+  <PreflightModal
+    :open="preflightOpen"
+    :inspections="inspections"
+    @update:open="preflightOpen = $event"
+    @confirm="confirmProcessing"
+  />
 </template>

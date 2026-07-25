@@ -15,11 +15,13 @@ import {
   X
 } from '@lucide/vue'
 import type {
+  CreateTasksRequest,
   ImageCompressionMode,
   ImageFormat,
   ImageInputFile,
   ImageOptions,
-  ImageResizeMode
+  ImageResizeMode,
+  MediaInspection
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import { fileName } from '../lib/utils'
@@ -28,12 +30,16 @@ import TaskTable from '../components/TaskTable.vue'
 import OutputControls from '../components/OutputControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
+import PreflightModal from '../components/PreflightModal.vue'
 
 const store = useAppStore()
 const configExpanded = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
 const pendingInputs = ref<ImageInputFile[]>([])
+const preflightOpen = ref(false)
+const inspections = ref<MediaInspection[]>([])
+const preparedRequest = ref<CreateTasksRequest | null>(null)
 
 const imageTasks = computed(() => store.tasks.filter((task) => task.kind === 'image').slice(-20))
 const activeTaskCount = computed(
@@ -135,22 +141,40 @@ async function chooseDirectory(): Promise<void> {
 
 async function startProcessing(): Promise<void> {
   if (!store.settings || pendingInputs.value.length === 0 || starting.value) return
-  const inputs = pendingInputs.value.map((input) => ({ ...input }))
   const settings = store.settings
-  starting.value = true
-  const created = await store.createTasks({
+  const request: CreateTasksRequest = {
     kind: 'image',
-    sources: inputs,
+    sources: pendingInputs.value.map((input) => ({ ...input })),
     outputMode: settings.outputMode,
     outputDirectory: settings.outputDirectory,
     outputSuffix: settings.outputSuffix,
     options: { ...settings.image }
+  }
+  starting.value = true
+  const results = await store.inspectTasks(request)
+  starting.value = false
+  if (!results) return
+  preparedRequest.value = request
+  inspections.value = results
+  preflightOpen.value = true
+}
+
+async function confirmProcessing(): Promise<void> {
+  const request = preparedRequest.value
+  if (!request || request.kind !== 'image') return
+  const validPaths = new Set(
+    inspections.value.filter((item) => item.valid).map((item) => item.sourcePath)
+  )
+  preflightOpen.value = false
+  const created = await store.createTasks({
+    ...request,
+    sources: request.sources.filter((source) => validPaths.has(source.path))
   })
   if (created) {
-    const startedPaths = new Set(inputs.map((input) => input.path))
-    pendingInputs.value = pendingInputs.value.filter((input) => !startedPaths.has(input.path))
-  }
-  starting.value = false
+    pendingInputs.value = pendingInputs.value.filter((input) => !validPaths.has(input.path))
+    preparedRequest.value = null
+    inspections.value = []
+  } else preflightOpen.value = true
 }
 
 function removePending(path: string): void {
@@ -246,7 +270,7 @@ onBeforeUnmount(() => {
             <Play class="size-4" />
             {{
               starting
-                ? '正在加入…'
+                ? '正在检查…'
                 : `开始处理${pendingInputs.length ? ` (${pendingInputs.length})` : ''}`
             }}
           </Button>
@@ -511,4 +535,10 @@ onBeforeUnmount(() => {
       </section>
     </div>
   </div>
+  <PreflightModal
+    :open="preflightOpen"
+    :inspections="inspections"
+    @update:open="preflightOpen = $event"
+    @confirm="confirmProcessing"
+  />
 </template>

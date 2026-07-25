@@ -17,6 +17,7 @@ import type {
 import { IMAGE_EXTENSIONS, IPC_CHANNELS, VIDEO_EXTENSIONS } from '../shared/constants'
 import { getRuntimeCapabilities } from './media/ffmpeg-runtime'
 import { collectImageInputs } from './media/image-inputs'
+import { inspectTasks } from './media/preflight'
 import {
   SettingsStore,
   clampConcurrency,
@@ -293,6 +294,13 @@ export function registerIpc(
   handle(IPC_CHANNELS.createTasks, (event, request: unknown) => {
     assertTrusted(event, window())
     return queue.create(validateCreateRequest(request))
+  })
+  handle(IPC_CHANNELS.inspectTasks, (event, request: unknown) => {
+    assertTrusted(event, window())
+    return inspectTasks(
+      validateCreateRequest(request),
+      new Set(queue.list().map((task) => task.outputPath))
+    )
   })
   handle(IPC_CHANNELS.getTasks, (event) => {
     assertTrusted(event, window())

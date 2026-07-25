@@ -127,6 +127,7 @@ export const IPC_CHANNELS = {
   expandImageInputs: 'images:expand-inputs',
   openOutputDirectory: 'directory:open-output',
   createTasks: 'tasks:create',
+  inspectTasks: 'tasks:inspect',
   getTasks: 'tasks:get',
   cancelTask: 'tasks:cancel',
   retryTask: 'tasks:retry',

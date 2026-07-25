@@ -79,18 +79,21 @@ function resolveVideoEncoder(codec: VideoOptions['codec'], sourceVideoCodec?: st
   )
 }
 
-interface VideoProbe {
+export interface VideoProbe {
   duration: number
   videoCodec: string
+  width?: number
+  height?: number
+  format?: string
 }
 
-function runProbe(sourcePath: string, signal: AbortSignal): Promise<VideoProbe> {
+export function probeVideo(sourcePath: string, signal: AbortSignal): Promise<VideoProbe> {
   const executable = getFfprobePath()
   const args = [
     '-v',
     'error',
     '-show_entries',
-    'format=duration:stream=codec_type,codec_name',
+    'format=duration,format_name:stream=codec_type,codec_name,width,height',
     '-of',
     'json',
     sourcePath
@@ -122,16 +125,26 @@ function runProbe(sourcePath: string, signal: AbortSignal): Promise<VideoProbe> 
       }
       try {
         const result = JSON.parse(stdout) as {
-          format?: { duration?: string }
-          streams?: Array<{ codec_type?: string; codec_name?: string }>
+          format?: { duration?: string; format_name?: string }
+          streams?: Array<{
+            codec_type?: string
+            codec_name?: string
+            width?: number
+            height?: number
+          }>
         }
         const duration = Number(result.format?.duration)
-        const videoCodec = result.streams?.find(
-          (stream) => stream.codec_type === 'video'
-        )?.codec_name
+        const videoStream = result.streams?.find((stream) => stream.codec_type === 'video')
+        const videoCodec = videoStream?.codec_name
         if (!Number.isFinite(duration) || duration <= 0) throw new Error('无有效时长')
         if (!videoCodec) throw new Error('无有效视频编码')
-        resolve({ duration, videoCodec })
+        resolve({
+          duration,
+          videoCodec,
+          width: videoStream?.width,
+          height: videoStream?.height,
+          format: result.format?.format_name?.split(',')[0]
+        })
       } catch {
         reject(
           new MediaProcessError('FFprobe 未返回有效的视频时长', { command, stderrTail: stderr })
@@ -147,7 +160,7 @@ export async function processVideo(
   onProgress: (progress: number) => void,
   failureLogs: FailureLogService
 ): Promise<number> {
-  const probe = await runProbe(task.sourcePath, signal)
+  const probe = await probeVideo(task.sourcePath, signal)
   if (signal.aborted) throw new TaskCancelledError()
 
   const executable = getFfmpegPath()
