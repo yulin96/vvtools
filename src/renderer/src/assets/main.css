@@ -36,7 +36,6 @@
   --danger-fg: #b52f2f;
   --warning-bg: #fff4dc;
   --warning-fg: #91600a;
-  --scrollbar-thumb: rgb(109 107 124 / 42%);
   --duration-quick: 150ms;
   --duration-fast: 250ms;
   --duration-medium: 350ms;
@@ -80,7 +79,6 @@ html[data-theme='dark'] {
   --danger-fg: #ffaaaa;
   --warning-bg: #3e321b;
   --warning-fg: #f0ca7a;
-  --scrollbar-thumb: rgb(170 168 183 / 38%);
 }
 
 @theme inline {
@@ -140,9 +138,11 @@ body {
 .app-shell {
   position: relative;
   display: flex;
+  gap: 8px;
   height: 100vh;
   min-height: 0;
   background: var(--workspace);
+  padding-left: 8px;
   color: var(--foreground);
 }
 
@@ -222,11 +222,13 @@ body {
   position: relative;
   z-index: 40;
   display: flex;
-  width: 236px;
+  width: 228px;
   flex-shrink: 0;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid var(--sidebar-border);
+  margin: 8px 0;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 16px;
   background: var(--sidebar);
   padding: 38px 12px 16px;
   -webkit-app-region: drag;
@@ -237,7 +239,7 @@ body {
 }
 
 .app-sidebar-collapsed {
-  width: 76px;
+  width: 68px;
 }
 
 .sidebar-brand {
@@ -329,7 +331,7 @@ body {
 .app-sidebar-collapsed .sidebar-collapse {
   position: absolute;
   top: 46px;
-  left: 22px;
+  left: 18px;
 }
 
 .app-sidebar-collapsed .brand-mark {
@@ -474,47 +476,9 @@ body {
   flex: 1;
   padding-top: 0;
   overflow-x: hidden;
-  overflow-y: overlay;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+  overflow-y: auto;
   background: var(--workspace);
   transition: background-color var(--duration-fast) var(--ease-in-out);
-}
-
-.app-platform-desktop .app-main {
-  padding-top: 40px;
-}
-
-.app-platform-mac .app-main {
-  padding-top: 0;
-}
-
-.app-platform-mac .app-alert {
-  margin-top: 40px;
-  top: 40px;
-}
-
-.app-main::-webkit-scrollbar {
-  width: 10px;
-}
-
-.app-main::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.app-main::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  background-clip: padding-box;
-}
-
-.app-main:hover {
-  scrollbar-color: var(--scrollbar-thumb) transparent;
-}
-
-.app-main:hover::-webkit-scrollbar-thumb {
-  background-color: var(--scrollbar-thumb);
 }
 
 .route-view {
@@ -527,12 +491,13 @@ body {
 
 .app-alert {
   position: sticky;
-  top: 0;
+  top: 40px;
   z-index: 30;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  margin-top: 40px;
   border-bottom: 1px solid var(--danger-fg);
   background: var(--danger-bg);
   padding: 10px 24px;
@@ -589,11 +554,7 @@ textarea,
   min-height: 100%;
   flex-direction: column;
   gap: 22px;
-  padding: 30px 20px 36px;
-}
-
-.app-platform-mac .page-container {
-  padding-top: 40px;
+  padding: 40px 20px 36px;
 }
 
 .page-header {
@@ -775,15 +736,11 @@ textarea,
   position: relative;
   z-index: 20;
   flex-shrink: 0;
-  margin: 28px 14px 0;
+  margin: 40px 14px 0;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--background);
   box-shadow: var(--shadow-low);
-}
-
-.app-platform-mac .video-config-panel {
-  margin-top: 40px;
 }
 
 .video-config-heading {

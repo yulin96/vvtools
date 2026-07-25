@@ -24,6 +24,9 @@ let batchWasActive = false
 const batchTaskIds = new Set<string>()
 
 app.setName('VVTools')
+if (process.platform !== 'darwin') {
+  app.commandLine.appendSwitch('enable-features', 'OverlayScrollbar,FluentOverlayScrollbar')
+}
 
 function createWindow(): void {
   const window = new BrowserWindow({
