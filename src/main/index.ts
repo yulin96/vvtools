@@ -5,6 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import { FailureLogService } from './services/failure-log'
 import { SettingsStore } from './services/settings-store'
 import { TaskQueue } from './services/task-queue'
+import { TaskHistoryStore } from './services/task-history-store'
 import { processVideo } from './media/video-processor'
 import { processImage } from './media/image-processor'
 import { registerIpc } from './ipc'
@@ -76,7 +77,9 @@ app.whenReady().then(() => {
       task.kind === 'video'
         ? processVideo(task, signal, onProgress, failureLogs)
         : processImage(task, signal, onProgress),
-    failureLogs
+    failureLogs,
+    new TaskHistoryStore(app.getPath('userData')),
+    settings.get().historyRetentionDays
   )
   unregisterIpc = registerIpc(() => mainWindow, queue, settings)
 

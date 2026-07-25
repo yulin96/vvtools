@@ -38,7 +38,8 @@ const statusMeta: Record<
   processing: { label: '处理中', tone: 'info', icon: CircleEllipsis },
   completed: { label: '已完成', tone: 'success', icon: CheckCircle2 },
   failed: { label: '失败', tone: 'danger', icon: TriangleAlert },
-  cancelled: { label: '已取消', tone: 'warning', icon: Ban }
+  cancelled: { label: '已取消', tone: 'warning', icon: Ban },
+  interrupted: { label: '异常中断', tone: 'warning', icon: TriangleAlert }
 }
 
 function outputFormat(task: MediaTask): string {
@@ -120,7 +121,7 @@ function outputFormat(task: MediaTask): string {
                   <XCircle class="size-4" />
                 </Button>
                 <Button
-                  v-if="task.status === 'failed'"
+                  v-if="task.status === 'failed' || task.status === 'interrupted'"
                   variant="ghost"
                   size="icon"
                   title="查看失败原因"
@@ -129,7 +130,7 @@ function outputFormat(task: MediaTask): string {
                   <TriangleAlert class="size-4" />
                 </Button>
                 <Button
-                  v-if="task.status === 'failed'"
+                  v-if="task.status === 'failed' || task.status === 'interrupted'"
                   variant="ghost"
                   size="icon"
                   title="重试任务"

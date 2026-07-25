@@ -12,6 +12,7 @@ import type {
 import { FailureLogService } from './failure-log'
 import { MediaProcessError, TaskCancelledError } from '../media/errors'
 import { createAvailableOutputPath, getOutputExtension } from '../media/output-path'
+import { TaskHistoryStore } from './task-history-store'
 
 export type TaskRunner = (
   task: MediaTask,
@@ -27,9 +28,12 @@ export class TaskQueue extends EventEmitter {
   constructor(
     private concurrency: number,
     private readonly runner: TaskRunner,
-    private readonly failureLogs: FailureLogService
+    private readonly failureLogs: FailureLogService,
+    private readonly historyStore?: TaskHistoryStore,
+    private historyRetentionDays = 30
   ) {
     super()
+    this.restore()
   }
 
   list(): MediaTask[] {
@@ -80,6 +84,7 @@ export class TaskQueue extends EventEmitter {
       return structuredClone(task)
     })
     this.changed()
+    this.persist()
     this.dispatch()
     return created
   }
@@ -91,6 +96,7 @@ export class TaskQueue extends EventEmitter {
       task.status = 'cancelled'
       task.completedAt = new Date().toISOString()
       this.changed()
+      this.persist()
       this.dispatch()
       return true
     }
@@ -100,7 +106,7 @@ export class TaskQueue extends EventEmitter {
 
   retry(taskId: string): MediaTask | null {
     const original = this.tasks.get(taskId)
-    if (!original || original.status !== 'failed') return null
+    if (!original || !['failed', 'interrupted'].includes(original.status)) return null
     const request: CreateTasksRequest =
       original.kind === 'video'
         ? {
@@ -123,12 +129,44 @@ export class TaskQueue extends EventEmitter {
     const stored = this.tasks.get(task.id)
     if (stored) stored.retryOf = original.id
     this.changed()
+    this.persist()
     return stored ? structuredClone(stored) : null
+  }
+
+  retryFailed(): MediaTask[] {
+    const retryableIds = [...this.tasks.values()]
+      .filter((task) => ['failed', 'interrupted'].includes(task.status))
+      .map((task) => task.id)
+    return retryableIds
+      .map((taskId) => this.retry(taskId))
+      .filter((task): task is MediaTask => task !== null)
+  }
+
+  clearCompleted(): number {
+    let removed = 0
+    for (const [taskId, task] of this.tasks) {
+      if (task.status !== 'completed') continue
+      this.tasks.delete(taskId)
+      removed += 1
+    }
+    if (removed > 0) {
+      this.persist()
+      this.changed()
+    }
+    return removed
   }
 
   setConcurrency(value: number): void {
     this.concurrency = value
     this.dispatch()
+  }
+
+  setHistoryRetentionDays(value: number): void {
+    this.historyRetentionDays = value
+    if (this.pruneExpired()) {
+      this.persist()
+      this.changed()
+    }
   }
 
   shutdown(): void {
@@ -139,6 +177,7 @@ export class TaskQueue extends EventEmitter {
         task.completedAt = new Date().toISOString()
       }
     }
+    this.persist()
   }
 
   private dispatch(): void {
@@ -156,6 +195,7 @@ export class TaskQueue extends EventEmitter {
     task.progress = 0
     task.startedAt = new Date().toISOString()
     this.changed()
+    this.persist()
 
     try {
       task.outputSize = await this.runner(task, controller.signal, (progress) => {
@@ -180,6 +220,7 @@ export class TaskQueue extends EventEmitter {
     } finally {
       task.completedAt = new Date().toISOString()
       this.running.delete(task.id)
+      this.persist()
       this.changed()
       this.dispatch()
     }
@@ -187,5 +228,41 @@ export class TaskQueue extends EventEmitter {
 
   private changed(): void {
     this.emit('changed', this.list())
+  }
+
+  private restore(): void {
+    if (!this.historyStore) return
+    const restoredAt = new Date().toISOString()
+    for (const restored of this.historyStore.read()) {
+      const task = structuredClone(restored)
+      if (task.status === 'pending' || task.status === 'processing') {
+        task.status = 'interrupted'
+        task.progress = null
+        task.completedAt = restoredAt
+        task.failure = { message: '应用上次退出时任务尚未完成，可重新执行' }
+      }
+      this.tasks.set(task.id, task)
+      this.reservedPaths.add(task.outputPath)
+    }
+    if (this.pruneExpired()) this.persist()
+    else this.historyStore.write(this.list())
+  }
+
+  private pruneExpired(): boolean {
+    const cutoff = Date.now() - this.historyRetentionDays * 24 * 60 * 60 * 1000
+    let removed = false
+    for (const [taskId, task] of this.tasks) {
+      if (task.status === 'pending' || task.status === 'processing') continue
+      const timestamp = Date.parse(task.completedAt ?? task.createdAt)
+      if (Number.isFinite(timestamp) && timestamp < cutoff) {
+        this.tasks.delete(taskId)
+        removed = true
+      }
+    }
+    return removed
+  }
+
+  private persist(): void {
+    this.historyStore?.write(this.list())
   }
 }

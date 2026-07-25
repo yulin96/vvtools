@@ -18,7 +18,11 @@ describe('SettingsStore', () => {
     const store = new SettingsStore(root, join(root, 'downloads'))
 
     expect(store.get().outputDirectory).toBe(join(root, 'downloads', 'VVTools'))
-    expect(store.get()).toMatchObject({ outputMode: 'custom', outputSuffix: '' })
+    expect(store.get()).toMatchObject({
+      outputMode: 'custom',
+      outputSuffix: '',
+      historyRetentionDays: 30
+    })
     expect(store.get().image).toMatchObject({
       compressionMode: 'quality',
       resizeMode: 'source',
@@ -51,6 +55,7 @@ describe('SettingsStore', () => {
 
     store.update({
       outputMode: 'source',
+      historyRetentionDays: 90,
       outputSuffix: '-compressed',
       image: {
         ...store.get().image,
@@ -66,6 +71,7 @@ describe('SettingsStore', () => {
 
     expect(new SettingsStore(root, downloads).get()).toMatchObject({
       outputMode: 'source',
+      historyRetentionDays: 90,
       outputSuffix: '-compressed',
       image: {
         compressionMode: 'targetSize',

@@ -4,7 +4,8 @@ import type { AppSettings, VideoOptions, VideoPreset } from '../../shared/types'
 import {
   DEFAULT_IMAGE_OPTIONS,
   DEFAULT_VIDEO_OPTIONS,
-  DEFAULT_VIDEO_PRESETS
+  DEFAULT_VIDEO_PRESETS,
+  HISTORY_RETENTION_DAYS
 } from '../../shared/constants'
 
 export class SettingsStore {
@@ -15,6 +16,7 @@ export class SettingsStore {
     this.path = join(userDataPath, 'settings.json')
     const defaults: AppSettings = {
       concurrency: 1,
+      historyRetentionDays: 30,
       outputMode: 'custom',
       outputDirectory: join(downloadsPath, 'VVTools'),
       outputSuffix: '',
@@ -32,6 +34,9 @@ export class SettingsStore {
   update(input: Partial<AppSettings>): AppSettings {
     this.settings = {
       concurrency: clampConcurrency(input.concurrency ?? this.settings.concurrency),
+      historyRetentionDays: normalizeHistoryRetentionDays(
+        input.historyRetentionDays ?? this.settings.historyRetentionDays
+      ),
       outputMode:
         input.outputMode === 'source' || input.outputMode === 'custom'
           ? input.outputMode
@@ -63,6 +68,9 @@ export class SettingsStore {
       }
       return {
         concurrency: clampConcurrency(saved.concurrency ?? defaults.concurrency),
+        historyRetentionDays: normalizeHistoryRetentionDays(
+          saved.historyRetentionDays ?? defaults.historyRetentionDays
+        ),
         outputMode:
           saved.outputMode === 'source' || saved.outputMode === 'custom'
             ? saved.outputMode
@@ -146,4 +154,10 @@ function isStoredPresetList(value: unknown): value is LegacyVideoPreset[] {
 export function clampConcurrency(value: number): number {
   if (!Number.isInteger(value)) return 1
   return Math.min(4, Math.max(1, value))
+}
+
+export function normalizeHistoryRetentionDays(value: number): number {
+  return HISTORY_RETENTION_DAYS.includes(value as (typeof HISTORY_RETENTION_DAYS)[number])
+    ? value
+    : 30
 }

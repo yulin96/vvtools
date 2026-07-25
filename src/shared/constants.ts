@@ -67,6 +67,8 @@ export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
   preserveStructure: true
 }
 
+export const HISTORY_RETENTION_DAYS = [7, 30, 90] as const
+
 export const VIDEO_EXTENSIONS = new Set([
   '.mp4',
   '.mov',
@@ -90,6 +92,8 @@ export const IPC_CHANNELS = {
   getTasks: 'tasks:get',
   cancelTask: 'tasks:cancel',
   retryTask: 'tasks:retry',
+  retryFailedTasks: 'tasks:retry-failed',
+  clearCompletedTasks: 'tasks:clear-completed',
   openTaskOutput: 'tasks:open-output',
   tasksChanged: 'tasks:changed',
   getSettings: 'settings:get',

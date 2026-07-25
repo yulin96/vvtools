@@ -16,7 +16,11 @@ import type {
 import { IMAGE_EXTENSIONS, IPC_CHANNELS, VIDEO_EXTENSIONS } from '../shared/constants'
 import { getRuntimeCapabilities } from './media/ffmpeg-runtime'
 import { collectImageInputs } from './media/image-inputs'
-import { SettingsStore, clampConcurrency } from './services/settings-store'
+import {
+  SettingsStore,
+  clampConcurrency,
+  normalizeHistoryRetentionDays
+} from './services/settings-store'
 import { TaskQueue } from './services/task-queue'
 
 const VIDEO_QUALITIES = new Set<VideoQuality>(['high', 'balanced', 'small'])
@@ -171,6 +175,9 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
   const value = input as Partial<AppSettings>
   const result: Partial<AppSettings> = {}
   if (value.concurrency !== undefined) result.concurrency = clampConcurrency(value.concurrency)
+  if (value.historyRetentionDays !== undefined) {
+    result.historyRetentionDays = normalizeHistoryRetentionDays(value.historyRetentionDays)
+  }
   if (value.outputMode !== undefined) {
     if (!['source', 'custom'].includes(value.outputMode)) throw new Error('输出位置参数无效')
     result.outputMode = value.outputMode
@@ -270,6 +277,14 @@ export function registerIpc(
     assertTrusted(event, window())
     return queue.retry(taskId)
   })
+  handle(IPC_CHANNELS.retryFailedTasks, (event) => {
+    assertTrusted(event, window())
+    return queue.retryFailed()
+  })
+  handle(IPC_CHANNELS.clearCompletedTasks, (event) => {
+    assertTrusted(event, window())
+    return queue.clearCompleted()
+  })
   handle(IPC_CHANNELS.openTaskOutput, async (event, taskId: string) => {
     assertTrusted(event, window())
     const task = queue.list().find((item) => item.id === taskId)
@@ -288,6 +303,7 @@ export function registerIpc(
     assertTrusted(event, window())
     const updated = settings.update(sanitizeSettings(input))
     queue.setConcurrency(updated.concurrency)
+    queue.setHistoryRetentionDays(updated.historyRetentionDays)
     return updated
   })
   handle(IPC_CHANNELS.getCapabilities, async (event): Promise<RuntimeCapabilities> => {

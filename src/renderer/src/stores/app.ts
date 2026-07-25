@@ -77,6 +77,22 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  async function retryFailedTasks(): Promise<void> {
+    try {
+      await window.api.retryFailedTasks()
+    } catch (error) {
+      reportError(error)
+    }
+  }
+
+  async function clearCompletedTasks(): Promise<void> {
+    try {
+      await window.api.clearCompletedTasks()
+    } catch (error) {
+      reportError(error)
+    }
+  }
+
   async function openTaskOutput(id: string): Promise<void> {
     try {
       await window.api.openTaskOutput(id)
@@ -109,6 +125,8 @@ export const useAppStore = defineStore('app', () => {
     updateSettings,
     cancelTask,
     retryTask,
+    retryFailedTasks,
+    clearCompletedTasks,
     openTaskOutput,
     openOutputDirectory
   }
