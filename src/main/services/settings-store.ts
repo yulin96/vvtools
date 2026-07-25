@@ -217,7 +217,12 @@ function migrateImagePresets(value: unknown, defaults: ImagePreset[]): ImagePres
       typeof preset.options === 'object'
     )
   )
-  return presets.length > 0 ? structuredClone(presets) : structuredClone(defaults)
+  return presets.length > 0
+    ? presets.map((preset) => ({
+        ...structuredClone(preset),
+        options: { ...DEFAULT_IMAGE_OPTIONS, ...preset.options }
+      }))
+    : structuredClone(defaults)
 }
 
 export function clampConcurrency(value: number): number {

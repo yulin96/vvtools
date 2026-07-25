@@ -536,6 +536,23 @@ function copiesVideo(options: VideoOptions): boolean {
                   <option value="webp">WebP</option>
                 </select>
               </label>
+              <label class="compact-field">
+                <span>元数据</span>
+                <select
+                  :value="preset.options.metadataMode"
+                  @change="
+                    updateImagePresetOption(
+                      preset.id,
+                      'metadataMode',
+                      ($event.target as HTMLSelectElement).value as ImageOptions['metadataMode']
+                    )
+                  "
+                >
+                  <option value="colorProfile">尽可能保留色彩配置</option>
+                  <option value="strip">全部移除</option>
+                  <option value="all">尽可能全部保留</option>
+                </select>
+              </label>
               <ToggleSwitch
                 label="目录结构"
                 :model-value="preset.options.preserveStructure"
@@ -911,6 +928,22 @@ function copiesVideo(options: VideoOptions): boolean {
               <option value="jpeg">JPEG</option>
               <option value="png">PNG</option>
               <option value="webp">WebP</option>
+            </select>
+          </label>
+          <label class="compact-field">
+            <span>元数据</span>
+            <select
+              :value="store.settings.image.metadataMode"
+              @change="
+                updateNested('image', {
+                  metadataMode: ($event.target as HTMLSelectElement)
+                    .value as AppSettings['image']['metadataMode']
+                })
+              "
+            >
+              <option value="colorProfile">尽可能保留色彩配置</option>
+              <option value="strip">全部移除</option>
+              <option value="all">尽可能全部保留</option>
             </select>
           </label>
           <ToggleSwitch

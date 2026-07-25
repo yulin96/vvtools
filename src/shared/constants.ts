@@ -64,7 +64,8 @@ export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
   percentage: 100,
   allowEnlargement: false,
   format: 'original',
-  preserveStructure: true
+  preserveStructure: true,
+  metadataMode: 'colorProfile'
 }
 
 export const DEFAULT_IMAGE_PRESETS: ImagePreset[] = [

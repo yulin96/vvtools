@@ -220,6 +220,7 @@ function validateImageOptions(options: ImageOptions, message: string): void {
     options.percentage > 1000 ||
     typeof options.allowEnlargement !== 'boolean' ||
     typeof options.preserveStructure !== 'boolean' ||
+    !['strip', 'colorProfile', 'all'].includes(options.metadataMode) ||
     !IMAGE_FORMATS.has(options.format)
   ) {
     throw new Error(message)

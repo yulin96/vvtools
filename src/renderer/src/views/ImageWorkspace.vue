@@ -19,6 +19,7 @@ import type {
   ImageCompressionMode,
   ImageFormat,
   ImageInputFile,
+  ImageMetadataMode,
   ImageOptions,
   ImageResizeMode,
   MediaInspection
@@ -88,7 +89,8 @@ function imageOptionsEqual(left: ImageOptions, right: ImageOptions): boolean {
     left.percentage === right.percentage &&
     left.allowEnlargement === right.allowEnlargement &&
     left.format === right.format &&
-    left.preserveStructure === right.preserveStructure
+    left.preserveStructure === right.preserveStructure &&
+    left.metadataMode === right.metadataMode
   )
 }
 
@@ -452,6 +454,26 @@ onBeforeUnmount(() => {
               disabled-text="不放大"
               @update:model-value="updateImage({ allowEnlargement: $event })"
             />
+          </div>
+        </fieldset>
+        <fieldset class="config-group">
+          <legend>元数据</legend>
+          <div class="config-group-fields config-group-fields-single">
+            <label class="compact-field">
+              <span>保留策略</span>
+              <select
+                :value="store.settings.image.metadataMode"
+                @change="
+                  updateImage({
+                    metadataMode: ($event.target as HTMLSelectElement).value as ImageMetadataMode
+                  })
+                "
+              >
+                <option value="colorProfile">尽可能保留色彩配置（推荐）</option>
+                <option value="strip">移除全部元数据</option>
+                <option value="all">尽可能保留全部元数据</option>
+              </select>
+            </label>
           </div>
         </fieldset>
       </div>

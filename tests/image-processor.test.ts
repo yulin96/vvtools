@@ -73,4 +73,36 @@ describe('image processor', () => {
     }
     expect(await processImage(task, new AbortController().signal)).toBeLessThanOrEqual(10 * 1024)
   })
+
+  it.each([
+    { mode: 'strip' as const, keepsExif: false, keepsIcc: false },
+    { mode: 'colorProfile' as const, keepsExif: false, keepsIcc: true },
+    { mode: 'all' as const, keepsExif: true, keepsIcc: true }
+  ])('applies the $mode metadata policy', async ({ mode, keepsExif, keepsIcc }) => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-image-metadata-'))
+    directories.push(root)
+    const sourcePath = join(root, 'source.jpg')
+    const outputPath = join(root, `${mode}.jpg`)
+    await sharp({ create: { width: 24, height: 16, channels: 3, background: '#76bfd1' } })
+      .withExif({ IFD0: { Make: 'VVTools Camera' } })
+      .withIccProfile('p3')
+      .jpeg()
+      .toFile(sourcePath)
+    const task: MediaTask = {
+      id: mode,
+      kind: 'image',
+      sourcePath,
+      outputPath,
+      status: 'processing',
+      progress: 0,
+      options: { ...DEFAULT_IMAGE_OPTIONS, format: 'jpeg', metadataMode: mode },
+      sourceSize: 1,
+      createdAt: new Date(0).toISOString()
+    }
+
+    await processImage(task, new AbortController().signal)
+    const metadata = await sharp(outputPath).metadata()
+    expect(Boolean(metadata.exif)).toBe(keepsExif)
+    expect(Boolean(metadata.icc)).toBe(keepsIcc)
+  })
 })

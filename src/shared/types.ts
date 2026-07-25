@@ -12,6 +12,7 @@ export type VideoAudioMode = 'aac' | 'copy' | 'none'
 export type ImageFormat = 'original' | 'jpeg' | 'png' | 'webp'
 export type ImageCompressionMode = 'quality' | 'targetSize'
 export type ImageResizeMode = 'source' | 'width' | 'height' | 'percentage'
+export type ImageMetadataMode = 'strip' | 'colorProfile' | 'all'
 export type OutputMode = 'source' | 'custom'
 export type CloseBehavior = 'ask' | 'minimizeToTray' | 'quit'
 export type OutputConflictPolicy = 'rename' | 'skip'
@@ -46,6 +47,7 @@ export interface ImageOptions {
   allowEnlargement: boolean
   format: ImageFormat
   preserveStructure: boolean
+  metadataMode: ImageMetadataMode
 }
 
 export interface ImagePreset {

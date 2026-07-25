@@ -43,6 +43,12 @@ export function configureImagePipeline(
     })
   }
 
+  if (options.metadataMode === 'all') {
+    transformed = transformed.keepMetadata()
+  } else if (options.metadataMode === 'colorProfile') {
+    transformed = transformed.keepIccProfile()
+  }
+
   if (format === 'png') {
     return transformed.png({ compressionLevel: 9, palette: true, quality })
   }
@@ -123,6 +129,8 @@ export async function processImage(
     String(options.targetSizeKb),
     '--resize-mode',
     options.resizeMode,
+    '--metadata-mode',
+    options.metadataMode,
     '--output',
     task.outputPath
   ])

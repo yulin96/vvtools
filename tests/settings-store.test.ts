@@ -32,7 +32,8 @@ describe('SettingsStore', () => {
     expect(store.get().image).toMatchObject({
       compressionMode: 'quality',
       resizeMode: 'source',
-      preserveStructure: true
+      preserveStructure: true,
+      metadataMode: 'colorProfile'
     })
 
     expect(store.get().videoPresets.map((preset) => preset.name)).toEqual([
@@ -90,7 +91,8 @@ describe('SettingsStore', () => {
         percentage: 75,
         format: 'webp',
         preserveStructure: false,
-        allowEnlargement: true
+        allowEnlargement: true,
+        metadataMode: 'all'
       }
     })
 
@@ -111,7 +113,8 @@ describe('SettingsStore', () => {
         percentage: 75,
         format: 'webp',
         preserveStructure: false,
-        allowEnlargement: true
+        allowEnlargement: true,
+        metadataMode: 'all'
       }
     })
   })
