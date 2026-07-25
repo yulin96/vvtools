@@ -15,6 +15,7 @@ export type ImageResizeMode = 'source' | 'width' | 'height' | 'percentage'
 export type OutputMode = 'source' | 'custom'
 export type CloseBehavior = 'ask' | 'minimizeToTray' | 'quit'
 export type OutputConflictPolicy = 'rename' | 'skip'
+export type CompletionAction = 'none' | 'openOutput'
 
 export interface VideoOptions {
   quality: VideoQuality
@@ -67,6 +68,9 @@ export interface AppSettings {
   outputSuffix: string
   outputNameTemplate: string
   outputConflictPolicy: OutputConflictPolicy
+  completionNotification: boolean
+  completionSound: boolean
+  completionAction: CompletionAction
   video: VideoOptions
   videoPresets: VideoPreset[]
   image: ImageOptions

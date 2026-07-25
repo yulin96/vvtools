@@ -300,6 +300,20 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
     }
     result.outputConflictPolicy = value.outputConflictPolicy
   }
+  if (value.completionNotification !== undefined) {
+    if (typeof value.completionNotification !== 'boolean') throw new Error('完成通知参数无效')
+    result.completionNotification = value.completionNotification
+  }
+  if (value.completionSound !== undefined) {
+    if (typeof value.completionSound !== 'boolean') throw new Error('完成提示音参数无效')
+    result.completionSound = value.completionSound
+  }
+  if (value.completionAction !== undefined) {
+    if (!['none', 'openOutput'].includes(value.completionAction)) {
+      throw new Error('完成后操作参数无效')
+    }
+    result.completionAction = value.completionAction
+  }
   if (value.video) {
     validateVideoOptions(value.video, '视频默认参数无效')
     result.video = structuredClone(value.video)

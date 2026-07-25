@@ -1,5 +1,5 @@
-import { app, shell, BrowserWindow, dialog, Menu, Tray } from 'electron'
-import { join } from 'path'
+import { app, shell, BrowserWindow, dialog, Menu, Notification, Tray } from 'electron'
+import { dirname, join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { FailureLogService } from './services/failure-log'
@@ -9,6 +9,8 @@ import { TaskHistoryStore } from './services/task-history-store'
 import { processVideo } from './media/video-processor'
 import { processImage } from './media/image-processor'
 import { registerIpc } from './ipc'
+import type { MediaTask } from '../shared/types'
+import { batchSummaryText, summarizeBatch } from './services/completion'
 
 let mainWindow: BrowserWindow | null = null
 let queue: TaskQueue | null = null
@@ -17,6 +19,8 @@ let tray: Tray | null = null
 let unregisterIpc: (() => void) | null = null
 let isQuitting = false
 let closeDialogOpen = false
+let batchWasActive = false
+const batchTaskIds = new Set<string>()
 
 app.setName('VVTools')
 
@@ -107,6 +111,53 @@ function updateTrayMenu(): void {
   )
 }
 
+function handleQueueChanged(tasks: MediaTask[]): void {
+  updateTrayMenu()
+  const activeTasks = tasks.filter(
+    (task) => task.status === 'pending' || task.status === 'processing'
+  )
+  if (activeTasks.length > 0) {
+    batchWasActive = true
+    for (const task of activeTasks) batchTaskIds.add(task.id)
+    return
+  }
+  if (!batchWasActive) return
+
+  const batchTasks = tasks.filter((task) => batchTaskIds.has(task.id))
+  batchWasActive = false
+  batchTaskIds.clear()
+  if (batchTasks.length > 0) void reportBatchCompleted(batchTasks)
+}
+
+async function reportBatchCompleted(tasks: MediaTask[]): Promise<void> {
+  const settings = settingsStore?.get()
+  if (!settings) return
+  const summary = summarizeBatch(tasks)
+  if (settings.completionNotification && Notification.isSupported()) {
+    const notification = new Notification({
+      title: '媒体任务处理完成',
+      body: batchSummaryText(summary),
+      silent: !settings.completionSound,
+      icon
+    })
+    notification.on('click', showMainWindow)
+    notification.show()
+  }
+
+  if (settings.completionAction !== 'openOutput') return
+  const completedOutputs = tasks
+    .filter((task) => task.status === 'completed')
+    .map((task) => task.outputPath)
+  const outputDirectories = new Set(completedOutputs.map(dirname))
+  if (outputDirectories.size === 1) {
+    const error = await shell.openPath([...outputDirectories][0])
+    if (error) dialog.showErrorBox('无法打开输出位置', error)
+    return
+  }
+  const lastOutput = completedOutputs.at(-1)
+  if (lastOutput) shell.showItemInFolder(lastOutput)
+}
+
 function continueInBackground(): void {
   ensureTray()
   mainWindow?.hide()
@@ -165,7 +216,7 @@ app.whenReady().then(() => {
     new TaskHistoryStore(app.getPath('userData')),
     settings.get().historyRetentionDays
   )
-  queue.on('changed', updateTrayMenu)
+  queue.on('changed', handleQueueChanged)
   unregisterIpc = registerIpc(() => mainWindow, queue, settings)
 
   createWindow()

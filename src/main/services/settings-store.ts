@@ -24,6 +24,9 @@ export class SettingsStore {
       outputSuffix: '',
       outputNameTemplate: '{name}{suffix}',
       outputConflictPolicy: 'rename',
+      completionNotification: true,
+      completionSound: false,
+      completionAction: 'none',
       video: { ...DEFAULT_VIDEO_OPTIONS },
       videoPresets: structuredClone(DEFAULT_VIDEO_PRESETS),
       image: { ...DEFAULT_IMAGE_OPTIONS },
@@ -61,6 +64,18 @@ export class SettingsStore {
         input.outputConflictPolicy === 'rename' || input.outputConflictPolicy === 'skip'
           ? input.outputConflictPolicy
           : this.settings.outputConflictPolicy,
+      completionNotification:
+        typeof input.completionNotification === 'boolean'
+          ? input.completionNotification
+          : this.settings.completionNotification,
+      completionSound:
+        typeof input.completionSound === 'boolean'
+          ? input.completionSound
+          : this.settings.completionSound,
+      completionAction:
+        input.completionAction === 'none' || input.completionAction === 'openOutput'
+          ? input.completionAction
+          : this.settings.completionAction,
       video: { ...this.settings.video, ...input.video },
       videoPresets: input.videoPresets
         ? structuredClone(input.videoPresets)
@@ -107,6 +122,18 @@ export class SettingsStore {
           saved.outputConflictPolicy === 'rename' || saved.outputConflictPolicy === 'skip'
             ? saved.outputConflictPolicy
             : defaults.outputConflictPolicy,
+        completionNotification:
+          typeof saved.completionNotification === 'boolean'
+            ? saved.completionNotification
+            : defaults.completionNotification,
+        completionSound:
+          typeof saved.completionSound === 'boolean'
+            ? saved.completionSound
+            : defaults.completionSound,
+        completionAction:
+          saved.completionAction === 'none' || saved.completionAction === 'openOutput'
+            ? saved.completionAction
+            : defaults.completionAction,
         video: migrateVideoOptions(saved.video, defaults.video),
         videoPresets: migrateVideoPresets(saved.videoPresets, defaults.videoPresets),
         image: { ...defaults.image, ...saved.image },

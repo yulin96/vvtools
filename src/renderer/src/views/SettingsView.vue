@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Cpu, FileOutput, Image, Plus, RefreshCw, Trash2, Video } from '@lucide/vue'
+import { Bell, Cpu, FileOutput, Image, Plus, RefreshCw, Trash2, Video } from '@lucide/vue'
 import type {
   AppSettings,
   ImageOptions,
@@ -61,6 +61,13 @@ function updateOutputConflictPolicy(event: Event): void {
   void store.updateSettings({
     outputConflictPolicy: (event.target as HTMLSelectElement)
       .value as AppSettings['outputConflictPolicy']
+  })
+}
+
+function updateCompletionAction(event: Event): void {
+  if (!store.settings) return
+  void store.updateSettings({
+    completionAction: (event.target as HTMLSelectElement).value as AppSettings['completionAction']
   })
 }
 
@@ -300,6 +307,43 @@ function copiesVideo(options: VideoOptions): boolean {
             >
               <option value="rename">自动编号（推荐）</option>
               <option value="skip">跳过已有文件</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="settings-card">
+        <div class="settings-card-title">
+          <Bell class="size-4" />
+          <div>
+            <h2>完成提醒</h2>
+            <p>一轮任务全部结束后汇总成功、失败和取消数量。</p>
+          </div>
+        </div>
+        <div class="flex flex-1 justify-end gap-4">
+          <ToggleSwitch
+            label="系统通知"
+            :model-value="store.settings.completionNotification"
+            enabled-text="已开启"
+            disabled-text="已关闭"
+            @update:model-value="store.updateSettings({ completionNotification: $event })"
+          />
+          <ToggleSwitch
+            label="通知提示音"
+            :model-value="store.settings.completionSound"
+            enabled-text="有声音"
+            disabled-text="静音"
+            @update:model-value="store.updateSettings({ completionSound: $event })"
+          />
+          <label class="field-label w-52">
+            <span>全部完成后</span>
+            <select
+              :value="store.settings.completionAction"
+              class="field-control"
+              @change="updateCompletionAction"
+            >
+              <option value="none">不执行操作（推荐）</option>
+              <option value="openOutput">打开输出位置</option>
             </select>
           </label>
         </div>

@@ -23,6 +23,9 @@ describe('SettingsStore', () => {
       outputSuffix: '',
       outputNameTemplate: '{name}{suffix}',
       outputConflictPolicy: 'rename',
+      completionNotification: true,
+      completionSound: false,
+      completionAction: 'none',
       historyRetentionDays: 30,
       closeBehavior: 'ask'
     })
@@ -76,6 +79,9 @@ describe('SettingsStore', () => {
       outputSuffix: '-compressed',
       outputNameTemplate: '{name}_{preset}_{date}',
       outputConflictPolicy: 'skip',
+      completionNotification: false,
+      completionSound: true,
+      completionAction: 'openOutput',
       image: {
         ...store.get().image,
         compressionMode: 'targetSize',
@@ -94,6 +100,9 @@ describe('SettingsStore', () => {
       closeBehavior: 'minimizeToTray',
       outputNameTemplate: '{name}_{preset}_{date}',
       outputConflictPolicy: 'skip',
+      completionNotification: false,
+      completionSound: true,
+      completionAction: 'openOutput',
       outputSuffix: '-compressed',
       image: {
         compressionMode: 'targetSize',
