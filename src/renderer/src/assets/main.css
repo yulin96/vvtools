@@ -229,6 +229,7 @@ body {
   border-right: 1px solid var(--sidebar-border);
   background: var(--sidebar);
   padding: 38px 12px 16px;
+  -webkit-app-region: drag;
   transition:
     width var(--duration-medium) var(--ease-smooth-out),
     background-color var(--duration-fast) var(--ease-in-out),
@@ -253,6 +254,10 @@ body {
   flex: 0 0 38px;
   align-items: center;
   justify-content: center;
+}
+
+.brand-mark img {
+  -webkit-user-drag: none;
 }
 
 .brand-copy {
@@ -481,11 +486,12 @@ body {
 }
 
 .app-platform-mac .app-main {
-  padding-top: 10px;
+  padding-top: 0;
 }
 
 .app-platform-mac .app-alert {
-  margin-top: 30px;
+  margin-top: 40px;
+  top: 40px;
 }
 
 .app-main::-webkit-scrollbar {
@@ -572,7 +578,9 @@ input {
 button,
 a,
 select,
-input[type='range'] {
+input,
+textarea,
+[role='button'] {
   -webkit-app-region: no-drag;
 }
 
@@ -582,6 +590,10 @@ input[type='range'] {
   flex-direction: column;
   gap: 22px;
   padding: 30px 20px 36px;
+}
+
+.app-platform-mac .page-container {
+  padding-top: 40px;
 }
 
 .page-header {
@@ -742,7 +754,7 @@ input[type='range'] {
 
 .video-drop-workspace::after {
   position: absolute;
-  inset: 14px 8px 8px;
+  inset: 8px;
   z-index: 0;
   border: 1px dashed var(--border);
   border-radius: 16px;
@@ -768,6 +780,10 @@ input[type='range'] {
   border-radius: 14px;
   background: var(--background);
   box-shadow: var(--shadow-low);
+}
+
+.app-platform-mac .video-config-panel {
+  margin-top: 40px;
 }
 
 .video-config-heading {

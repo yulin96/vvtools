@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-25T15:05:00.000Z",
+  "generatedAt": "2026-07-25T15:25:00.000Z",
   "title": "Design System: VVTools",
   "extensions": {
     "colorMeta": {
@@ -130,7 +130,7 @@
     {
       "name": "Sidebar Navigation",
       "kind": "nav",
-      "description": "A flush 236px navigation sidebar with a single right divider that reduces to a centered 76px icon rail; the collapsed footer shows only the current theme icon.",
+      "description": "A flush 236px draggable navigation sidebar with a single right divider that reduces to a centered 76px icon rail; interactive descendants remain no-drag.",
       "html": "<a class=\"sidebar-link sidebar-link-active\">图片处理</a>",
       "css": ".sidebar-link { min-height: 42px; border-radius: 11px; } .sidebar-link-active { background: var(--sidebar-active); color: var(--signal-strong); }"
     },
@@ -144,9 +144,9 @@
     {
       "name": "Drop Workspace",
       "kind": "custom",
-      "description": "The full processing workspace is the drop surface; its configuration panel floats within the same visual boundary.",
+      "description": "The full processing workspace is the drop surface with a uniform 8px outer inset; its configuration panel clears the draggable titlebar.",
       "html": "<div class=\"video-drop-workspace\"><section class=\"video-config-panel\">...</section><div class=\"video-workspace-content\">...</div></div>",
-      "css": ".video-drop-workspace::after { inset: 14px; border: 1px dashed var(--border); border-radius: 16px; background: var(--background); }"
+      "css": ".video-drop-workspace::after { inset: 8px; border: 1px dashed var(--border); border-radius: 16px; background: var(--background); }"
     },
     {
       "name": "Surface Panel",
