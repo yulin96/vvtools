@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-25T14:45:00.000Z",
+  "generatedAt": "2026-07-25T15:05:00.000Z",
   "title": "Design System: VVTools",
   "extensions": {
     "colorMeta": {
@@ -130,14 +130,14 @@
     {
       "name": "Sidebar Navigation",
       "kind": "nav",
-      "description": "A floating outlined 226px navigation dock that reduces to a centered 66px icon rail; the collapsed footer shows only the current theme icon.",
+      "description": "A flush 236px navigation sidebar with a single right divider that reduces to a centered 76px icon rail; the collapsed footer shows only the current theme icon.",
       "html": "<a class=\"sidebar-link sidebar-link-active\">图片处理</a>",
       "css": ".sidebar-link { min-height: 42px; border-radius: 11px; } .sidebar-link-active { background: var(--sidebar-active); color: var(--signal-strong); }"
     },
     {
       "name": "Desktop Window Chrome",
       "kind": "custom",
-      "description": "A frameless 40px drag layer with macOS controls over the floating sidebar and Windows or Linux controls aligned right; content top inset is platform-aware.",
+      "description": "A frameless 40px drag layer with macOS controls over the flush sidebar and Windows or Linux controls aligned right; content top inset is platform-aware.",
       "html": "<header class=\"window-titlebar\">...</header>",
       "css": ".window-titlebar { position: absolute; inset: 0 0 auto; height: 40px; -webkit-app-region: drag; }"
     },

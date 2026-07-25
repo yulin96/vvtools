@@ -140,11 +140,9 @@ body {
 .app-shell {
   position: relative;
   display: flex;
-  gap: 10px;
   height: 100vh;
   min-height: 0;
   background: var(--workspace);
-  padding: 10px 0 10px 10px;
   color: var(--foreground);
 }
 
@@ -170,7 +168,7 @@ body {
 }
 
 .mac-window-controls {
-  left: 25px;
+  left: 15px;
   gap: 8px;
 }
 
@@ -224,14 +222,13 @@ body {
   position: relative;
   z-index: 40;
   display: flex;
-  width: 226px;
+  width: 236px;
   flex-shrink: 0;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--sidebar-border);
-  border-radius: 16px;
+  border-right: 1px solid var(--sidebar-border);
   background: var(--sidebar);
-  padding: 38px 12px 14px;
+  padding: 38px 12px 16px;
   transition:
     width var(--duration-medium) var(--ease-smooth-out),
     background-color var(--duration-fast) var(--ease-in-out),
@@ -239,7 +236,7 @@ body {
 }
 
 .app-sidebar-collapsed {
-  width: 66px;
+  width: 76px;
 }
 
 .sidebar-brand {
@@ -327,7 +324,7 @@ body {
 .app-sidebar-collapsed .sidebar-collapse {
   position: absolute;
   top: 46px;
-  left: 16px;
+  left: 22px;
 }
 
 .app-sidebar-collapsed .brand-mark {
@@ -480,7 +477,11 @@ body {
 }
 
 .app-platform-desktop .app-main {
-  padding-top: 30px;
+  padding-top: 40px;
+}
+
+.app-platform-mac .app-main {
+  padding-top: 10px;
 }
 
 .app-platform-mac .app-alert {
@@ -580,7 +581,7 @@ input[type='range'] {
   min-height: 100%;
   flex-direction: column;
   gap: 22px;
-  padding: 30px 34px 44px;
+  padding: 30px 20px 36px;
 }
 
 .page-header {
@@ -741,7 +742,7 @@ input[type='range'] {
 
 .video-drop-workspace::after {
   position: absolute;
-  inset: 14px;
+  inset: 14px 8px 8px;
   z-index: 0;
   border: 1px dashed var(--border);
   border-radius: 16px;
@@ -762,7 +763,7 @@ input[type='range'] {
   position: relative;
   z-index: 20;
   flex-shrink: 0;
-  margin: 28px 28px 0;
+  margin: 28px 14px 0;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--background);
@@ -1050,7 +1051,7 @@ input[type='range'] {
   flex-direction: column;
   gap: 20px;
   overflow: auto;
-  padding: 20px 28px 28px;
+  padding: 16px 14px 14px;
 }
 
 .pending-file-panel,
