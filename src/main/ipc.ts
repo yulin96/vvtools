@@ -382,6 +382,29 @@ export function registerIpc(
     listener: (event: IpcMainInvokeEvent, ...args: T) => unknown
   ): void => ipcMain.handle(channel, listener)
 
+  handle(IPC_CHANNELS.windowMinimize, (event) => {
+    const current = window()
+    assertTrusted(event, current)
+    current.minimize()
+  })
+  handle(IPC_CHANNELS.windowToggleMaximize, (event) => {
+    const current = window()
+    assertTrusted(event, current)
+    if (current.isMaximized()) current.unmaximize()
+    else current.maximize()
+    return current.isMaximized()
+  })
+  handle(IPC_CHANNELS.windowIsMaximized, (event) => {
+    const current = window()
+    assertTrusted(event, current)
+    return current.isMaximized()
+  })
+  handle(IPC_CHANNELS.windowClose, (event) => {
+    const current = window()
+    assertTrusted(event, current)
+    current.close()
+  })
+
   handle(IPC_CHANNELS.selectFiles, async (event, kind: TaskKind) => {
     assertTrusted(event, window())
     if (!['video', 'image', 'audio'].includes(kind)) throw new Error('文件类型无效')

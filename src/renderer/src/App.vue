@@ -3,6 +3,9 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   History,
   Images,
+  Maximize2,
+  Minimize2,
+  Minus,
   Monitor,
   Moon,
   Music,
@@ -31,11 +34,16 @@ const isDark = computed(() =>
   themeMode.value === 'system' ? systemIsDark.value : themeMode.value === 'dark'
 )
 const sidebarCollapsed = ref(localStorage.getItem('vvtools-sidebar-collapsed') === 'true')
+const isMac = window.api.platform === 'darwin'
+const isMaximized = ref(false)
 const themes = [
   { value: 'system' as const, label: '跟随系统', icon: Monitor },
   { value: 'light' as const, label: '浅色模式', icon: Sun },
   { value: 'dark' as const, label: '深色模式', icon: Moon }
 ]
+const currentTheme = computed(
+  () => themes.find((theme) => theme.value === themeMode.value) ?? themes[0]
+)
 const navigation = [
   { to: '/image', label: '图片处理', icon: Images },
   { to: '/video', label: '视频处理', icon: Video },
@@ -62,9 +70,22 @@ function handleSystemThemeChange(event: MediaQueryListEvent): void {
   systemIsDark.value = event.matches
 }
 
-onMounted(() => {
+function minimizeWindow(): void {
+  void window.api.windowMinimize()
+}
+
+async function toggleWindowMaximize(): Promise<void> {
+  isMaximized.value = await window.api.windowToggleMaximize()
+}
+
+function closeWindow(): void {
+  void window.api.windowClose()
+}
+
+onMounted(async () => {
   colorSchemeQuery.addEventListener('change', handleSystemThemeChange)
-  void store.initialize()
+  const [, maximized] = await Promise.all([store.initialize(), window.api.windowIsMaximized()])
+  isMaximized.value = maximized
 })
 
 onBeforeUnmount(() => {
@@ -73,7 +94,62 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="isMac ? 'app-platform-mac' : 'app-platform-desktop'">
+    <header class="window-titlebar" aria-label="窗口标题栏">
+      <div v-if="isMac" class="mac-window-controls">
+        <button
+          class="mac-window-button mac-window-close"
+          type="button"
+          aria-label="关闭窗口"
+          title="关闭"
+          @click="closeWindow"
+        />
+        <button
+          class="mac-window-button mac-window-minimize"
+          type="button"
+          aria-label="最小化窗口"
+          title="最小化"
+          @click="minimizeWindow"
+        />
+        <button
+          class="mac-window-button mac-window-maximize"
+          type="button"
+          aria-label="最大化窗口"
+          title="最大化"
+          @click="toggleWindowMaximize"
+        />
+      </div>
+      <div v-else class="desktop-window-controls">
+        <button
+          class="desktop-window-button"
+          type="button"
+          aria-label="最小化窗口"
+          title="最小化"
+          @click="minimizeWindow"
+        >
+          <Minus class="size-4" />
+        </button>
+        <button
+          class="desktop-window-button"
+          type="button"
+          :aria-label="isMaximized ? '还原窗口' : '最大化窗口'"
+          :title="isMaximized ? '还原' : '最大化'"
+          @click="toggleWindowMaximize"
+        >
+          <component :is="isMaximized ? Minimize2 : Maximize2" class="size-3.5" />
+        </button>
+        <button
+          class="desktop-window-button desktop-window-close"
+          type="button"
+          aria-label="关闭窗口"
+          title="关闭"
+          @click="closeWindow"
+        >
+          <X class="size-4" />
+        </button>
+      </div>
+    </header>
+
     <aside class="app-sidebar" :class="{ 'app-sidebar-collapsed': sidebarCollapsed }">
       <div class="sidebar-brand">
         <div class="brand-mark">
@@ -111,7 +187,7 @@ onBeforeUnmount(() => {
       </nav>
 
       <div class="sidebar-footer">
-        <div class="sidebar-theme-picker" aria-label="主题模式">
+        <div v-if="!sidebarCollapsed" class="sidebar-theme-picker" aria-label="主题模式">
           <button
             v-for="theme in themes"
             :key="theme.value"
@@ -125,6 +201,15 @@ onBeforeUnmount(() => {
           >
             <component :is="theme.icon" class="size-4" aria-hidden="true" />
           </button>
+        </div>
+        <div
+          v-else
+          class="sidebar-theme-current"
+          role="img"
+          :aria-label="currentTheme.label"
+          :title="currentTheme.label"
+        >
+          <component :is="currentTheme.icon" class="size-4" aria-hidden="true" />
         </div>
         <span class="sidebar-label sidebar-version">VVTools · v1.0.0</span>
       </div>

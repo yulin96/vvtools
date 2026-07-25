@@ -28,10 +28,11 @@ app.setName('VVTools')
 function createWindow(): void {
   const window = new BrowserWindow({
     title: 'VVTools',
-    width: 1180,
-    height: 760,
-    minWidth: 960,
-    minHeight: 640,
+    width: 1440,
+    height: 900,
+    minWidth: 1040,
+    minHeight: 680,
+    frame: false,
     show: false,
     autoHideMenuBar: true,
     icon,

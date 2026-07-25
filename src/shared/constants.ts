@@ -140,6 +140,10 @@ export const AUDIO_EXTENSIONS = new Set([
 ])
 
 export const IPC_CHANNELS = {
+  windowMinimize: 'window:minimize',
+  windowToggleMaximize: 'window:toggle-maximize',
+  windowIsMaximized: 'window:is-maximized',
+  windowClose: 'window:close',
   selectFiles: 'files:select',
   selectOutputDirectory: 'directory:select-output',
   selectImageDirectory: 'directory:select-images',

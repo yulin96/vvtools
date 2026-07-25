@@ -199,6 +199,11 @@ export interface RuntimeCapabilities {
 }
 
 export interface VVToolsApi {
+  platform: 'darwin' | 'win32' | 'linux'
+  windowMinimize: () => Promise<void>
+  windowToggleMaximize: () => Promise<boolean>
+  windowIsMaximized: () => Promise<boolean>
+  windowClose: () => Promise<void>
   selectFiles: (kind: TaskKind) => Promise<string[]>
   getDroppedFilePath: (file: File) => string
   selectOutputDirectory: (current?: string) => Promise<string | null>
