@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { MediaTask, VideoOptions } from '../src/shared/types'
 import { DEFAULT_VIDEO_OPTIONS } from '../src/shared/constants'
 import { buildVideoArgs } from '../src/main/media/video-processor'
-import { createTaskCommand } from '../src/main/media/ffmpeg-runtime'
+import { createTaskCommand, hardwareEncoderCandidates } from '../src/main/media/ffmpeg-runtime'
 
 function task(options: Partial<VideoOptions>): MediaTask {
   return {
@@ -98,5 +98,30 @@ describe('video command', () => {
     expect(() => buildVideoArgs(task({ codec: 'source', resolution: '720p' }), 'vp9')).toThrow(
       '请选择 H.264 或 H.265'
     )
+  })
+
+  it('uses encoder-specific quality controls for hardware encoding', () => {
+    const videoToolbox = buildVideoArgs(
+      task({ codec: 'h264', encoderMode: 'hardware', quality: 'high' }),
+      'h264',
+      'h264_videotoolbox'
+    )
+    expect(videoToolbox).toContain('h264_videotoolbox')
+    expect(videoToolbox[videoToolbox.indexOf('-q:v') + 1]).toBe('75')
+    expect(videoToolbox).toContain('-realtime')
+    expect(videoToolbox).not.toContain('-crf')
+
+    const nvenc = buildVideoArgs(
+      task({ codec: 'h265', encoderMode: 'hardware', quality: 'balanced' }),
+      'hevc',
+      'hevc_nvenc'
+    )
+    expect(nvenc[nvenc.indexOf('-cq') + 1]).toBe('23')
+    expect(nvenc[nvenc.indexOf('-preset') + 1]).toBe('p4')
+  })
+
+  it('selects platform-specific hardware encoder candidates', () => {
+    expect(hardwareEncoderCandidates('h264', 'darwin')).toEqual(['h264_videotoolbox'])
+    expect(hardwareEncoderCandidates('h265', 'win32')).toEqual(['hevc_nvenc', 'hevc_qsv'])
   })
 })

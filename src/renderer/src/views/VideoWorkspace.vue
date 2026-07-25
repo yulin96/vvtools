@@ -17,6 +17,7 @@ import type {
   MediaInspection,
   VideoAudioMode,
   VideoCodec,
+  VideoEncoderMode,
   VideoFormat,
   VideoFrameRate,
   VideoOptions,
@@ -83,6 +84,7 @@ const formatLabel = computed(() => {
 function optionsEqual(left: VideoOptions, right: VideoOptions): boolean {
   return (
     left.quality === right.quality &&
+    left.encoderMode === right.encoderMode &&
     left.resolution === right.resolution &&
     left.format === right.format &&
     left.codec === right.codec &&
@@ -288,6 +290,21 @@ onBeforeUnmount(() => {
                 <option value="source">保持原编码</option>
                 <option value="h264">H.264 · 兼容优先</option>
                 <option value="h265">H.265 · 更小体积</option>
+              </select>
+            </label>
+            <label class="compact-field">
+              <span>编码设备</span>
+              <select
+                :value="store.settings.video.encoderMode"
+                @change="
+                  updateVideo({
+                    encoderMode: ($event.target as HTMLSelectElement).value as VideoEncoderMode
+                  })
+                "
+              >
+                <option value="auto">自动检测（推荐）</option>
+                <option value="software">CPU · 兼容优先</option>
+                <option value="hardware">硬件 · 速度优先</option>
               </select>
             </label>
           </div>

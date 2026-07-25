@@ -1,6 +1,7 @@
 import type { AudioOptions, ImageOptions, ImagePreset, VideoOptions, VideoPreset } from './types'
 
 export const DEFAULT_VIDEO_OPTIONS: VideoOptions = {
+  encoderMode: 'auto',
   quality: 'balanced',
   resolution: 'source',
   format: 'mp4',

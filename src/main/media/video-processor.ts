@@ -4,7 +4,12 @@ import { extname } from 'path'
 import type { MediaTask, VideoOptions } from '../../shared/types'
 import { FailureLogService } from '../services/failure-log'
 import { MediaProcessError, TaskCancelledError } from './errors'
-import { createTaskCommand, getFfmpegPath, getFfprobePath } from './ffmpeg-runtime'
+import {
+  createTaskCommand,
+  getFfmpegPath,
+  getFfprobePath,
+  resolveHardwareVideoEncoder
+} from './ffmpeg-runtime'
 
 const CRF_BY_QUALITY: Record<VideoOptions['quality'], string> = {
   high: '20',
@@ -12,7 +17,11 @@ const CRF_BY_QUALITY: Record<VideoOptions['quality'], string> = {
   small: '28'
 }
 
-export function buildVideoArgs(task: MediaTask, sourceVideoCodec?: string): string[] {
+export function buildVideoArgs(
+  task: MediaTask,
+  sourceVideoCodec?: string,
+  hardwareEncoder?: string
+): string[] {
   const options = task.options as VideoOptions
   const args = ['-hide_banner', '-nostdin', '-n', '-i', task.sourcePath]
   const copyVideo =
@@ -31,7 +40,8 @@ export function buildVideoArgs(task: MediaTask, sourceVideoCodec?: string): stri
   if (copyVideo) {
     args.push('-c:v', 'copy')
   } else {
-    args.push('-c:v', resolveVideoEncoder(options.codec, sourceVideoCodec))
+    const encoder = hardwareEncoder ?? resolveSoftwareVideoEncoder(options.codec, sourceVideoCodec)
+    args.push('-c:v', encoder)
 
     if (options.rateControl === 'bitrate') {
       args.push(
@@ -43,10 +53,11 @@ export function buildVideoArgs(task: MediaTask, sourceVideoCodec?: string): stri
         `${options.bitrateMbps * 2}M`
       )
     } else {
-      args.push('-crf', CRF_BY_QUALITY[options.quality])
+      addQualityArgs(args, encoder, options.quality)
     }
 
-    args.push('-preset', 'medium', '-pix_fmt', 'yuv420p')
+    addEncoderPerformanceArgs(args, encoder)
+    args.push('-pix_fmt', 'yuv420p')
 
     if (options.frameRate !== 'source') args.push('-r', options.frameRate)
   }
@@ -69,11 +80,46 @@ export function buildVideoArgs(task: MediaTask, sourceVideoCodec?: string): stri
   return args
 }
 
-function resolveVideoEncoder(codec: VideoOptions['codec'], sourceVideoCodec?: string): string {
+function resolveSoftwareVideoEncoder(
+  codec: VideoOptions['codec'],
+  sourceVideoCodec?: string
+): string {
   if (codec === 'h264') return 'libx264'
   if (codec === 'h265') return 'libx265'
   if (sourceVideoCodec === 'h264') return 'libx264'
   if (sourceVideoCodec === 'hevc' || sourceVideoCodec === 'h265') return 'libx265'
+  throw new Error(
+    `源视频编码 ${sourceVideoCodec || '未知'} 暂不支持保持编码后重新处理，请选择 H.264 或 H.265`
+  )
+}
+
+function addQualityArgs(args: string[], encoder: string, quality: VideoOptions['quality']): void {
+  if (encoder.endsWith('_videotoolbox')) {
+    const qualityValue = { high: '75', balanced: '60', small: '40' }[quality]
+    args.push('-q:v', qualityValue)
+  } else if (encoder.endsWith('_nvenc')) {
+    args.push('-cq', CRF_BY_QUALITY[quality], '-b:v', '0')
+  } else if (encoder.endsWith('_qsv')) {
+    args.push('-global_quality', CRF_BY_QUALITY[quality])
+  } else {
+    args.push('-crf', CRF_BY_QUALITY[quality])
+  }
+}
+
+function addEncoderPerformanceArgs(args: string[], encoder: string): void {
+  if (encoder.endsWith('_videotoolbox')) args.push('-realtime', 'true')
+  else if (encoder.endsWith('_nvenc')) args.push('-preset', 'p4')
+  else args.push('-preset', 'medium')
+}
+
+function videoCodecFamily(
+  codec: VideoOptions['codec'],
+  sourceVideoCodec?: string
+): 'h264' | 'h265' {
+  if (codec === 'h264') return 'h264'
+  if (codec === 'h265') return 'h265'
+  if (sourceVideoCodec === 'h264') return 'h264'
+  if (sourceVideoCodec === 'hevc' || sourceVideoCodec === 'h265') return 'h265'
   throw new Error(
     `源视频编码 ${sourceVideoCodec || '未知'} 暂不支持保持编码后重新处理，请选择 H.264 或 H.265`
   )
@@ -163,8 +209,22 @@ export async function processVideo(
   const probe = await probeVideo(task.sourcePath, signal)
   if (signal.aborted) throw new TaskCancelledError()
 
+  const options = task.options as VideoOptions
+  const copiesVideo =
+    options.codec === 'source' && options.resolution === 'source' && options.frameRate === 'source'
+  let hardwareEncoder: string | undefined
+  if (!copiesVideo && options.encoderMode !== 'software') {
+    const codec = videoCodecFamily(options.codec, probe.videoCodec)
+    hardwareEncoder = (await resolveHardwareVideoEncoder(codec)) ?? undefined
+    if (!hardwareEncoder && options.encoderMode === 'hardware') {
+      throw new MediaProcessError(
+        `当前设备或 FFmpeg 不支持 ${codec === 'h264' ? 'H.264' : 'H.265'} 硬件编码，请选择自动或 CPU 编码`
+      )
+    }
+  }
+
   const executable = getFfmpegPath()
-  const args = buildVideoArgs(task, probe.videoCodec)
+  const args = buildVideoArgs(task, probe.videoCodec, hardwareEncoder)
   const command = createTaskCommand(executable, args)
   const log = failureLogs.create(task, command)
 

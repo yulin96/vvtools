@@ -48,6 +48,7 @@ describe('SettingsStore', () => {
       '中质量',
       '高质量'
     ])
+    expect(store.get().video.encoderMode).toBe('auto')
     expect(store.get().imagePresets.map((preset) => preset.name)).toEqual([
       '原图整理',
       '网站图片',
@@ -157,11 +158,15 @@ describe('SettingsStore', () => {
 
     const settings = new SettingsStore(root, join(root, 'downloads')).get()
     expect(settings).not.toHaveProperty('videoOutputMode')
-    expect(settings.video).toMatchObject({ codec: 'source', format: 'source' })
+    expect(settings.video).toMatchObject({
+      codec: 'source',
+      format: 'source',
+      encoderMode: 'auto'
+    })
     expect(settings.videoPresets[0]).toMatchObject({
       id: 'keep-original',
       name: '保持原始',
-      options: { codec: 'source', format: 'source' }
+      options: { codec: 'source', format: 'source', encoderMode: 'auto' }
     })
   })
 })

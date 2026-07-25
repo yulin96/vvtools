@@ -5,6 +5,7 @@ import type {
   ImageOptions,
   VideoAudioMode,
   VideoCodec,
+  VideoEncoderMode,
   VideoFormat,
   VideoFrameRate,
   VideoOptions,
@@ -20,7 +21,14 @@ import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 const store = useAppStore()
 
 function capabilityLabel(name: string): string {
-  return { ffmpeg: 'FFmpeg', ffprobe: 'FFprobe', sharp: 'sharp' }[name] ?? name
+  return (
+    {
+      ffmpeg: 'FFmpeg',
+      ffprobe: 'FFprobe',
+      sharp: 'sharp',
+      hardwareVideo: '硬件视频编码'
+    }[name] ?? name
+  )
 }
 
 function updateConcurrency(event: Event): void {
@@ -210,7 +218,13 @@ function presetSummary(options: VideoOptions): string {
   const codec =
     options.codec === 'source' ? '保持原编码' : options.codec === 'h265' ? 'H.265' : 'H.264'
   const resolution = options.resolution === 'source' ? '原始分辨率' : `最高 ${options.resolution}`
-  return `${format} · ${codec} · ${resolution} · ${quality}`
+  const encoder =
+    options.encoderMode === 'auto'
+      ? '自动编码'
+      : options.encoderMode === 'hardware'
+        ? '硬件编码'
+        : 'CPU 编码'
+  return `${format} · ${codec} · ${encoder} · ${resolution} · ${quality}`
 }
 
 function copiesVideo(options: VideoOptions): boolean {
@@ -656,6 +670,23 @@ function copiesVideo(options: VideoOptions): boolean {
                   <option value="source">保持原编码</option>
                   <option value="h264">H.264</option>
                   <option value="h265">H.265</option>
+                </select>
+              </label>
+              <label class="compact-field">
+                <span>编码设备</span>
+                <select
+                  :value="preset.options.encoderMode"
+                  @change="
+                    updatePresetOption(
+                      preset.id,
+                      'encoderMode',
+                      ($event.target as HTMLSelectElement).value as VideoEncoderMode
+                    )
+                  "
+                >
+                  <option value="auto">自动检测</option>
+                  <option value="software">CPU · 兼容优先</option>
+                  <option value="hardware">硬件 · 速度优先</option>
                 </select>
               </label>
               <label class="compact-field">

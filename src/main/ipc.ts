@@ -200,6 +200,7 @@ function validateRelativeDirectory(value: string): void {
 function validateVideoOptions(options: VideoOptions, message: string): void {
   if (
     !options ||
+    !['auto', 'software', 'hardware'].includes(options.encoderMode) ||
     !VIDEO_QUALITIES.has(options.quality) ||
     !VIDEO_RESOLUTIONS.has(options.resolution) ||
     !VIDEO_FORMATS.has(options.format) ||

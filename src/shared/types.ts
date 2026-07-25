@@ -9,6 +9,7 @@ export type VideoCodec = 'source' | 'h264' | 'h265'
 export type VideoRateControl = 'quality' | 'bitrate'
 export type VideoFrameRate = 'source' | '24' | '25' | '30' | '60'
 export type VideoAudioMode = 'aac' | 'copy' | 'none'
+export type VideoEncoderMode = 'auto' | 'software' | 'hardware'
 export type ImageFormat = 'original' | 'jpeg' | 'png' | 'webp'
 export type ImageCompressionMode = 'quality' | 'targetSize'
 export type ImageResizeMode = 'source' | 'width' | 'height' | 'percentage'
@@ -21,6 +22,7 @@ export type AudioFormat = 'mp3' | 'm4a' | 'wav' | 'flac'
 export type AudioChannels = 'source' | 'mono' | 'stereo'
 
 export interface VideoOptions {
+  encoderMode: VideoEncoderMode
   quality: VideoQuality
   resolution: VideoResolution
   format: VideoFormat
@@ -193,6 +195,7 @@ export interface RuntimeCapabilities {
   ffmpeg: { available: boolean; version?: string; error?: string }
   ffprobe: { available: boolean; version?: string; error?: string }
   sharp: { available: boolean; version?: string; error?: string }
+  hardwareVideo: { available: boolean; encoders: string[]; version?: string; error?: string }
 }
 
 export interface VVToolsApi {
