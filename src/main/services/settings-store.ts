@@ -1,8 +1,9 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
 import { dirname, isAbsolute, join } from 'path'
-import type { AppSettings, VideoOptions, VideoPreset } from '../../shared/types'
+import type { AppSettings, ImagePreset, VideoOptions, VideoPreset } from '../../shared/types'
 import {
   DEFAULT_IMAGE_OPTIONS,
+  DEFAULT_IMAGE_PRESETS,
   DEFAULT_VIDEO_OPTIONS,
   DEFAULT_VIDEO_PRESETS,
   HISTORY_RETENTION_DAYS
@@ -23,7 +24,8 @@ export class SettingsStore {
       outputSuffix: '',
       video: { ...DEFAULT_VIDEO_OPTIONS },
       videoPresets: structuredClone(DEFAULT_VIDEO_PRESETS),
-      image: { ...DEFAULT_IMAGE_OPTIONS }
+      image: { ...DEFAULT_IMAGE_OPTIONS },
+      imagePresets: structuredClone(DEFAULT_IMAGE_PRESETS)
     }
     this.settings = this.read(defaults)
   }
@@ -57,7 +59,10 @@ export class SettingsStore {
         ...this.settings.image,
         ...input.image,
         quality: Math.min(100, Math.max(1, input.image?.quality ?? this.settings.image.quality))
-      }
+      },
+      imagePresets: input.imagePresets
+        ? structuredClone(input.imagePresets)
+        : this.settings.imagePresets
     }
     this.persist()
     return this.get()
@@ -86,7 +91,8 @@ export class SettingsStore {
           typeof saved.outputSuffix === 'string' ? saved.outputSuffix : defaults.outputSuffix,
         video: migrateVideoOptions(saved.video, defaults.video),
         videoPresets: migrateVideoPresets(saved.videoPresets, defaults.videoPresets),
-        image: { ...defaults.image, ...saved.image }
+        image: { ...defaults.image, ...saved.image },
+        imagePresets: migrateImagePresets(saved.imagePresets, defaults.imagePresets)
       }
     } catch {
       return defaults
@@ -152,6 +158,21 @@ function isStoredPresetList(value: unknown): value is LegacyVideoPreset[] {
         typeof preset.options === 'object'
     )
   )
+}
+
+function migrateImagePresets(value: unknown, defaults: ImagePreset[]): ImagePreset[] {
+  if (!Array.isArray(value) || value.length === 0) return structuredClone(defaults)
+  const presets = value.filter((preset): preset is ImagePreset =>
+    Boolean(
+      preset &&
+      typeof preset === 'object' &&
+      typeof preset.id === 'string' &&
+      typeof preset.name === 'string' &&
+      preset.options &&
+      typeof preset.options === 'object'
+    )
+  )
+  return presets.length > 0 ? structuredClone(presets) : structuredClone(defaults)
 }
 
 export function clampConcurrency(value: number): number {

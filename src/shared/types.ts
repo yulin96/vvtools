@@ -46,6 +46,12 @@ export interface ImageOptions {
   preserveStructure: boolean
 }
 
+export interface ImagePreset {
+  id: string
+  name: string
+  options: ImageOptions
+}
+
 export interface ImageInputFile {
   path: string
   relativeDirectory: string
@@ -61,6 +67,7 @@ export interface AppSettings {
   video: VideoOptions
   videoPresets: VideoPreset[]
   image: ImageOptions
+  imagePresets: ImagePreset[]
 }
 
 export interface TaskCommand {

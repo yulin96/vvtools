@@ -1,4 +1,4 @@
-import type { ImageOptions, VideoOptions, VideoPreset } from './types'
+import type { ImageOptions, ImagePreset, VideoOptions, VideoPreset } from './types'
 
 export const DEFAULT_VIDEO_OPTIONS: VideoOptions = {
   quality: 'balanced',
@@ -66,6 +66,44 @@ export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
   format: 'original',
   preserveStructure: true
 }
+
+export const DEFAULT_IMAGE_PRESETS: ImagePreset[] = [
+  {
+    id: 'image-original',
+    name: '原图整理',
+    options: { ...DEFAULT_IMAGE_OPTIONS }
+  },
+  {
+    id: 'image-web',
+    name: '网站图片',
+    options: {
+      ...DEFAULT_IMAGE_OPTIONS,
+      resizeMode: 'width',
+      width: 1920,
+      format: 'webp'
+    }
+  },
+  {
+    id: 'image-thumbnail',
+    name: '缩略图',
+    options: {
+      ...DEFAULT_IMAGE_OPTIONS,
+      resizeMode: 'width',
+      width: 600,
+      format: 'jpeg'
+    }
+  },
+  {
+    id: 'image-platform',
+    name: '平台上传',
+    options: {
+      ...DEFAULT_IMAGE_OPTIONS,
+      compressionMode: 'targetSize',
+      targetSizeKb: 500,
+      format: 'jpeg'
+    }
+  }
+]
 
 export const HISTORY_RETENTION_DAYS = [7, 30, 90] as const
 

@@ -57,6 +57,36 @@ const resizeLabel = computed(() => {
   if (image.resizeMode === 'height') return `高 ${image.height}px`
   return `${image.percentage}%`
 })
+const activePresetId = computed(() => {
+  if (!store.settings) return 'custom'
+  return (
+    store.settings.imagePresets.find((preset) =>
+      imageOptionsEqual(preset.options, store.settings!.image)
+    )?.id ?? 'custom'
+  )
+})
+
+function imageOptionsEqual(left: ImageOptions, right: ImageOptions): boolean {
+  return (
+    left.compressionMode === right.compressionMode &&
+    left.quality === right.quality &&
+    left.targetSizeKb === right.targetSizeKb &&
+    left.resizeMode === right.resizeMode &&
+    left.width === right.width &&
+    left.height === right.height &&
+    left.percentage === right.percentage &&
+    left.allowEnlargement === right.allowEnlargement &&
+    left.format === right.format &&
+    left.preserveStructure === right.preserveStructure
+  )
+}
+
+function applyPreset(event: Event): void {
+  if (!store.settings) return
+  const id = (event.target as HTMLSelectElement).value
+  const preset = store.settings.imagePresets.find((item) => item.id === id)
+  if (preset) void store.updateSettings({ image: { ...preset.options } })
+}
 
 function updateImage(patch: Partial<ImageOptions>): void {
   if (!store.settings) return
@@ -196,6 +226,21 @@ onBeforeUnmount(() => {
           </Button>
         </div>
         <div class="video-config-actions">
+          <label class="preset-picker">
+            <span class="sr-only">图片预设</span>
+            <select :value="activePresetId" aria-label="图片预设" @change="applyPreset">
+              <option v-if="activePresetId === 'custom'" value="custom" disabled>
+                预设：自定义参数
+              </option>
+              <option
+                v-for="preset in store.settings.imagePresets"
+                :key="preset.id"
+                :value="preset.id"
+              >
+                预设：{{ preset.name }}
+              </option>
+            </select>
+          </label>
           <OutputControls />
           <Button :disabled="pendingInputs.length === 0 || starting" @click="startProcessing">
             <Play class="size-4" />

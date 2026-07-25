@@ -2,6 +2,7 @@
 import { Cpu, Image, Plus, RefreshCw, Trash2, Video } from '@lucide/vue'
 import type {
   AppSettings,
+  ImageOptions,
   VideoAudioMode,
   VideoCodec,
   VideoFormat,
@@ -97,6 +98,75 @@ function removePreset(id: string): void {
   })
 }
 
+function addImagePreset(): void {
+  if (!store.settings || store.settings.imagePresets.length >= 20) return
+  void store.updateSettings({
+    imagePresets: [
+      ...store.settings.imagePresets,
+      {
+        id: `image-preset-${crypto.randomUUID()}`,
+        name: '新预设',
+        options: { ...store.settings.image }
+      }
+    ]
+  })
+}
+
+function updateImagePresetName(id: string, event: Event): void {
+  if (!store.settings) return
+  const target = event.target as HTMLInputElement
+  const name = target.value.trim()
+  const current = store.settings.imagePresets.find((preset) => preset.id === id)
+  if (!current) return
+  if (!name || name.length > 30) {
+    store.errorMessage = '预设名称必须是 1–30 个字符'
+    target.value = current.name
+    return
+  }
+  void store.updateSettings({
+    imagePresets: store.settings.imagePresets.map((preset) =>
+      preset.id === id ? { ...preset, name } : preset
+    )
+  })
+}
+
+function updateImagePresetOption<K extends keyof ImageOptions>(
+  id: string,
+  key: K,
+  value: ImageOptions[K]
+): void {
+  if (!store.settings) return
+  void store.updateSettings({
+    imagePresets: store.settings.imagePresets.map((preset) =>
+      preset.id === id ? { ...preset, options: { ...preset.options, [key]: value } } : preset
+    )
+  })
+}
+
+function removeImagePreset(id: string): void {
+  if (!store.settings || store.settings.imagePresets.length <= 1) return
+  void store.updateSettings({
+    imagePresets: store.settings.imagePresets.filter((preset) => preset.id !== id)
+  })
+}
+
+function imagePresetSummary(options: ImageOptions): string {
+  const format = options.format === 'original' ? '保持原格式' : options.format.toUpperCase()
+  const compression =
+    options.compressionMode === 'quality'
+      ? `质量 ${options.quality}`
+      : `不超过 ${options.targetSizeKb} KB`
+  const resize =
+    options.resizeMode === 'source'
+      ? '原始尺寸'
+      : options.resizeMode === 'width'
+        ? `宽 ${options.width}px`
+        : options.resizeMode === 'height'
+          ? `高 ${options.height}px`
+          : `${options.percentage}%`
+  return `${format} · ${compression} · ${resize}`
+}
+
 function presetSummary(options: VideoOptions): string {
   const format = options.format === 'source' ? '保持原格式' : options.format.toUpperCase()
   if (copiesVideo(options) && options.audioMode === 'copy') {
@@ -173,6 +243,214 @@ function copiesVideo(options: VideoOptions): boolean {
               <option value="quit">取消任务并退出</option>
             </select>
           </label>
+        </div>
+      </section>
+
+      <section class="settings-card settings-card-stack">
+        <div class="settings-section-heading">
+          <div class="settings-card-title">
+            <Image class="size-4" />
+            <div>
+              <h2>图片预设</h2>
+              <p>预设会显示在图片工作区顶部；新增预设会复制当前图片参数。</p>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            :disabled="store.settings.imagePresets.length >= 20"
+            @click="addImagePreset"
+          >
+            <Plus class="size-3.5" />新增预设
+          </Button>
+        </div>
+
+        <div class="preset-editor-list">
+          <article
+            v-for="preset in store.settings.imagePresets"
+            :key="preset.id"
+            class="preset-editor"
+          >
+            <header class="preset-editor-header">
+              <div class="min-w-0 flex-1">
+                <label class="sr-only" :for="`image-preset-name-${preset.id}`">预设名称</label>
+                <input
+                  :id="`image-preset-name-${preset.id}`"
+                  :value="preset.name"
+                  class="preset-name-input"
+                  maxlength="30"
+                  @change="updateImagePresetName(preset.id, $event)"
+                />
+                <p>{{ imagePresetSummary(preset.options) }}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                :disabled="store.settings.imagePresets.length <= 1"
+                :title="store.settings.imagePresets.length <= 1 ? '至少保留一个预设' : '删除预设'"
+                @click="removeImagePreset(preset.id)"
+              >
+                <Trash2 class="size-3.5" />删除
+              </Button>
+            </header>
+
+            <div class="preset-fields">
+              <label class="compact-field">
+                <span>压缩模式</span>
+                <select
+                  :value="preset.options.compressionMode"
+                  @change="
+                    updateImagePresetOption(
+                      preset.id,
+                      'compressionMode',
+                      ($event.target as HTMLSelectElement).value as ImageOptions['compressionMode']
+                    )
+                  "
+                >
+                  <option value="quality">按图片质量</option>
+                  <option value="targetSize">按目标大小</option>
+                </select>
+              </label>
+              <label class="compact-field">
+                <span>{{
+                  preset.options.compressionMode === 'quality' ? '图片质量' : '目标大小'
+                }}</span>
+                <div class="number-field">
+                  <input
+                    v-if="preset.options.compressionMode === 'quality'"
+                    :value="preset.options.quality"
+                    type="number"
+                    min="1"
+                    max="100"
+                    @change="
+                      updateImagePresetOption(
+                        preset.id,
+                        'quality',
+                        Number(($event.target as HTMLInputElement).value)
+                      )
+                    "
+                  />
+                  <input
+                    v-else
+                    :value="preset.options.targetSizeKb"
+                    type="number"
+                    min="1"
+                    max="100000"
+                    @change="
+                      updateImagePresetOption(
+                        preset.id,
+                        'targetSizeKb',
+                        Number(($event.target as HTMLInputElement).value)
+                      )
+                    "
+                  />
+                  <span>{{ preset.options.compressionMode === 'quality' ? '/ 100' : 'KB' }}</span>
+                </div>
+              </label>
+              <label class="compact-field">
+                <span>调整方式</span>
+                <select
+                  :value="preset.options.resizeMode"
+                  @change="
+                    updateImagePresetOption(
+                      preset.id,
+                      'resizeMode',
+                      ($event.target as HTMLSelectElement).value as ImageOptions['resizeMode']
+                    )
+                  "
+                >
+                  <option value="source">保持原始尺寸</option>
+                  <option value="width">指定宽度</option>
+                  <option value="height">指定高度</option>
+                  <option value="percentage">按百分比</option>
+                </select>
+              </label>
+              <label class="compact-field">
+                <span>尺寸参数</span>
+                <div class="number-field">
+                  <input
+                    v-if="preset.options.resizeMode === 'width'"
+                    :value="preset.options.width"
+                    type="number"
+                    min="1"
+                    max="32768"
+                    @change="
+                      updateImagePresetOption(
+                        preset.id,
+                        'width',
+                        Number(($event.target as HTMLInputElement).value)
+                      )
+                    "
+                  />
+                  <input
+                    v-else-if="preset.options.resizeMode === 'height'"
+                    :value="preset.options.height"
+                    type="number"
+                    min="1"
+                    max="32768"
+                    @change="
+                      updateImagePresetOption(
+                        preset.id,
+                        'height',
+                        Number(($event.target as HTMLInputElement).value)
+                      )
+                    "
+                  />
+                  <input
+                    v-else-if="preset.options.resizeMode === 'percentage'"
+                    :value="preset.options.percentage"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    @change="
+                      updateImagePresetOption(
+                        preset.id,
+                        'percentage',
+                        Number(($event.target as HTMLInputElement).value)
+                      )
+                    "
+                  />
+                  <input v-else value="无需设置" disabled />
+                  <span v-if="['width', 'height'].includes(preset.options.resizeMode)">px</span>
+                  <span v-else-if="preset.options.resizeMode === 'percentage'">%</span>
+                </div>
+              </label>
+              <label class="compact-field">
+                <span>输出格式</span>
+                <select
+                  :value="preset.options.format"
+                  @change="
+                    updateImagePresetOption(
+                      preset.id,
+                      'format',
+                      ($event.target as HTMLSelectElement).value as ImageOptions['format']
+                    )
+                  "
+                >
+                  <option value="original">保持原格式</option>
+                  <option value="jpeg">JPEG</option>
+                  <option value="png">PNG</option>
+                  <option value="webp">WebP</option>
+                </select>
+              </label>
+              <ToggleSwitch
+                label="目录结构"
+                :model-value="preset.options.preserveStructure"
+                enabled-text="保留层级"
+                disabled-text="合并输出"
+                @update:model-value="
+                  updateImagePresetOption(preset.id, 'preserveStructure', $event)
+                "
+              />
+              <ToggleSwitch
+                label="较小图片"
+                :model-value="preset.options.allowEnlargement"
+                enabled-text="允许放大"
+                disabled-text="不放大"
+                @update:model-value="updateImagePresetOption(preset.id, 'allowEnlargement', $event)"
+              />
+            </div>
+          </article>
         </div>
       </section>
 

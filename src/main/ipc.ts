@@ -6,6 +6,7 @@ import type {
   CreateTasksRequest,
   ImageFormat,
   ImageOptions,
+  ImagePreset,
   RuntimeCapabilities,
   TaskKind,
   VideoOptions,
@@ -170,6 +171,25 @@ function validateVideoPresets(value: unknown): VideoPreset[] {
   })
 }
 
+function validateImagePresets(value: unknown): ImagePreset[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 20) {
+    throw new Error('图片预设数量必须在 1–20 个之间')
+  }
+  const ids = new Set<string>()
+  return value.map((item) => {
+    if (!item || typeof item !== 'object') throw new Error('图片预设参数无效')
+    const preset = item as ImagePreset
+    const name = typeof preset.name === 'string' ? preset.name.trim() : ''
+    if (!/^[a-zA-Z0-9_-]{1,64}$/u.test(preset.id) || ids.has(preset.id)) {
+      throw new Error('图片预设标识无效或重复')
+    }
+    if (!name || name.length > 30) throw new Error('图片预设名称必须是 1–30 个字符')
+    validateImageOptions(preset.options, `图片预设“${name}”的参数无效`)
+    ids.add(preset.id)
+    return { id: preset.id, name, options: structuredClone(preset.options) }
+  })
+}
+
 function sanitizeSettings(input: unknown): Partial<AppSettings> {
   if (!input || typeof input !== 'object') throw new Error('设置参数无效')
   const value = input as Partial<AppSettings>
@@ -207,6 +227,9 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
   if (value.image) {
     validateImageOptions(value.image, '图片默认参数无效')
     result.image = structuredClone(value.image)
+  }
+  if (value.imagePresets !== undefined) {
+    result.imagePresets = validateImagePresets(value.imagePresets)
   }
   return result
 }

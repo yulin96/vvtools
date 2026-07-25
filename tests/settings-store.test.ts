@@ -36,15 +36,28 @@ describe('SettingsStore', () => {
       '中质量',
       '高质量'
     ])
+    expect(store.get().imagePresets.map((preset) => preset.name)).toEqual([
+      '原图整理',
+      '网站图片',
+      '缩略图',
+      '平台上传'
+    ])
 
     const presets = store.get().videoPresets
     presets[0] = { ...presets[0], name: '快速封装' }
     store.update({ videoPresets: presets })
+    const imagePresets = store.get().imagePresets
+    imagePresets[0] = { ...imagePresets[0], name: '交付原图' }
+    store.update({ imagePresets })
 
     const saved = JSON.parse(readFileSync(join(root, 'settings.json'), 'utf8'))
     expect(saved.videoPresets[0].name).toBe('快速封装')
+    expect(saved.imagePresets[0].name).toBe('交付原图')
     expect(new SettingsStore(root, join(root, 'downloads')).get().videoPresets[0].name).toBe(
       '快速封装'
+    )
+    expect(new SettingsStore(root, join(root, 'downloads')).get().imagePresets[0].name).toBe(
+      '交付原图'
     )
   })
 
