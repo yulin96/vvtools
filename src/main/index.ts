@@ -1,4 +1,13 @@
-import { app, shell, BrowserWindow, dialog, Menu, Notification, Tray } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  dialog,
+  Menu,
+  Notification,
+  systemPreferences,
+  Tray
+} from 'electron'
 import { dirname, join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -24,7 +33,10 @@ let batchWasActive = false
 const batchTaskIds = new Set<string>()
 
 app.setName('VVTools')
-if (process.platform !== 'darwin') {
+if (process.platform === 'darwin') {
+  // 强制本应用使用悬浮滚动条，不受系统"显示滚动条"偏好影响
+  systemPreferences.setUserDefault('AppleShowScrollBars', 'string', 'WhenScrolling')
+} else {
   app.commandLine.appendSwitch('enable-features', 'OverlayScrollbar,FluentOverlayScrollbar')
 }
 

@@ -486,6 +486,11 @@ body {
   transition: background-color var(--duration-fast) var(--ease-in-out);
 }
 
+.app-main:has(.page-swap-enter-active),
+.app-main:has(.page-swap-leave-active) {
+  overflow-y: hidden;
+}
+
 .route-view {
   min-height: 100%;
 }
