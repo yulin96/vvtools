@@ -219,10 +219,8 @@ onBeforeUnmount(() => {
         <div class="config-heading-main">
           <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
           <span class="shrink-0 text-sm font-semibold">视频设置</span>
-          <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
-            {{ formatLabel }} · {{ codecLabel }} · {{ qualityLabel }}
-          </span>
           <Button
+            class="config-expand-toggle"
             variant="ghost"
             size="sm"
             :aria-expanded="configExpanded"
@@ -232,6 +230,9 @@ onBeforeUnmount(() => {
             {{ configExpanded ? '收起设置' : '高级设置' }}
             <component :is="configExpanded ? ChevronUp : ChevronDown" class="size-3.5" />
           </Button>
+          <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
+            {{ formatLabel }} · {{ codecLabel }} · {{ qualityLabel }}
+          </span>
         </div>
         <div class="video-config-actions">
           <label class="preset-picker">

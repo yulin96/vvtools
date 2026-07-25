@@ -252,10 +252,8 @@ onBeforeUnmount(() => {
         <div class="config-heading-main">
           <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
           <span class="shrink-0 text-sm font-semibold">图片设置</span>
-          <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
-            {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
-          </span>
           <Button
+            class="config-expand-toggle"
             variant="ghost"
             size="sm"
             :aria-expanded="configExpanded"
@@ -265,6 +263,9 @@ onBeforeUnmount(() => {
             {{ configExpanded ? '收起设置' : '高级设置' }}
             <component :is="configExpanded ? ChevronUp : ChevronDown" class="size-3.5" />
           </Button>
+          <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
+            {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
+          </span>
         </div>
         <div class="video-config-actions">
           <label class="preset-picker">
@@ -437,7 +438,11 @@ onBeforeUnmount(() => {
         </fieldset>
       </div>
 
-      <div v-if="configExpanded" id="image-advanced-settings" class="video-config-expanded">
+      <div
+        v-if="configExpanded"
+        id="image-advanced-settings"
+        class="video-config-expanded image-config-expanded"
+      >
         <fieldset class="config-group">
           <legend>输出文件</legend>
           <div class="config-group-fields config-group-fields-single">
