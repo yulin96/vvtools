@@ -178,6 +178,12 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
   if (value.historyRetentionDays !== undefined) {
     result.historyRetentionDays = normalizeHistoryRetentionDays(value.historyRetentionDays)
   }
+  if (value.closeBehavior !== undefined) {
+    if (!['ask', 'minimizeToTray', 'quit'].includes(value.closeBehavior)) {
+      throw new Error('关闭窗口行为参数无效')
+    }
+    result.closeBehavior = value.closeBehavior
+  }
   if (value.outputMode !== undefined) {
     if (!['source', 'custom'].includes(value.outputMode)) throw new Error('输出位置参数无效')
     result.outputMode = value.outputMode

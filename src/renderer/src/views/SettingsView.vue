@@ -32,6 +32,13 @@ function updateHistoryRetention(event: Event): void {
   })
 }
 
+function updateCloseBehavior(event: Event): void {
+  if (!store.settings) return
+  void store.updateSettings({
+    closeBehavior: (event.target as HTMLSelectElement).value as AppSettings['closeBehavior']
+  })
+}
+
 function updateNested<K extends 'image'>(key: K, patch: Partial<AppSettings[K]>): void {
   if (!store.settings) return
   void store.updateSettings({ [key]: { ...store.settings[key], ...patch } })
@@ -152,6 +159,18 @@ function copiesVideo(options: VideoOptions): boolean {
               <option :value="7">7 天</option>
               <option :value="30">30 天（推荐）</option>
               <option :value="90">90 天</option>
+            </select>
+          </label>
+          <label class="field-label w-56">
+            <span>有任务时关闭窗口</span>
+            <select
+              :value="store.settings.closeBehavior"
+              class="field-control"
+              @change="updateCloseBehavior"
+            >
+              <option value="ask">每次询问（推荐）</option>
+              <option value="minimizeToTray">后台继续处理</option>
+              <option value="quit">取消任务并退出</option>
             </select>
           </label>
         </div>

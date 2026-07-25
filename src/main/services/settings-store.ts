@@ -17,6 +17,7 @@ export class SettingsStore {
     const defaults: AppSettings = {
       concurrency: 1,
       historyRetentionDays: 30,
+      closeBehavior: 'ask',
       outputMode: 'custom',
       outputDirectory: join(downloadsPath, 'VVTools'),
       outputSuffix: '',
@@ -37,6 +38,7 @@ export class SettingsStore {
       historyRetentionDays: normalizeHistoryRetentionDays(
         input.historyRetentionDays ?? this.settings.historyRetentionDays
       ),
+      closeBehavior: normalizeCloseBehavior(input.closeBehavior ?? this.settings.closeBehavior),
       outputMode:
         input.outputMode === 'source' || input.outputMode === 'custom'
           ? input.outputMode
@@ -71,6 +73,7 @@ export class SettingsStore {
         historyRetentionDays: normalizeHistoryRetentionDays(
           saved.historyRetentionDays ?? defaults.historyRetentionDays
         ),
+        closeBehavior: normalizeCloseBehavior(saved.closeBehavior ?? defaults.closeBehavior),
         outputMode:
           saved.outputMode === 'source' || saved.outputMode === 'custom'
             ? saved.outputMode
@@ -160,4 +163,8 @@ export function normalizeHistoryRetentionDays(value: number): number {
   return HISTORY_RETENTION_DAYS.includes(value as (typeof HISTORY_RETENTION_DAYS)[number])
     ? value
     : 30
+}
+
+function normalizeCloseBehavior(value: unknown): AppSettings['closeBehavior'] {
+  return value === 'ask' || value === 'minimizeToTray' || value === 'quit' ? value : 'ask'
 }

@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, dialog, Menu, Tray } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -12,7 +12,11 @@ import { registerIpc } from './ipc'
 
 let mainWindow: BrowserWindow | null = null
 let queue: TaskQueue | null = null
+let settingsStore: SettingsStore | null = null
+let tray: Tray | null = null
 let unregisterIpc: (() => void) | null = null
+let isQuitting = false
+let closeDialogOpen = false
 
 app.setName('VVTools')
 
@@ -54,6 +58,85 @@ function createWindow(): void {
   window.on('closed', () => {
     if (mainWindow === window) mainWindow = null
   })
+
+  window.on('close', (event) => {
+    if (isQuitting || activeTaskCount() === 0) return
+    event.preventDefault()
+    const behavior = settingsStore?.get().closeBehavior ?? 'ask'
+    if (behavior === 'minimizeToTray') {
+      continueInBackground()
+    } else if (behavior === 'quit') {
+      quitApplication()
+    } else {
+      void confirmActiveTaskClose()
+    }
+  })
+}
+
+function activeTaskCount(): number {
+  return (
+    queue?.list().filter((task) => task.status === 'pending' || task.status === 'processing')
+      .length ?? 0
+  )
+}
+
+function showMainWindow(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) createWindow()
+  mainWindow?.show()
+  mainWindow?.focus()
+}
+
+function ensureTray(): void {
+  if (tray) return
+  tray = new Tray(icon)
+  tray.setToolTip('VVTools')
+  tray.on('click', showMainWindow)
+  updateTrayMenu()
+}
+
+function updateTrayMenu(): void {
+  if (!tray) return
+  const count = activeTaskCount()
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: count > 0 ? `${count} 个任务处理中` : '当前没有处理中的任务', enabled: false },
+      { type: 'separator' },
+      { label: '显示 VVTools', click: showMainWindow },
+      { label: '退出', click: quitApplication }
+    ])
+  )
+}
+
+function continueInBackground(): void {
+  ensureTray()
+  mainWindow?.hide()
+}
+
+function quitApplication(): void {
+  isQuitting = true
+  app.quit()
+}
+
+async function confirmActiveTaskClose(): Promise<void> {
+  if (closeDialogOpen || !mainWindow) return
+  closeDialogOpen = true
+  try {
+    const count = activeTaskCount()
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      title: '仍有任务正在处理',
+      message: `还有 ${count} 个任务尚未完成`,
+      detail: '可以让 VVTools 在后台继续处理，或取消任务并退出应用。',
+      buttons: ['后台继续', '取消任务并退出', '返回'],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true
+    })
+    if (result.response === 0) continueInBackground()
+    else if (result.response === 1) quitApplication()
+  } finally {
+    closeDialogOpen = false
+  }
 }
 
 // This method will be called when Electron has finished
@@ -70,6 +153,7 @@ app.whenReady().then(() => {
   })
 
   const settings = new SettingsStore(app.getPath('userData'), app.getPath('downloads'))
+  settingsStore = settings
   const failureLogs = new FailureLogService(app.getPath('userData'))
   queue = new TaskQueue(
     settings.get().concurrency,
@@ -81,6 +165,7 @@ app.whenReady().then(() => {
     new TaskHistoryStore(app.getPath('userData')),
     settings.get().historyRetentionDays
   )
+  queue.on('changed', updateTrayMenu)
   unregisterIpc = registerIpc(() => mainWindow, queue, settings)
 
   createWindow()
@@ -102,6 +187,9 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  isQuitting = true
   queue?.shutdown()
   unregisterIpc?.()
+  tray?.destroy()
+  tray = null
 })

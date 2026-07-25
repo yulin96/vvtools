@@ -21,7 +21,8 @@ describe('SettingsStore', () => {
     expect(store.get()).toMatchObject({
       outputMode: 'custom',
       outputSuffix: '',
-      historyRetentionDays: 30
+      historyRetentionDays: 30,
+      closeBehavior: 'ask'
     })
     expect(store.get().image).toMatchObject({
       compressionMode: 'quality',
@@ -56,6 +57,7 @@ describe('SettingsStore', () => {
     store.update({
       outputMode: 'source',
       historyRetentionDays: 90,
+      closeBehavior: 'minimizeToTray',
       outputSuffix: '-compressed',
       image: {
         ...store.get().image,
@@ -72,6 +74,7 @@ describe('SettingsStore', () => {
     expect(new SettingsStore(root, downloads).get()).toMatchObject({
       outputMode: 'source',
       historyRetentionDays: 90,
+      closeBehavior: 'minimizeToTray',
       outputSuffix: '-compressed',
       image: {
         compressionMode: 'targetSize',

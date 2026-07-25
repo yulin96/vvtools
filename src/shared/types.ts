@@ -13,6 +13,7 @@ export type ImageFormat = 'original' | 'jpeg' | 'png' | 'webp'
 export type ImageCompressionMode = 'quality' | 'targetSize'
 export type ImageResizeMode = 'source' | 'width' | 'height' | 'percentage'
 export type OutputMode = 'source' | 'custom'
+export type CloseBehavior = 'ask' | 'minimizeToTray' | 'quit'
 
 export interface VideoOptions {
   quality: VideoQuality
@@ -53,6 +54,7 @@ export interface ImageInputFile {
 export interface AppSettings {
   concurrency: number
   historyRetentionDays: number
+  closeBehavior: CloseBehavior
   outputMode: OutputMode
   outputDirectory: string
   outputSuffix: string
