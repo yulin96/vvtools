@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { History, Images, Settings, Video, X } from '@lucide/vue'
+import { History, Images, Music, Settings, Video, X } from '@lucide/vue'
 import { useAppStore } from './stores/app'
 import appIcon from '../../../resources/icon.png'
 
@@ -8,6 +8,7 @@ const store = useAppStore()
 const navigation = [
   { to: '/image', label: '图片处理', icon: Images },
   { to: '/video', label: '视频处理', icon: Video },
+  { to: '/audio', label: '音频处理', icon: Music },
   { to: '/history', label: '任务历史', icon: History },
   { to: '/settings', label: '设置', icon: Settings }
 ]

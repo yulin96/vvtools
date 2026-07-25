@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, statSync } from 'fs'
 import { dirname, extname, isAbsolute, normalize, sep } from 'path'
 import type {
   AppSettings,
+  AudioOptions,
   CreateTasksRequest,
   ImageFormat,
   ImageOptions,
@@ -14,7 +15,12 @@ import type {
   VideoQuality,
   VideoResolution
 } from '../shared/types'
-import { IMAGE_EXTENSIONS, IPC_CHANNELS, VIDEO_EXTENSIONS } from '../shared/constants'
+import {
+  AUDIO_EXTENSIONS,
+  IMAGE_EXTENSIONS,
+  IPC_CHANNELS,
+  VIDEO_EXTENSIONS
+} from '../shared/constants'
 import { getRuntimeCapabilities } from './media/ffmpeg-runtime'
 import { collectImageInputs } from './media/image-inputs'
 import { inspectTasks } from './media/preflight'
@@ -47,14 +53,19 @@ function validateSourcePath(path: string, kind: TaskKind): void {
   ) {
     throw new Error(`文件不存在或不可访问：${path}`)
   }
-  const extensions = kind === 'video' ? VIDEO_EXTENSIONS : IMAGE_EXTENSIONS
+  const extensions =
+    kind === 'video'
+      ? VIDEO_EXTENSIONS
+      : kind === 'audio'
+        ? new Set([...AUDIO_EXTENSIONS, ...VIDEO_EXTENSIONS])
+        : IMAGE_EXTENSIONS
   if (!extensions.has(extname(path).toLowerCase())) throw new Error(`不支持的文件格式：${path}`)
 }
 
 function validateCreateRequest(value: unknown): CreateTasksRequest {
   if (!value || typeof value !== 'object') throw new Error('任务参数无效')
   const request = value as CreateTasksRequest
-  if (!['video', 'image'].includes(request.kind)) throw new Error('任务类型无效')
+  if (!['video', 'image', 'audio'].includes(request.kind)) throw new Error('任务类型无效')
   if (!['source', 'custom'].includes(request.outputMode)) throw new Error('输出位置参数无效')
   if (
     request.outputMode === 'custom' &&
@@ -79,7 +90,7 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
     if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
     request.sourcePaths.forEach((path) => validateSourcePath(path, 'video'))
     validateVideoOptions(request.options, '视频任务参数无效')
-  } else {
+  } else if (request.kind === 'image') {
     if (!Array.isArray(request.sources) || request.sources.length === 0) {
       throw new Error('请至少选择一张图片')
     }
@@ -90,11 +101,18 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
       validateRelativeDirectory(source.relativeDirectory)
     }
     validateImageOptions(request.options, '图片任务参数无效')
+  } else {
+    if (!Array.isArray(request.sourcePaths) || request.sourcePaths.length === 0) {
+      throw new Error('请至少选择一个音频或视频文件')
+    }
+    if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
+    request.sourcePaths.forEach((path) => validateSourcePath(path, 'audio'))
+    validateAudioOptions(request.options, '音频任务参数无效')
   }
   request.inputMetadata = sanitizeInputMetadata(
     request.inputMetadata,
     new Set(
-      request.kind === 'video' ? request.sourcePaths : request.sources.map((source) => source.path)
+      request.kind === 'image' ? request.sources.map((source) => source.path) : request.sourcePaths
     )
   )
   return structuredClone(request)
@@ -227,6 +245,18 @@ function validateImageOptions(options: ImageOptions, message: string): void {
   }
 }
 
+function validateAudioOptions(options: AudioOptions, message: string): void {
+  if (
+    !options ||
+    !['mp3', 'm4a', 'wav', 'flac'].includes(options.format) ||
+    ![96, 128, 192, 256, 320].includes(options.bitrateKbps) ||
+    !['source', 'mono', 'stereo'].includes(options.channels) ||
+    typeof options.normalizeLoudness !== 'boolean'
+  ) {
+    throw new Error(message)
+  }
+}
+
 function validateVideoPresets(value: unknown): VideoPreset[] {
   if (!Array.isArray(value) || value.length === 0 || value.length > 20) {
     throw new Error('视频预设数量必须在 1–20 个之间')
@@ -329,6 +359,10 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
   if (value.imagePresets !== undefined) {
     result.imagePresets = validateImagePresets(value.imagePresets)
   }
+  if (value.audio) {
+    validateAudioOptions(value.audio, '音频默认参数无效')
+    result.audio = structuredClone(value.audio)
+  }
   return result
 }
 
@@ -349,13 +383,22 @@ export function registerIpc(
 
   handle(IPC_CHANNELS.selectFiles, async (event, kind: TaskKind) => {
     assertTrusted(event, window())
-    if (!['video', 'image'].includes(kind)) throw new Error('文件类型无效')
+    if (!['video', 'image', 'audio'].includes(kind)) throw new Error('文件类型无效')
     const result = await dialog.showOpenDialog(window(), {
       properties: ['openFile', 'multiSelections'],
       filters:
         kind === 'video'
           ? [{ name: '视频文件', extensions: [...VIDEO_EXTENSIONS].map((item) => item.slice(1)) }]
-          : [{ name: '图片文件', extensions: [...IMAGE_EXTENSIONS].map((item) => item.slice(1)) }]
+          : kind === 'audio'
+            ? [
+                {
+                  name: '音频和视频文件',
+                  extensions: [...new Set([...AUDIO_EXTENSIONS, ...VIDEO_EXTENSIONS])].map((item) =>
+                    item.slice(1)
+                  )
+                }
+              ]
+            : [{ name: '图片文件', extensions: [...IMAGE_EXTENSIONS].map((item) => item.slice(1)) }]
     })
     return result.canceled ? [] : result.filePaths
   })

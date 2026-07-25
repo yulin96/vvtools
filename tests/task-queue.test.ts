@@ -243,6 +243,25 @@ describe('TaskQueue', () => {
     expect(task.outputPath).toBe(join(paths.output, 'source.mkv'))
   })
 
+  it('uses the selected audio output format', () => {
+    const paths = fixture()
+    const queue = new TaskQueue(1, async () => 1, new FailureLogService(paths.userData))
+    const [task] = queue.create({
+      kind: 'audio',
+      sourcePaths: [paths.source],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: {
+        format: 'flac',
+        bitrateKbps: 192,
+        channels: 'source',
+        normalizeLoudness: false
+      }
+    })
+    expect(task.outputPath).toBe(join(paths.output, 'source.flac'))
+  })
+
   it('preserves image directory structure when requested', () => {
     const paths = fixture()
     const queue = new TaskQueue(1, async () => 1, new FailureLogService(paths.userData))

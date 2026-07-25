@@ -1,6 +1,12 @@
 import { existsSync } from 'fs'
 import { extname, join, parse } from 'path'
-import type { ImageFormat, OutputConflictPolicy, TaskKind, VideoFormat } from '../../shared/types'
+import type {
+  AudioFormat,
+  ImageFormat,
+  OutputConflictPolicy,
+  TaskKind,
+  VideoFormat
+} from '../../shared/types'
 
 const IMAGE_EXTENSIONS: Record<Exclude<ImageFormat, 'original'>, string> = {
   jpeg: '.jpg',
@@ -12,13 +18,15 @@ export function getOutputExtension(
   kind: TaskKind,
   sourcePath: string,
   imageFormat?: ImageFormat,
-  videoFormat?: VideoFormat
+  videoFormat?: VideoFormat,
+  audioFormat?: AudioFormat
 ): string {
   if (kind === 'video') {
     if (!videoFormat) return '.mp4'
     if (videoFormat === 'source') return extname(sourcePath).toLowerCase()
     return `.${videoFormat}`
   }
+  if (kind === 'audio') return `.${audioFormat ?? 'mp3'}`
   if (imageFormat && imageFormat !== 'original') return IMAGE_EXTENSIONS[imageFormat]
   const extension = extname(sourcePath).toLowerCase()
   return extension === '.jpeg' ? '.jpg' : extension

@@ -36,6 +36,9 @@ function mediaSummary(item: MediaInspection): string {
     fields.push(`输出 ${item.outputWidth} × ${item.outputHeight}`)
   }
   if (item.videoCodec) fields.push(item.videoCodec.toUpperCase())
+  if (item.audioCodec) fields.push(item.audioCodec.toUpperCase())
+  if (item.channels) fields.push(`${item.channels} 声道`)
+  if (item.sampleRate) fields.push(`${Math.round(item.sampleRate / 1000)} kHz`)
   if (item.duration) fields.push(formatDuration(item.duration))
   fields.push(formatBytes(item.sourceSize))
   return fields.join(' · ')

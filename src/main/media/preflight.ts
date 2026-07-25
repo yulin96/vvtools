@@ -9,6 +9,7 @@ import type {
 } from '../../shared/types'
 import { getOutputExtension, resolveOutputPath } from './output-path'
 import { probeVideo } from './video-processor'
+import { probeAudio } from './audio-processor'
 
 interface InspectionSource {
   path: string
@@ -20,9 +21,9 @@ export async function inspectTasks(
   existingReservedPaths: ReadonlySet<string> = new Set()
 ): Promise<MediaInspection[]> {
   const sources: InspectionSource[] =
-    request.kind === 'video'
-      ? request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
-      : request.sources
+    request.kind === 'image'
+      ? request.sources
+      : request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
   const reservedPaths = new Set(existingReservedPaths)
 
   const inspections = await mapWithConcurrency(sources, 4, async (source) => {
@@ -44,6 +45,20 @@ export async function inspectTasks(
           outputHeight: outputDimensions.height,
           duration: probe.duration,
           videoCodec: probe.videoCodec
+        }
+      }
+      if (request.kind === 'audio') {
+        const probe = await probeAudio(source.path, new AbortController().signal)
+        return {
+          sourcePath: source.path,
+          outputPath: '',
+          valid: true,
+          sourceSize,
+          format: probe.format,
+          duration: probe.duration,
+          audioCodec: probe.audioCodec,
+          channels: probe.channels,
+          sampleRate: probe.sampleRate
         }
       }
 
@@ -88,7 +103,8 @@ export async function inspectTasks(
         request.kind,
         source.path,
         request.kind === 'image' ? request.options.format : undefined,
-        request.kind === 'video' ? request.options.format : undefined
+        request.kind === 'video' ? request.options.format : undefined,
+        request.kind === 'audio' ? request.options.format : undefined
       ),
       reservedPaths,
       outputSuffix: request.outputSuffix,

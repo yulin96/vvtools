@@ -1,4 +1,4 @@
-export type TaskKind = 'video' | 'image'
+export type TaskKind = 'video' | 'image' | 'audio'
 export type TaskStatus =
   'pending' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
 
@@ -17,6 +17,8 @@ export type OutputMode = 'source' | 'custom'
 export type CloseBehavior = 'ask' | 'minimizeToTray' | 'quit'
 export type OutputConflictPolicy = 'rename' | 'skip'
 export type CompletionAction = 'none' | 'openOutput'
+export type AudioFormat = 'mp3' | 'm4a' | 'wav' | 'flac'
+export type AudioChannels = 'source' | 'mono' | 'stereo'
 
 export interface VideoOptions {
   quality: VideoQuality
@@ -56,6 +58,13 @@ export interface ImagePreset {
   options: ImageOptions
 }
 
+export interface AudioOptions {
+  format: AudioFormat
+  bitrateKbps: number
+  channels: AudioChannels
+  normalizeLoudness: boolean
+}
+
 export interface ImageInputFile {
   path: string
   relativeDirectory: string
@@ -77,6 +86,7 @@ export interface AppSettings {
   videoPresets: VideoPreset[]
   image: ImageOptions
   imagePresets: ImagePreset[]
+  audio: AudioOptions
 }
 
 export interface TaskCommand {
@@ -100,7 +110,7 @@ export interface MediaTask {
   outputPath: string
   status: TaskStatus
   progress: number | null
-  options: VideoOptions | ImageOptions
+  options: VideoOptions | ImageOptions | AudioOptions
   sourceSize: number
   outputSize?: number
   createdAt: string
@@ -129,6 +139,9 @@ export interface MediaInspection {
   outputHeight?: number
   duration?: number
   videoCodec?: string
+  audioCodec?: string
+  channels?: number
+  sampleRate?: number
   error?: string
 }
 
@@ -162,6 +175,18 @@ export type CreateTasksRequest =
       presetName?: string
       inputMetadata?: MediaInputMetadata[]
       options: ImageOptions
+    }
+  | {
+      kind: 'audio'
+      sourcePaths: string[]
+      outputMode: OutputMode
+      outputDirectory: string
+      outputSuffix: string
+      outputNameTemplate?: string
+      outputConflictPolicy?: OutputConflictPolicy
+      presetName?: string
+      inputMetadata?: MediaInputMetadata[]
+      options: AudioOptions
     }
 
 export interface RuntimeCapabilities {

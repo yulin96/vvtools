@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bell, Cpu, FileOutput, Image, Plus, RefreshCw, Trash2, Video } from '@lucide/vue'
+import { Bell, Cpu, FileOutput, Image, Music, Plus, RefreshCw, Trash2, Video } from '@lucide/vue'
 import type {
   AppSettings,
   ImageOptions,
@@ -71,7 +71,7 @@ function updateCompletionAction(event: Event): void {
   })
 }
 
-function updateNested<K extends 'image'>(key: K, patch: Partial<AppSettings[K]>): void {
+function updateNested<K extends 'image' | 'audio'>(key: K, patch: Partial<AppSettings[K]>): void {
   if (!store.settings) return
   void store.updateSettings({ [key]: { ...store.settings[key], ...patch } })
 }
@@ -959,6 +959,79 @@ function copiesVideo(options: VideoOptions): boolean {
             enabled-text="允许放大"
             disabled-text="不放大"
             @update:model-value="updateNested('image', { allowEnlargement: $event })"
+          />
+        </div>
+      </section>
+
+      <section class="settings-card settings-card-stack">
+        <div class="settings-card-title">
+          <Music class="size-4" />
+          <div>
+            <h2>音频默认参数</h2>
+            <p>用于音频转换和从视频中提取音轨。</p>
+          </div>
+        </div>
+        <div class="preset-fields w-full">
+          <label class="compact-field">
+            <span>输出格式</span>
+            <select
+              :value="store.settings.audio.format"
+              @change="
+                updateNested('audio', {
+                  format: ($event.target as HTMLSelectElement)
+                    .value as AppSettings['audio']['format']
+                })
+              "
+            >
+              <option value="mp3">MP3</option>
+              <option value="m4a">M4A / AAC</option>
+              <option value="wav">WAV</option>
+              <option value="flac">FLAC</option>
+            </select>
+          </label>
+          <label
+            class="compact-field"
+            :class="{ 'opacity-45': ['wav', 'flac'].includes(store.settings.audio.format) }"
+          >
+            <span>音频码率</span>
+            <select
+              :value="store.settings.audio.bitrateKbps"
+              :disabled="['wav', 'flac'].includes(store.settings.audio.format)"
+              @change="
+                updateNested('audio', {
+                  bitrateKbps: Number(($event.target as HTMLSelectElement).value)
+                })
+              "
+            >
+              <option :value="96">96 kbps</option>
+              <option :value="128">128 kbps</option>
+              <option :value="192">192 kbps</option>
+              <option :value="256">256 kbps</option>
+              <option :value="320">320 kbps</option>
+            </select>
+          </label>
+          <label class="compact-field">
+            <span>声道</span>
+            <select
+              :value="store.settings.audio.channels"
+              @change="
+                updateNested('audio', {
+                  channels: ($event.target as HTMLSelectElement)
+                    .value as AppSettings['audio']['channels']
+                })
+              "
+            >
+              <option value="source">保持原始</option>
+              <option value="mono">单声道</option>
+              <option value="stereo">立体声</option>
+            </select>
+          </label>
+          <ToggleSwitch
+            label="响度标准化"
+            :model-value="store.settings.audio.normalizeLoudness"
+            enabled-text="已开启"
+            disabled-text="已关闭"
+            @update:model-value="updateNested('audio', { normalizeLoudness: $event })"
           />
         </div>
       </section>

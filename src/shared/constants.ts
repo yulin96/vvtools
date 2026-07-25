@@ -1,4 +1,4 @@
-import type { ImageOptions, ImagePreset, VideoOptions, VideoPreset } from './types'
+import type { AudioOptions, ImageOptions, ImagePreset, VideoOptions, VideoPreset } from './types'
 
 export const DEFAULT_VIDEO_OPTIONS: VideoOptions = {
   quality: 'balanced',
@@ -106,6 +106,13 @@ export const DEFAULT_IMAGE_PRESETS: ImagePreset[] = [
   }
 ]
 
+export const DEFAULT_AUDIO_OPTIONS: AudioOptions = {
+  format: 'mp3',
+  bitrateKbps: 192,
+  channels: 'source',
+  normalizeLoudness: false
+}
+
 export const HISTORY_RETENTION_DAYS = [7, 30, 90] as const
 
 export const VIDEO_EXTENSIONS = new Set([
@@ -120,6 +127,16 @@ export const VIDEO_EXTENSIONS = new Set([
 ])
 
 export const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp'])
+export const AUDIO_EXTENSIONS = new Set([
+  '.mp3',
+  '.m4a',
+  '.aac',
+  '.wav',
+  '.flac',
+  '.ogg',
+  '.opus',
+  '.wma'
+])
 
 export const IPC_CHANNELS = {
   selectFiles: 'files:select',

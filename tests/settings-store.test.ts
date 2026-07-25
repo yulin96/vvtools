@@ -35,6 +35,12 @@ describe('SettingsStore', () => {
       preserveStructure: true,
       metadataMode: 'colorProfile'
     })
+    expect(store.get().audio).toEqual({
+      format: 'mp3',
+      bitrateKbps: 192,
+      channels: 'source',
+      normalizeLoudness: false
+    })
 
     expect(store.get().videoPresets.map((preset) => preset.name)).toEqual([
       '保持原始',
@@ -93,6 +99,12 @@ describe('SettingsStore', () => {
         preserveStructure: false,
         allowEnlargement: true,
         metadataMode: 'all'
+      },
+      audio: {
+        format: 'flac',
+        bitrateKbps: 256,
+        channels: 'stereo',
+        normalizeLoudness: true
       }
     })
 
@@ -115,6 +127,12 @@ describe('SettingsStore', () => {
         preserveStructure: false,
         allowEnlargement: true,
         metadataMode: 'all'
+      },
+      audio: {
+        format: 'flac',
+        bitrateKbps: 256,
+        channels: 'stereo',
+        normalizeLoudness: true
       }
     })
   })

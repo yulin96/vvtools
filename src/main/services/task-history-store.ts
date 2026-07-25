@@ -7,7 +7,7 @@ interface StoredTaskHistory {
   tasks: MediaTask[]
 }
 
-const TASK_KINDS = new Set<TaskKind>(['video', 'image'])
+const TASK_KINDS = new Set<TaskKind>(['video', 'image', 'audio'])
 const TASK_STATUSES = new Set<TaskStatus>([
   'pending',
   'processing',

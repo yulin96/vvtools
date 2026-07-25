@@ -4,6 +4,7 @@ import { dirname, join } from 'path'
 import { EventEmitter } from 'events'
 import type {
   CreateTasksRequest,
+  AudioOptions,
   ImageOptions,
   MediaTask,
   TaskFailure,
@@ -43,9 +44,9 @@ export class TaskQueue extends EventEmitter {
 
   create(request: CreateTasksRequest): MediaTask[] {
     const sources =
-      request.kind === 'video'
-        ? request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
-        : request.sources
+      request.kind === 'image'
+        ? request.sources
+        : request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
     const metadata = new Map(request.inputMetadata?.map((item) => [item.path, item]))
     const created = sources.flatMap((source) => {
       const sourcePath = source.path
@@ -62,7 +63,8 @@ export class TaskQueue extends EventEmitter {
         request.kind,
         sourcePath,
         request.kind === 'image' ? request.options.format : undefined,
-        request.kind === 'video' ? request.options.format : undefined
+        request.kind === 'video' ? request.options.format : undefined,
+        request.kind === 'audio' ? request.options.format : undefined
       )
       const dimensions = metadata.get(sourcePath)
       const output = resolveOutputPath({
@@ -142,24 +144,36 @@ export class TaskQueue extends EventEmitter {
             ],
             options: structuredClone(original.options) as VideoOptions
           }
-        : {
-            kind: 'image',
-            sources: [{ path: original.sourcePath, relativeDirectory: '' }],
-            outputMode: 'custom',
-            outputDirectory: dirname(original.outputPath),
-            outputSuffix: original.outputSuffix ?? '',
-            outputNameTemplate: original.outputNameTemplate,
-            outputConflictPolicy: original.outputConflictPolicy,
-            presetName: original.presetName,
-            inputMetadata: [
-              {
-                path: original.sourcePath,
-                width: original.sourceWidth,
-                height: original.sourceHeight
-              }
-            ],
-            options: structuredClone(original.options) as ImageOptions
-          }
+        : original.kind === 'image'
+          ? {
+              kind: 'image',
+              sources: [{ path: original.sourcePath, relativeDirectory: '' }],
+              outputMode: 'custom',
+              outputDirectory: dirname(original.outputPath),
+              outputSuffix: original.outputSuffix ?? '',
+              outputNameTemplate: original.outputNameTemplate,
+              outputConflictPolicy: original.outputConflictPolicy,
+              presetName: original.presetName,
+              inputMetadata: [
+                {
+                  path: original.sourcePath,
+                  width: original.sourceWidth,
+                  height: original.sourceHeight
+                }
+              ],
+              options: structuredClone(original.options) as ImageOptions
+            }
+          : {
+              kind: 'audio',
+              sourcePaths: [original.sourcePath],
+              outputMode: 'custom',
+              outputDirectory: dirname(original.outputPath),
+              outputSuffix: original.outputSuffix ?? '',
+              outputNameTemplate: original.outputNameTemplate,
+              outputConflictPolicy: original.outputConflictPolicy,
+              presetName: original.presetName,
+              options: structuredClone(original.options) as AudioOptions
+            }
     if (!existsSync(original.outputPath)) this.reservedPaths.delete(original.outputPath)
     const task = this.create(request)[0]
     if (!task) return null

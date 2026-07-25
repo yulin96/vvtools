@@ -106,6 +106,7 @@ async function clearFinished(): Promise<void> {
           <option value="all">全部类型</option>
           <option value="image">图片</option>
           <option value="video">视频</option>
+          <option value="audio">音频</option>
         </select>
       </label>
       <label class="field-label w-36">

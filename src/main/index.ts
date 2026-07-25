@@ -8,6 +8,7 @@ import { TaskQueue } from './services/task-queue'
 import { TaskHistoryStore } from './services/task-history-store'
 import { processVideo } from './media/video-processor'
 import { processImage } from './media/image-processor'
+import { processAudio } from './media/audio-processor'
 import { registerIpc } from './ipc'
 import type { MediaTask } from '../shared/types'
 import { batchSummaryText, summarizeBatch } from './services/completion'
@@ -211,7 +212,9 @@ app.whenReady().then(() => {
     (task, signal, onProgress) =>
       task.kind === 'video'
         ? processVideo(task, signal, onProgress, failureLogs)
-        : processImage(task, signal, onProgress),
+        : task.kind === 'audio'
+          ? processAudio(task, signal, onProgress, failureLogs)
+          : processImage(task, signal, onProgress),
     failureLogs,
     new TaskHistoryStore(app.getPath('userData')),
     settings.get().historyRetentionDays

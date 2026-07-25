@@ -4,6 +4,7 @@ import type { AppSettings, ImagePreset, VideoOptions, VideoPreset } from '../../
 import {
   DEFAULT_IMAGE_OPTIONS,
   DEFAULT_IMAGE_PRESETS,
+  DEFAULT_AUDIO_OPTIONS,
   DEFAULT_VIDEO_OPTIONS,
   DEFAULT_VIDEO_PRESETS,
   HISTORY_RETENTION_DAYS
@@ -30,7 +31,8 @@ export class SettingsStore {
       video: { ...DEFAULT_VIDEO_OPTIONS },
       videoPresets: structuredClone(DEFAULT_VIDEO_PRESETS),
       image: { ...DEFAULT_IMAGE_OPTIONS },
-      imagePresets: structuredClone(DEFAULT_IMAGE_PRESETS)
+      imagePresets: structuredClone(DEFAULT_IMAGE_PRESETS),
+      audio: { ...DEFAULT_AUDIO_OPTIONS }
     }
     this.settings = this.read(defaults)
   }
@@ -87,7 +89,8 @@ export class SettingsStore {
       },
       imagePresets: input.imagePresets
         ? structuredClone(input.imagePresets)
-        : this.settings.imagePresets
+        : this.settings.imagePresets,
+      audio: { ...this.settings.audio, ...input.audio }
     }
     this.persist()
     return this.get()
@@ -137,7 +140,8 @@ export class SettingsStore {
         video: migrateVideoOptions(saved.video, defaults.video),
         videoPresets: migrateVideoPresets(saved.videoPresets, defaults.videoPresets),
         image: { ...defaults.image, ...saved.image },
-        imagePresets: migrateImagePresets(saved.imagePresets, defaults.imagePresets)
+        imagePresets: migrateImagePresets(saved.imagePresets, defaults.imagePresets),
+        audio: { ...defaults.audio, ...saved.audio }
       }
     } catch {
       return defaults
