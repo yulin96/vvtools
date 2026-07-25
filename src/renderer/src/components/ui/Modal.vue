@@ -29,7 +29,7 @@ defineEmits<{ 'update:open': [value: boolean] }>()
         </div>
         <slot />
         <DialogClose
-          class="absolute right-4 top-4 rounded p-1 text-muted-foreground hover:bg-muted"
+          class="modal-close absolute right-4 top-4 rounded p-1 text-muted-foreground hover:bg-muted"
           aria-label="关闭"
         >
           <X class="size-4" />

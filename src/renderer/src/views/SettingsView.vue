@@ -251,7 +251,7 @@ function copiesVideo(options: VideoOptions): boolean {
             <p>控制同时处理的文件数量。</p>
           </div>
         </div>
-        <div class="flex gap-4">
+        <div class="settings-card-controls flex gap-4">
           <label class="field-label w-56">
             <span>并发数</span>
             <select
@@ -299,7 +299,7 @@ function copiesVideo(options: VideoOptions): boolean {
             <p>为所有媒体任务设置安全的文件名模板和重名处理方式。</p>
           </div>
         </div>
-        <div class="flex flex-1 justify-end gap-4">
+        <div class="settings-card-controls flex flex-1 justify-end gap-4">
           <label class="field-label min-w-80">
             <span>命名模板</span>
             <input
@@ -334,7 +334,7 @@ function copiesVideo(options: VideoOptions): boolean {
             <p>一轮任务全部结束后汇总成功、失败和取消数量。</p>
           </div>
         </div>
-        <div class="flex flex-1 justify-end gap-4">
+        <div class="settings-card-controls flex flex-1 justify-end gap-4">
           <ToggleSwitch
             label="系统通知"
             :model-value="store.settings.completionNotification"

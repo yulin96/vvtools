@@ -56,7 +56,7 @@ async function clearFinished(): Promise<void> {
         <h1>任务历史</h1>
         <p>查看处理结果、重新执行失败任务并管理本地历史记录。</p>
       </div>
-      <div class="flex flex-wrap items-center justify-end gap-2">
+      <div class="page-header-actions flex flex-wrap items-center justify-end gap-2">
         <Button
           variant="secondary"
           :disabled="store.activeCount === 0 && !store.queuePaused"
@@ -92,7 +92,7 @@ async function clearFinished(): Promise<void> {
       </div>
     </header>
 
-    <section class="settings-card mb-4 gap-3" aria-label="任务历史筛选">
+    <section class="settings-card history-filter-card mb-4 gap-3" aria-label="任务历史筛选">
       <div class="settings-card-title mr-auto">
         <History class="size-4" />
         <div>

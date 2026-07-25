@@ -36,6 +36,7 @@
   --danger-fg: #b52f2f;
   --warning-bg: #fff4dc;
   --warning-fg: #91600a;
+  --shell-gap: 8px;
   --duration-quick: 150ms;
   --duration-fast: 250ms;
   --duration-medium: 350ms;
@@ -138,11 +139,11 @@ body {
 .app-shell {
   position: relative;
   display: flex;
-  gap: 8px;
+  gap: var(--shell-gap);
   height: 100vh;
   min-height: 0;
   background: var(--workspace);
-  padding-left: 8px;
+  padding: var(--shell-gap);
   color: var(--foreground);
 }
 
@@ -154,6 +155,11 @@ body {
   left: 0;
   height: 40px;
   -webkit-app-region: drag;
+}
+
+.app-platform-mac .window-titlebar {
+  right: auto;
+  width: 236px;
 }
 
 .mac-window-controls,
@@ -226,7 +232,6 @@ body {
   flex-shrink: 0;
   flex-direction: column;
   overflow: hidden;
-  margin: 8px 0;
   border: 1px solid var(--sidebar-border);
   border-radius: 16px;
   background: var(--sidebar);
@@ -514,24 +519,34 @@ body {
   background: rgb(255 255 255 / 15%);
 }
 
+.app-alert-close:focus-visible,
+.modal-close:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 .page-swap-enter-active,
 .page-swap-leave-active {
   transition:
-    opacity var(--duration-fast) var(--ease-smooth-out),
-    transform var(--duration-fast) var(--ease-smooth-out),
-    filter var(--duration-fast) var(--ease-smooth-out);
+    opacity 180ms var(--ease-smooth-out),
+    transform 180ms var(--ease-smooth-out);
+}
+
+.page-swap-leave-active {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  pointer-events: none;
 }
 
 .page-swap-enter-from {
   opacity: 0;
-  filter: blur(2px);
-  transform: translateY(8px);
+  transform: translateY(4px);
 }
 
 .page-swap-leave-to {
   opacity: 0;
-  filter: blur(2px);
-  transform: translateY(-4px);
+  transform: translateY(-2px);
 }
 
 button,
@@ -553,8 +568,12 @@ textarea,
   display: flex;
   min-height: 100%;
   flex-direction: column;
-  gap: 22px;
+  gap: 24px;
   padding: 40px 20px 36px;
+}
+
+.app-platform-mac .page-container {
+  padding-top: 24px;
 }
 
 .page-header {
@@ -691,7 +710,7 @@ textarea,
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 28px;
+  gap: 24px;
   padding: 18px;
 }
 
@@ -709,25 +728,15 @@ textarea,
   min-height: 620px;
   overflow: hidden;
   flex-direction: column;
-  background: var(--workspace);
-  transition: background-color 180ms ease-out;
-}
-
-.video-drop-workspace::after {
-  position: absolute;
-  inset: 8px 8px 8px 0;
-  z-index: 0;
   border: 1px dashed var(--border);
   border-radius: 16px;
   background: var(--background);
-  content: '';
-  pointer-events: none;
   transition:
     border-color 180ms ease-out,
     background-color 180ms ease-out;
 }
 
-.video-drop-workspace-active::after {
+.video-drop-workspace-active {
   border-color: var(--accessible-cyan);
   background: var(--drop-active);
 }
@@ -736,7 +745,7 @@ textarea,
   position: relative;
   z-index: 20;
   flex-shrink: 0;
-  margin: 40px 14px 0;
+  margin: 40px var(--shell-gap) 0;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--background);
@@ -744,7 +753,7 @@ textarea,
 }
 
 .app-platform-mac .video-config-panel {
-  margin-top: 12px;
+  margin-top: var(--shell-gap);
 }
 
 .video-config-heading {
@@ -1026,9 +1035,9 @@ textarea,
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   overflow: auto;
-  padding: 16px 14px 14px;
+  padding: 16px var(--shell-gap) var(--shell-gap);
 }
 
 .pending-file-panel,
@@ -1306,6 +1315,46 @@ html[data-theme='dark'] .bg-slate-950 {
 }
 
 @media (max-width: 1100px) {
+  .page-header {
+    min-height: 0;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .page-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .settings-card:not(.settings-card-stack):not(.history-filter-card) {
+    flex-direction: column;
+  }
+
+  .history-filter-card {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .history-filter-card .settings-card-title {
+    width: 100%;
+    max-width: none;
+    flex: 0 0 100%;
+  }
+
+  .settings-card-controls {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .settings-card-controls > .field-label,
+  .settings-card-controls > .compact-field,
+  .history-filter-card > .field-label {
+    width: auto;
+    min-width: 190px;
+    flex: 1 1 190px;
+  }
+
   .video-config-heading {
     flex-wrap: wrap;
   }

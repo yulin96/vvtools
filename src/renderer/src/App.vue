@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
         </button>
       </div>
       <RouterView v-slot="{ Component, route }">
-        <Transition name="page-swap" mode="out-in">
+        <Transition name="page-swap">
           <div :key="route.path" class="route-view">
             <component :is="Component" />
           </div>
