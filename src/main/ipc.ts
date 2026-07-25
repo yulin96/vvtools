@@ -63,6 +63,14 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
     throw new Error('输出目录无效')
   }
   request.outputSuffix = sanitizeOutputSuffix(request.outputSuffix)
+  request.outputNameTemplate = sanitizeOutputNameTemplate(
+    request.outputNameTemplate ?? '{name}{suffix}'
+  )
+  request.outputConflictPolicy = request.outputConflictPolicy ?? 'rename'
+  if (!['rename', 'skip'].includes(request.outputConflictPolicy)) {
+    throw new Error('输出冲突策略无效')
+  }
+  request.presetName = sanitizePresetName(request.presetName)
 
   if (request.kind === 'video') {
     if (!Array.isArray(request.sourcePaths) || request.sourcePaths.length === 0) {
@@ -83,6 +91,12 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
     }
     validateImageOptions(request.options, '图片任务参数无效')
   }
+  request.inputMetadata = sanitizeInputMetadata(
+    request.inputMetadata,
+    new Set(
+      request.kind === 'video' ? request.sourcePaths : request.sources.map((source) => source.path)
+    )
+  )
   return structuredClone(request)
 }
 
@@ -96,6 +110,65 @@ function sanitizeOutputSuffix(value: unknown): string {
     throw new Error('输出文件后缀不能超过 50 个字符，且不能包含文件名非法字符')
   }
   return suffix
+}
+
+function sanitizeOutputNameTemplate(value: unknown): string {
+  if (typeof value !== 'string') throw new Error('输出命名模板无效')
+  const template = value.trim()
+  const literals = template.replace(/\{(?:name|suffix|preset|width|height|date)\}/gu, '')
+  const invalidLiteral = [...literals].some(
+    (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*{}'.includes(character)
+  )
+  if (!template || template.length > 100 || !template.includes('{name}') || invalidLiteral) {
+    throw new Error('输出命名模板必须包含 {name}，长度不能超过 100，且只能使用受支持的变量')
+  }
+  return template
+}
+
+function sanitizePresetName(value: unknown): string {
+  if (value === undefined) return '自定义'
+  if (typeof value !== 'string' || !value.trim() || value.trim().length > 30) {
+    throw new Error('输出预设名称无效')
+  }
+  return value.trim()
+}
+
+function sanitizeInputMetadata(
+  value: unknown,
+  sourcePaths: ReadonlySet<string>
+): CreateTasksRequest['inputMetadata'] {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.length > sourcePaths.size) {
+    throw new Error('媒体尺寸信息无效')
+  }
+  const paths = new Set<string>()
+  return value.map((item) => {
+    if (!item || typeof item !== 'object') throw new Error('媒体尺寸信息无效')
+    const metadata = item as { path?: unknown; width?: unknown; height?: unknown }
+    if (
+      typeof metadata.path !== 'string' ||
+      !sourcePaths.has(metadata.path) ||
+      paths.has(metadata.path)
+    ) {
+      throw new Error('媒体尺寸信息与源文件不匹配')
+    }
+    for (const dimension of [metadata.width, metadata.height]) {
+      if (
+        dimension !== undefined &&
+        (!Number.isInteger(dimension) ||
+          (dimension as number) < 1 ||
+          (dimension as number) > 32_768)
+      ) {
+        throw new Error('媒体尺寸信息无效')
+      }
+    }
+    paths.add(metadata.path)
+    return {
+      path: metadata.path,
+      width: metadata.width as number | undefined,
+      height: metadata.height as number | undefined
+    }
+  })
 }
 
 function validateRelativeDirectory(value: string): void {
@@ -217,6 +290,15 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
   }
   if (value.outputSuffix !== undefined) {
     result.outputSuffix = sanitizeOutputSuffix(value.outputSuffix)
+  }
+  if (value.outputNameTemplate !== undefined) {
+    result.outputNameTemplate = sanitizeOutputNameTemplate(value.outputNameTemplate)
+  }
+  if (value.outputConflictPolicy !== undefined) {
+    if (!['rename', 'skip'].includes(value.outputConflictPolicy)) {
+      throw new Error('输出冲突策略无效')
+    }
+    result.outputConflictPolicy = value.outputConflictPolicy
   }
   if (value.video) {
     validateVideoOptions(value.video, '视频默认参数无效')

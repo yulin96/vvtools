@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { mkdirSync, statSync } from 'fs'
+import { existsSync, mkdirSync, statSync } from 'fs'
 import { dirname, join } from 'path'
 import { EventEmitter } from 'events'
 import type {
@@ -11,7 +11,7 @@ import type {
 } from '../../shared/types'
 import { FailureLogService } from './failure-log'
 import { MediaProcessError, TaskCancelledError } from '../media/errors'
-import { createAvailableOutputPath, getOutputExtension } from '../media/output-path'
+import { getOutputExtension, resolveOutputPath } from '../media/output-path'
 import { TaskHistoryStore } from './task-history-store'
 
 export type TaskRunner = (
@@ -46,7 +46,8 @@ export class TaskQueue extends EventEmitter {
       request.kind === 'video'
         ? request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
         : request.sources
-    const created = sources.map((source) => {
+    const metadata = new Map(request.inputMetadata?.map((item) => [item.path, item]))
+    const created = sources.flatMap((source) => {
       const sourcePath = source.path
       const outputDirectory =
         request.outputMode === 'source'
@@ -63,26 +64,39 @@ export class TaskQueue extends EventEmitter {
         request.kind === 'image' ? request.options.format : undefined,
         request.kind === 'video' ? request.options.format : undefined
       )
+      const dimensions = metadata.get(sourcePath)
+      const output = resolveOutputPath({
+        sourcePath,
+        outputDirectory,
+        extension,
+        reservedPaths: this.reservedPaths,
+        outputSuffix: request.outputSuffix,
+        nameTemplate: request.outputNameTemplate,
+        conflictPolicy: request.outputConflictPolicy,
+        presetName: request.presetName,
+        width: dimensions?.width,
+        height: dimensions?.height
+      })
+      if (output.skipped) return []
       const task: MediaTask = {
         id: randomUUID(),
         kind: request.kind,
         sourcePath,
-        outputPath: createAvailableOutputPath(
-          sourcePath,
-          outputDirectory,
-          extension,
-          this.reservedPaths,
-          request.outputSuffix
-        ),
+        outputPath: output.path,
         status: 'pending',
         progress: 0,
         options: structuredClone(request.options),
         outputSuffix: request.outputSuffix,
+        outputNameTemplate: request.outputNameTemplate,
+        outputConflictPolicy: request.outputConflictPolicy,
+        presetName: request.presetName,
+        sourceWidth: dimensions?.width,
+        sourceHeight: dimensions?.height,
         sourceSize: statSync(sourcePath).size,
         createdAt: new Date().toISOString()
       }
       this.tasks.set(task.id, task)
-      return structuredClone(task)
+      return [structuredClone(task)]
     })
     this.changed()
     this.persist()
@@ -116,6 +130,16 @@ export class TaskQueue extends EventEmitter {
             outputMode: 'custom',
             outputDirectory: dirname(original.outputPath),
             outputSuffix: original.outputSuffix ?? '',
+            outputNameTemplate: original.outputNameTemplate,
+            outputConflictPolicy: original.outputConflictPolicy,
+            presetName: original.presetName,
+            inputMetadata: [
+              {
+                path: original.sourcePath,
+                width: original.sourceWidth,
+                height: original.sourceHeight
+              }
+            ],
             options: structuredClone(original.options) as VideoOptions
           }
         : {
@@ -124,9 +148,21 @@ export class TaskQueue extends EventEmitter {
             outputMode: 'custom',
             outputDirectory: dirname(original.outputPath),
             outputSuffix: original.outputSuffix ?? '',
+            outputNameTemplate: original.outputNameTemplate,
+            outputConflictPolicy: original.outputConflictPolicy,
+            presetName: original.presetName,
+            inputMetadata: [
+              {
+                path: original.sourcePath,
+                width: original.sourceWidth,
+                height: original.sourceHeight
+              }
+            ],
             options: structuredClone(original.options) as ImageOptions
           }
+    if (!existsSync(original.outputPath)) this.reservedPaths.delete(original.outputPath)
     const task = this.create(request)[0]
+    if (!task) return null
     const stored = this.tasks.get(task.id)
     if (stored) stored.retryOf = original.id
     this.changed()

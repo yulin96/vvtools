@@ -14,6 +14,7 @@ export type ImageCompressionMode = 'quality' | 'targetSize'
 export type ImageResizeMode = 'source' | 'width' | 'height' | 'percentage'
 export type OutputMode = 'source' | 'custom'
 export type CloseBehavior = 'ask' | 'minimizeToTray' | 'quit'
+export type OutputConflictPolicy = 'rename' | 'skip'
 
 export interface VideoOptions {
   quality: VideoQuality
@@ -64,6 +65,8 @@ export interface AppSettings {
   outputMode: OutputMode
   outputDirectory: string
   outputSuffix: string
+  outputNameTemplate: string
+  outputConflictPolicy: OutputConflictPolicy
   video: VideoOptions
   videoPresets: VideoPreset[]
   image: ImageOptions
@@ -99,6 +102,11 @@ export interface MediaTask {
   completedAt?: string
   retryOf?: string
   outputSuffix?: string
+  outputNameTemplate?: string
+  outputConflictPolicy?: OutputConflictPolicy
+  presetName?: string
+  sourceWidth?: number
+  sourceHeight?: number
   failure?: TaskFailure
 }
 
@@ -106,13 +114,22 @@ export interface MediaInspection {
   sourcePath: string
   outputPath: string
   valid: boolean
+  skipped?: boolean
   sourceSize: number
   format?: string
   width?: number
   height?: number
+  outputWidth?: number
+  outputHeight?: number
   duration?: number
   videoCodec?: string
   error?: string
+}
+
+export interface MediaInputMetadata {
+  path: string
+  width?: number
+  height?: number
 }
 
 export type CreateTasksRequest =
@@ -122,6 +139,10 @@ export type CreateTasksRequest =
       outputMode: OutputMode
       outputDirectory: string
       outputSuffix: string
+      outputNameTemplate?: string
+      outputConflictPolicy?: OutputConflictPolicy
+      presetName?: string
+      inputMetadata?: MediaInputMetadata[]
       options: VideoOptions
     }
   | {
@@ -130,6 +151,10 @@ export type CreateTasksRequest =
       outputMode: OutputMode
       outputDirectory: string
       outputSuffix: string
+      outputNameTemplate?: string
+      outputConflictPolicy?: OutputConflictPolicy
+      presetName?: string
+      inputMetadata?: MediaInputMetadata[]
       options: ImageOptions
     }
 

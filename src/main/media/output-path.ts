@@ -1,6 +1,6 @@
 import { existsSync } from 'fs'
 import { extname, join, parse } from 'path'
-import type { ImageFormat, TaskKind, VideoFormat } from '../../shared/types'
+import type { ImageFormat, OutputConflictPolicy, TaskKind, VideoFormat } from '../../shared/types'
 
 const IMAGE_EXTENSIONS: Record<Exclude<ImageFormat, 'original'>, string> = {
   jpeg: '.jpg',
@@ -31,16 +31,87 @@ export function createAvailableOutputPath(
   reservedPaths: Set<string>,
   outputSuffix = ''
 ): string {
-  const baseName = parse(sourcePath).name
+  return resolveOutputPath({
+    sourcePath,
+    outputDirectory,
+    extension,
+    reservedPaths,
+    outputSuffix
+  }).path
+}
+
+interface ResolveOutputPathOptions {
+  sourcePath: string
+  outputDirectory: string
+  extension: string
+  reservedPaths: Set<string>
+  outputSuffix?: string
+  nameTemplate?: string
+  conflictPolicy?: OutputConflictPolicy
+  presetName?: string
+  width?: number
+  height?: number
+  date?: Date
+}
+
+export interface ResolvedOutputPath {
+  path: string
+  skipped: boolean
+}
+
+export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOutputPath {
+  const {
+    sourcePath,
+    outputDirectory,
+    extension,
+    reservedPaths,
+    nameTemplate = '{name}{suffix}',
+    conflictPolicy = 'rename'
+  } = options
+  const baseName = renderOutputBaseName(sourcePath, nameTemplate, options)
   let index = 0
 
   while (true) {
-    const suffix = index === 0 ? outputSuffix : `${outputSuffix}_${index}`
-    const candidate = join(outputDirectory, `${baseName}${suffix}${extension}`)
+    const numberedSuffix = index === 0 ? '' : `_${index}`
+    const candidate = join(outputDirectory, `${baseName}${numberedSuffix}${extension}`)
     if (!existsSync(candidate) && !reservedPaths.has(candidate)) {
       reservedPaths.add(candidate)
-      return candidate
+      return { path: candidate, skipped: false }
     }
+    if (conflictPolicy === 'skip') return { path: candidate, skipped: true }
     index += 1
   }
+}
+
+export function renderOutputBaseName(
+  sourcePath: string,
+  template: string,
+  context: Pick<
+    ResolveOutputPathOptions,
+    'outputSuffix' | 'presetName' | 'width' | 'height' | 'date'
+  > = {}
+): string {
+  const date = context.date ?? new Date()
+  const values: Record<string, string> = {
+    name: parse(sourcePath).name,
+    suffix: context.outputSuffix ?? '',
+    preset: context.presetName ?? '自定义',
+    width: context.width ? String(context.width) : '未知',
+    height: context.height ? String(context.height) : '未知',
+    date: [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0')
+    ].join('')
+  }
+  const rendered = template.replace(
+    /\{(name|suffix|preset|width|height|date)\}/gu,
+    (_, token: string) => values[token]
+  )
+  const safe = rendered
+    .replace(/[<>:"/\\|?*]/gu, '_')
+    .replace(/./gu, (character) => (character.charCodeAt(0) < 32 ? '_' : character))
+    .replace(/[. ]+$/gu, '')
+    .trim()
+  return safe || parse(sourcePath).name
 }

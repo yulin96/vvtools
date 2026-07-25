@@ -71,6 +71,11 @@ const activePresetId = computed(() => {
     )?.id ?? 'custom'
   )
 })
+const activePresetName = computed(
+  () =>
+    store.settings?.imagePresets.find((preset) => preset.id === activePresetId.value)?.name ??
+    '自定义'
+)
 
 function imageOptionsEqual(left: ImageOptions, right: ImageOptions): boolean {
   return (
@@ -148,6 +153,9 @@ async function startProcessing(): Promise<void> {
     outputMode: settings.outputMode,
     outputDirectory: settings.outputDirectory,
     outputSuffix: settings.outputSuffix,
+    outputNameTemplate: settings.outputNameTemplate,
+    outputConflictPolicy: settings.outputConflictPolicy,
+    presetName: activePresetName.value,
     options: { ...settings.image }
   }
   starting.value = true
@@ -162,16 +170,23 @@ async function startProcessing(): Promise<void> {
 async function confirmProcessing(): Promise<void> {
   const request = preparedRequest.value
   if (!request || request.kind !== 'image') return
-  const validPaths = new Set(
-    inspections.value.filter((item) => item.valid).map((item) => item.sourcePath)
+  const acceptedPaths = new Set(
+    inspections.value.filter((item) => item.valid || item.skipped).map((item) => item.sourcePath)
   )
   preflightOpen.value = false
   const created = await store.createTasks({
     ...request,
-    sources: request.sources.filter((source) => validPaths.has(source.path))
+    sources: request.sources.filter((source) => acceptedPaths.has(source.path)),
+    inputMetadata: inspections.value
+      .filter((item) => item.valid || item.skipped)
+      .map((item) => ({
+        path: item.sourcePath,
+        width: item.outputWidth ?? item.width,
+        height: item.outputHeight ?? item.height
+      }))
   })
   if (created) {
-    pendingInputs.value = pendingInputs.value.filter((input) => !validPaths.has(input.path))
+    pendingInputs.value = pendingInputs.value.filter((input) => !acceptedPaths.has(input.path))
     preparedRequest.value = null
     inspections.value = []
   } else preflightOpen.value = true

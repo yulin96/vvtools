@@ -21,6 +21,8 @@ describe('SettingsStore', () => {
     expect(store.get()).toMatchObject({
       outputMode: 'custom',
       outputSuffix: '',
+      outputNameTemplate: '{name}{suffix}',
+      outputConflictPolicy: 'rename',
       historyRetentionDays: 30,
       closeBehavior: 'ask'
     })
@@ -72,6 +74,8 @@ describe('SettingsStore', () => {
       historyRetentionDays: 90,
       closeBehavior: 'minimizeToTray',
       outputSuffix: '-compressed',
+      outputNameTemplate: '{name}_{preset}_{date}',
+      outputConflictPolicy: 'skip',
       image: {
         ...store.get().image,
         compressionMode: 'targetSize',
@@ -88,6 +92,8 @@ describe('SettingsStore', () => {
       outputMode: 'source',
       historyRetentionDays: 90,
       closeBehavior: 'minimizeToTray',
+      outputNameTemplate: '{name}_{preset}_{date}',
+      outputConflictPolicy: 'skip',
       outputSuffix: '-compressed',
       image: {
         compressionMode: 'targetSize',

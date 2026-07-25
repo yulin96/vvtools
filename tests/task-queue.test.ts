@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -100,6 +100,7 @@ describe('TaskQueue', () => {
       outputMode: 'custom',
       outputDirectory: paths.output,
       outputSuffix: '',
+      outputConflictPolicy: 'skip',
       options: { ...DEFAULT_IMAGE_OPTIONS, format: 'png', quality: 70 }
     })
     await waitFor(() => queue.list()[0].status === 'failed')
@@ -268,5 +269,23 @@ describe('TaskQueue', () => {
       options: { ...DEFAULT_IMAGE_OPTIONS }
     })
     expect(task.outputPath).toBe(join(paths.source, '..', 'source_optimized.jpg'))
+  })
+
+  it('skips task creation when the configured output already exists', () => {
+    const paths = fixture()
+    mkdirSync(paths.output)
+    writeFileSync(join(paths.output, 'source.jpg'), 'existing')
+    const queue = new TaskQueue(1, async () => 1, new FailureLogService(paths.userData))
+    const tasks = queue.create({
+      kind: 'image',
+      sources: [{ path: paths.source, relativeDirectory: '' }],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      outputConflictPolicy: 'skip',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+    expect(tasks).toEqual([])
+    expect(queue.list()).toEqual([])
   })
 })

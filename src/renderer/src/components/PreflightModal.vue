@@ -16,7 +16,10 @@ const emit = defineEmits<{
 }>()
 
 const validCount = computed(() => props.inspections.filter((item) => item.valid).length)
-const invalidCount = computed(() => props.inspections.length - validCount.value)
+const skippedCount = computed(() => props.inspections.filter((item) => item.skipped).length)
+const invalidCount = computed(
+  () => props.inspections.length - validCount.value - skippedCount.value
+)
 const totalSize = computed(() =>
   props.inspections.reduce((total, item) => total + item.sourceSize, 0)
 )
@@ -25,6 +28,13 @@ function mediaSummary(item: MediaInspection): string {
   const fields: string[] = []
   if (item.format) fields.push(item.format.toUpperCase())
   if (item.width && item.height) fields.push(`${item.width} × ${item.height}`)
+  if (
+    item.outputWidth &&
+    item.outputHeight &&
+    (item.outputWidth !== item.width || item.outputHeight !== item.height)
+  ) {
+    fields.push(`输出 ${item.outputWidth} × ${item.outputHeight}`)
+  }
   if (item.videoCodec) fields.push(item.videoCodec.toUpperCase())
   if (item.duration) fields.push(formatDuration(item.duration))
   fields.push(formatBytes(item.sourceSize))
@@ -58,6 +68,10 @@ function formatDuration(seconds: number): string {
         <TriangleAlert class="size-4" />
         不可处理 {{ invalidCount }} 个
       </div>
+      <div v-if="skippedCount" class="flex items-center gap-1.5 text-sm font-medium text-amber-700">
+        <TriangleAlert class="size-4" />
+        将跳过 {{ skippedCount }} 个
+      </div>
       <span class="ml-auto text-xs text-muted-foreground"
         >源文件共 {{ formatBytes(totalSize) }}</span
       >
@@ -73,7 +87,9 @@ function formatDuration(seconds: number): string {
           <component
             :is="item.valid ? CheckCircle2 : TriangleAlert"
             class="mt-0.5 size-4 shrink-0"
-            :class="item.valid ? 'text-emerald-600' : 'text-red-600'"
+            :class="
+              item.valid ? 'text-emerald-600' : item.skipped ? 'text-amber-600' : 'text-red-600'
+            "
           />
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-medium" :title="item.sourcePath">
@@ -82,7 +98,13 @@ function formatDuration(seconds: number): string {
             <p v-if="item.valid" class="mt-0.5 text-xs text-muted-foreground">
               {{ mediaSummary(item) }}
             </p>
-            <p v-else class="mt-0.5 text-xs text-red-700">{{ item.error }}</p>
+            <p
+              v-else
+              class="mt-0.5 text-xs"
+              :class="item.skipped ? 'text-amber-700' : 'text-red-700'"
+            >
+              {{ item.error }}
+            </p>
             <p class="mt-1 truncate text-xs text-muted-foreground" :title="item.outputPath">
               输出：{{ item.outputPath }}
             </p>
@@ -97,8 +119,9 @@ function formatDuration(seconds: number): string {
 
     <div class="mt-5 flex justify-end gap-2">
       <Button variant="secondary" @click="emit('update:open', false)">返回调整</Button>
-      <Button :disabled="validCount === 0" @click="emit('confirm')">
-        开始处理{{ validCount ? ` (${validCount})` : '' }}
+      <Button :disabled="validCount === 0 && skippedCount === 0" @click="emit('confirm')">
+        确认{{ validCount ? `处理 ${validCount} 个` : ''
+        }}{{ skippedCount ? `，跳过 ${skippedCount} 个` : '' }}
       </Button>
     </div>
   </Modal>

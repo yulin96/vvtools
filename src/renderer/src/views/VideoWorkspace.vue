@@ -58,6 +58,11 @@ const activePresetId = computed(() => {
     )?.id ?? 'custom'
   )
 })
+const activePresetName = computed(
+  () =>
+    store.settings?.videoPresets.find((preset) => preset.id === activePresetId.value)?.name ??
+    '自定义'
+)
 const qualityLabel = computed(() => {
   if (!store.settings) return ''
   if (copiesSourceVideo.value) return '保持原画面'
@@ -119,6 +124,9 @@ async function startProcessing(): Promise<void> {
     outputMode: settings.outputMode,
     outputDirectory: settings.outputDirectory,
     outputSuffix: settings.outputSuffix,
+    outputNameTemplate: settings.outputNameTemplate,
+    outputConflictPolicy: settings.outputConflictPolicy,
+    presetName: activePresetName.value,
     options: { ...settings.video }
   }
   starting.value = true
@@ -133,16 +141,23 @@ async function startProcessing(): Promise<void> {
 async function confirmProcessing(): Promise<void> {
   const request = preparedRequest.value
   if (!request || request.kind !== 'video') return
-  const validPaths = new Set(
-    inspections.value.filter((item) => item.valid).map((item) => item.sourcePath)
+  const acceptedPaths = new Set(
+    inspections.value.filter((item) => item.valid || item.skipped).map((item) => item.sourcePath)
   )
   preflightOpen.value = false
   const created = await store.createTasks({
     ...request,
-    sourcePaths: request.sourcePaths.filter((path) => validPaths.has(path))
+    sourcePaths: request.sourcePaths.filter((path) => acceptedPaths.has(path)),
+    inputMetadata: inspections.value
+      .filter((item) => item.valid || item.skipped)
+      .map((item) => ({
+        path: item.sourcePath,
+        width: item.outputWidth ?? item.width,
+        height: item.outputHeight ?? item.height
+      }))
   })
   if (created) {
-    pendingPaths.value = pendingPaths.value.filter((path) => !validPaths.has(path))
+    pendingPaths.value = pendingPaths.value.filter((path) => !acceptedPaths.has(path))
     preparedRequest.value = null
     inspections.value = []
   } else preflightOpen.value = true

@@ -22,6 +22,8 @@ export class SettingsStore {
       outputMode: 'custom',
       outputDirectory: join(downloadsPath, 'VVTools'),
       outputSuffix: '',
+      outputNameTemplate: '{name}{suffix}',
+      outputConflictPolicy: 'rename',
       video: { ...DEFAULT_VIDEO_OPTIONS },
       videoPresets: structuredClone(DEFAULT_VIDEO_PRESETS),
       image: { ...DEFAULT_IMAGE_OPTIONS },
@@ -51,6 +53,14 @@ export class SettingsStore {
           : this.settings.outputDirectory,
       outputSuffix:
         typeof input.outputSuffix === 'string' ? input.outputSuffix : this.settings.outputSuffix,
+      outputNameTemplate:
+        typeof input.outputNameTemplate === 'string'
+          ? input.outputNameTemplate
+          : this.settings.outputNameTemplate,
+      outputConflictPolicy:
+        input.outputConflictPolicy === 'rename' || input.outputConflictPolicy === 'skip'
+          ? input.outputConflictPolicy
+          : this.settings.outputConflictPolicy,
       video: { ...this.settings.video, ...input.video },
       videoPresets: input.videoPresets
         ? structuredClone(input.videoPresets)
@@ -89,6 +99,14 @@ export class SettingsStore {
             : defaults.outputDirectory,
         outputSuffix:
           typeof saved.outputSuffix === 'string' ? saved.outputSuffix : defaults.outputSuffix,
+        outputNameTemplate:
+          typeof saved.outputNameTemplate === 'string'
+            ? saved.outputNameTemplate
+            : defaults.outputNameTemplate,
+        outputConflictPolicy:
+          saved.outputConflictPolicy === 'rename' || saved.outputConflictPolicy === 'skip'
+            ? saved.outputConflictPolicy
+            : defaults.outputConflictPolicy,
         video: migrateVideoOptions(saved.video, defaults.video),
         videoPresets: migrateVideoPresets(saved.videoPresets, defaults.videoPresets),
         image: { ...defaults.image, ...saved.image },

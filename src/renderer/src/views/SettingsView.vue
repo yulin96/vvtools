@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Cpu, Image, Plus, RefreshCw, Trash2, Video } from '@lucide/vue'
+import { Cpu, FileOutput, Image, Plus, RefreshCw, Trash2, Video } from '@lucide/vue'
 import type {
   AppSettings,
   ImageOptions,
@@ -37,6 +37,30 @@ function updateCloseBehavior(event: Event): void {
   if (!store.settings) return
   void store.updateSettings({
     closeBehavior: (event.target as HTMLSelectElement).value as AppSettings['closeBehavior']
+  })
+}
+
+function updateOutputNameTemplate(event: Event): void {
+  if (!store.settings) return
+  const target = event.target as HTMLInputElement
+  const template = target.value.trim()
+  const literals = template.replace(/\{(?:name|suffix|preset|width|height|date)\}/gu, '')
+  const invalidLiteral = [...literals].some(
+    (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*{}'.includes(character)
+  )
+  if (!template || template.length > 100 || !template.includes('{name}') || invalidLiteral) {
+    store.errorMessage = '命名模板必须包含 {name}，且只能使用受支持的变量'
+    target.value = store.settings.outputNameTemplate
+    return
+  }
+  void store.updateSettings({ outputNameTemplate: template })
+}
+
+function updateOutputConflictPolicy(event: Event): void {
+  if (!store.settings) return
+  void store.updateSettings({
+    outputConflictPolicy: (event.target as HTMLSelectElement)
+      .value as AppSettings['outputConflictPolicy']
   })
 }
 
@@ -241,6 +265,41 @@ function copiesVideo(options: VideoOptions): boolean {
               <option value="ask">每次询问（推荐）</option>
               <option value="minimizeToTray">后台继续处理</option>
               <option value="quit">取消任务并退出</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="settings-card">
+        <div class="settings-card-title">
+          <FileOutput class="size-4" />
+          <div>
+            <h2>输出命名</h2>
+            <p>为所有媒体任务设置安全的文件名模板和重名处理方式。</p>
+          </div>
+        </div>
+        <div class="flex flex-1 justify-end gap-4">
+          <label class="field-label min-w-80">
+            <span>命名模板</span>
+            <input
+              :value="store.settings.outputNameTemplate"
+              class="field-control font-mono"
+              maxlength="100"
+              @change="updateOutputNameTemplate"
+            />
+            <span class="text-[11px] text-muted-foreground">
+              可用：{name} {suffix} {preset} {width} {height} {date}
+            </span>
+          </label>
+          <label class="field-label w-48">
+            <span>文件重名时</span>
+            <select
+              :value="store.settings.outputConflictPolicy"
+              class="field-control"
+              @change="updateOutputConflictPolicy"
+            >
+              <option value="rename">自动编号（推荐）</option>
+              <option value="skip">跳过已有文件</option>
             </select>
           </label>
         </div>
