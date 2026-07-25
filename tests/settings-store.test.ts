@@ -43,6 +43,42 @@ describe('SettingsStore', () => {
     )
   })
 
+  it('persists edited processing settings', () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-settings-'))
+    directories.push(root)
+    const downloads = join(root, 'downloads')
+    const store = new SettingsStore(root, downloads)
+
+    store.update({
+      outputMode: 'source',
+      outputSuffix: '-compressed',
+      image: {
+        ...store.get().image,
+        compressionMode: 'targetSize',
+        targetSizeKb: 512,
+        resizeMode: 'percentage',
+        percentage: 75,
+        format: 'webp',
+        preserveStructure: false,
+        allowEnlargement: true
+      }
+    })
+
+    expect(new SettingsStore(root, downloads).get()).toMatchObject({
+      outputMode: 'source',
+      outputSuffix: '-compressed',
+      image: {
+        compressionMode: 'targetSize',
+        targetSizeKb: 512,
+        resizeMode: 'percentage',
+        percentage: 75,
+        format: 'webp',
+        preserveStructure: false,
+        allowEnlargement: true
+      }
+    })
+  })
+
   it('migrates the former copy-stream preset to keep-original semantics', () => {
     const root = mkdtempSync(join(tmpdir(), 'vvtools-settings-'))
     directories.push(root)

@@ -6,8 +6,8 @@ import appIcon from '../../../resources/icon.png'
 
 const store = useAppStore()
 const navigation = [
-  { to: '/video', label: '视频处理', icon: Video },
   { to: '/image', label: '图片处理', icon: Images },
+  { to: '/video', label: '视频处理', icon: Video },
   { to: '/settings', label: '设置', icon: Settings }
 ]
 
@@ -39,7 +39,6 @@ onMounted(() => store.initialize())
       <div
         class="mt-auto border-t border-sidebar-border px-2 pt-4 text-[11px] leading-5 text-sidebar-muted"
       >
-        <p>本地处理，不上传媒体文件</p>
         <p>v1.0.0</p>
       </div>
     </aside>

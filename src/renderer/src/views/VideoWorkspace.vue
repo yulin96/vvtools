@@ -175,37 +175,40 @@ onBeforeUnmount(() => {
   <div class="video-drop-workspace" :class="{ 'video-drop-workspace-active': dragging }">
     <section v-if="store.settings" class="video-config-panel" aria-label="视频转换设置">
       <div class="video-config-heading">
-        <div class="flex min-w-0 items-center gap-2">
+        <div class="config-heading-main">
           <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
           <span class="shrink-0 text-sm font-semibold">视频设置</span>
-          <span class="truncate text-xs text-muted-foreground">
+          <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ codecLabel }} · {{ qualityLabel }}
           </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            :aria-expanded="configExpanded"
+            aria-controls="video-advanced-settings"
+            @click="configExpanded = !configExpanded"
+          >
+            {{ configExpanded ? '收起设置' : '高级设置' }}
+            <component :is="configExpanded ? ChevronUp : ChevronDown" class="size-3.5" />
+          </Button>
         </div>
         <div class="video-config-actions">
           <label class="preset-picker">
             <span class="sr-only">视频预设</span>
             <select :value="activePresetId" aria-label="视频预设" @change="applyPreset">
-              <option v-if="activePresetId === 'custom'" value="custom" disabled>自定义参数</option>
+              <option v-if="activePresetId === 'custom'" value="custom" disabled>
+                预设：自定义参数
+              </option>
               <option
                 v-for="preset in store.settings.videoPresets"
                 :key="preset.id"
                 :value="preset.id"
               >
-                {{ preset.name }}
+                预设：{{ preset.name }}
               </option>
             </select>
           </label>
           <OutputControls />
-          <Button
-            variant="ghost"
-            size="sm"
-            :aria-expanded="configExpanded"
-            @click="configExpanded = !configExpanded"
-          >
-            {{ configExpanded ? '收起' : '更多设置' }}
-            <component :is="configExpanded ? ChevronUp : ChevronDown" class="size-3.5" />
-          </Button>
           <Button :disabled="pendingPaths.length === 0 || starting" @click="startProcessing">
             <Play class="size-4" />
             {{
@@ -218,145 +221,178 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="video-config-primary">
-        <label class="compact-field">
-          <span>格式</span>
-          <select
-            :value="store.settings.video.format"
-            @change="
-              updateVideo({ format: ($event.target as HTMLSelectElement).value as VideoFormat })
-            "
-          >
-            <option value="source">保持原格式</option>
-            <option value="mp4">MP4</option>
-            <option value="mov">MOV</option>
-            <option value="mkv">MKV</option>
-          </select>
-        </label>
-        <label class="compact-field">
-          <span>视频编码</span>
-          <select
-            :value="store.settings.video.codec"
-            @change="
-              updateVideo({ codec: ($event.target as HTMLSelectElement).value as VideoCodec })
-            "
-          >
-            <option value="source">保持原编码</option>
-            <option value="h264">H.264 · 兼容优先</option>
-            <option value="h265">H.265 · 更小体积</option>
-          </select>
-        </label>
-        <label class="compact-field">
-          <span>帧率</span>
-          <select
-            :value="store.settings.video.frameRate"
-            @change="
-              updateVideo({
-                frameRate: ($event.target as HTMLSelectElement).value as VideoFrameRate
-              })
-            "
-          >
-            <option value="source">保持原始</option>
-            <option value="24">24 fps</option>
-            <option value="25">25 fps</option>
-            <option value="30">30 fps</option>
-            <option value="60">60 fps</option>
-          </select>
-        </label>
-        <label class="compact-field">
-          <span>分辨率</span>
-          <select
-            :value="store.settings.video.resolution"
-            @change="
-              updateVideo({
-                resolution: ($event.target as HTMLSelectElement).value as VideoResolution
-              })
-            "
-          >
-            <option value="source">保持原始</option>
-            <option value="1080p">最高 1080p</option>
-            <option value="720p">最高 720p</option>
-          </select>
-        </label>
-        <label class="compact-field" :class="{ 'opacity-45': copiesSourceVideo }">
-          <span>压缩方式</span>
-          <select
-            :value="store.settings.video.rateControl"
-            :disabled="copiesSourceVideo"
-            @change="
-              updateVideo({
-                rateControl: ($event.target as HTMLSelectElement).value as VideoRateControl
-              })
-            "
-          >
-            <option value="quality">按质量</option>
-            <option value="bitrate">目标码率</option>
-          </select>
-        </label>
-        <label class="compact-field" :class="{ 'opacity-45': copiesSourceVideo }">
-          <span>{{ store.settings.video.rateControl === 'quality' ? '质量' : '视频码率' }}</span>
-          <select
-            v-if="store.settings.video.rateControl === 'quality'"
-            :value="store.settings.video.quality"
-            :disabled="copiesSourceVideo"
-            @change="
-              updateVideo({ quality: ($event.target as HTMLSelectElement).value as VideoQuality })
-            "
-          >
-            <option value="high">高质量</option>
-            <option value="balanced">均衡</option>
-            <option value="small">更小体积</option>
-          </select>
-          <div v-else class="number-field">
-            <input
-              :value="store.settings.video.bitrateMbps"
-              :disabled="copiesSourceVideo"
-              type="number"
-              min="0.5"
-              max="100"
-              step="0.5"
-              @change="
-                updateVideo({ bitrateMbps: Number(($event.target as HTMLInputElement).value) })
-              "
-            /><span>Mbps</span>
+        <fieldset class="config-group">
+          <legend>格式与编码</legend>
+          <div class="config-group-fields">
+            <label class="compact-field">
+              <span>格式</span>
+              <select
+                :value="store.settings.video.format"
+                @change="
+                  updateVideo({ format: ($event.target as HTMLSelectElement).value as VideoFormat })
+                "
+              >
+                <option value="source">保持原格式</option>
+                <option value="mp4">MP4</option>
+                <option value="mov">MOV</option>
+                <option value="mkv">MKV</option>
+              </select>
+            </label>
+            <label class="compact-field">
+              <span>视频编码</span>
+              <select
+                :value="store.settings.video.codec"
+                @change="
+                  updateVideo({ codec: ($event.target as HTMLSelectElement).value as VideoCodec })
+                "
+              >
+                <option value="source">保持原编码</option>
+                <option value="h264">H.264 · 兼容优先</option>
+                <option value="h265">H.265 · 更小体积</option>
+              </select>
+            </label>
           </div>
-        </label>
+        </fieldset>
+
+        <fieldset class="config-group">
+          <legend>画面</legend>
+          <div class="config-group-fields">
+            <label class="compact-field">
+              <span>帧率</span>
+              <select
+                :value="store.settings.video.frameRate"
+                @change="
+                  updateVideo({
+                    frameRate: ($event.target as HTMLSelectElement).value as VideoFrameRate
+                  })
+                "
+              >
+                <option value="source">保持原始</option>
+                <option value="24">24 fps</option>
+                <option value="25">25 fps</option>
+                <option value="30">30 fps</option>
+                <option value="60">60 fps</option>
+              </select>
+            </label>
+            <label class="compact-field">
+              <span>分辨率</span>
+              <select
+                :value="store.settings.video.resolution"
+                @change="
+                  updateVideo({
+                    resolution: ($event.target as HTMLSelectElement).value as VideoResolution
+                  })
+                "
+              >
+                <option value="source">保持原始</option>
+                <option value="1080p">最高 1080p</option>
+                <option value="720p">最高 720p</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset class="config-group">
+          <legend>压缩</legend>
+          <div class="config-group-fields">
+            <label class="compact-field" :class="{ 'opacity-45': copiesSourceVideo }">
+              <span>压缩方式</span>
+              <select
+                :value="store.settings.video.rateControl"
+                :disabled="copiesSourceVideo"
+                @change="
+                  updateVideo({
+                    rateControl: ($event.target as HTMLSelectElement).value as VideoRateControl
+                  })
+                "
+              >
+                <option value="quality">按质量</option>
+                <option value="bitrate">目标码率</option>
+              </select>
+            </label>
+            <label class="compact-field" :class="{ 'opacity-45': copiesSourceVideo }">
+              <span>{{
+                store.settings.video.rateControl === 'quality' ? '质量' : '视频码率'
+              }}</span>
+              <select
+                v-if="store.settings.video.rateControl === 'quality'"
+                :value="store.settings.video.quality"
+                :disabled="copiesSourceVideo"
+                @change="
+                  updateVideo({
+                    quality: ($event.target as HTMLSelectElement).value as VideoQuality
+                  })
+                "
+              >
+                <option value="high">高质量</option>
+                <option value="balanced">均衡</option>
+                <option value="small">更小体积</option>
+              </select>
+              <div v-else class="number-field">
+                <input
+                  :value="store.settings.video.bitrateMbps"
+                  :disabled="copiesSourceVideo"
+                  type="number"
+                  min="0.5"
+                  max="100"
+                  step="0.5"
+                  @change="
+                    updateVideo({ bitrateMbps: Number(($event.target as HTMLInputElement).value) })
+                  "
+                /><span>Mbps</span>
+              </div>
+            </label>
+          </div>
+        </fieldset>
       </div>
 
-      <div v-if="configExpanded" class="video-config-expanded">
-        <OutputSuffixField />
-        <label class="compact-field">
-          <span>音频</span>
-          <select
-            :value="store.settings.video.audioMode"
-            @change="
-              updateVideo({
-                audioMode: ($event.target as HTMLSelectElement).value as VideoAudioMode
-              })
-            "
-          >
-            <option value="aac">转为 AAC</option>
-            <option value="copy">复制原音频</option>
-            <option value="none">移除音频</option>
-          </select>
-        </label>
-        <label
-          class="compact-field"
-          :class="{ 'opacity-45': store.settings.video.audioMode !== 'aac' }"
-        >
-          <span>音频码率</span>
-          <select
-            :value="store.settings.video.audioBitrateKbps"
-            :disabled="store.settings.video.audioMode !== 'aac'"
-            @change="
-              updateVideo({ audioBitrateKbps: Number(($event.target as HTMLSelectElement).value) })
-            "
-          >
-            <option :value="96">96 kbps</option>
-            <option :value="128">128 kbps</option>
-            <option :value="192">192 kbps</option>
-            <option :value="256">256 kbps</option>
-          </select>
-        </label>
+      <div v-if="configExpanded" id="video-advanced-settings" class="video-config-expanded">
+        <fieldset class="config-group">
+          <legend>输出文件</legend>
+          <div class="config-group-fields config-group-fields-single">
+            <OutputSuffixField />
+          </div>
+        </fieldset>
+        <fieldset class="config-group">
+          <legend>音频</legend>
+          <div class="config-group-fields">
+            <label class="compact-field">
+              <span>处理方式</span>
+              <select
+                :value="store.settings.video.audioMode"
+                @change="
+                  updateVideo({
+                    audioMode: ($event.target as HTMLSelectElement).value as VideoAudioMode
+                  })
+                "
+              >
+                <option value="aac">转为 AAC</option>
+                <option value="copy">复制原音频</option>
+                <option value="none">移除音频</option>
+              </select>
+            </label>
+            <label
+              class="compact-field"
+              :class="{ 'opacity-45': store.settings.video.audioMode !== 'aac' }"
+            >
+              <span>音频码率</span>
+              <select
+                :value="store.settings.video.audioBitrateKbps"
+                :disabled="store.settings.video.audioMode !== 'aac'"
+                @change="
+                  updateVideo({
+                    audioBitrateKbps: Number(($event.target as HTMLSelectElement).value)
+                  })
+                "
+              >
+                <option :value="96">96 kbps</option>
+                <option :value="128">128 kbps</option>
+                <option :value="192">192 kbps</option>
+                <option :value="256">256 kbps</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
       </div>
     </section>
 

@@ -14,6 +14,7 @@ import type {
 import { useAppStore } from '../stores/app'
 import Badge from '../components/ui/Badge.vue'
 import Button from '../components/ui/Button.vue'
+import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 
 const store = useAppStore()
 
@@ -492,34 +493,20 @@ function copiesVideo(options: VideoOptions): boolean {
               <option value="webp">WebP</option>
             </select>
           </label>
-          <label class="compact-field">
-            <span>目录结构</span>
-            <select
-              :value="store.settings.image.preserveStructure ? 'preserve' : 'flat'"
-              @change="
-                updateNested('image', {
-                  preserveStructure: ($event.target as HTMLSelectElement).value === 'preserve'
-                })
-              "
-            >
-              <option value="preserve">保留原目录层级</option>
-              <option value="flat">全部放在输出目录</option>
-            </select>
-          </label>
-          <label class="compact-field">
-            <span>较小图片</span>
-            <select
-              :value="store.settings.image.allowEnlargement ? 'allow' : 'prevent'"
-              @change="
-                updateNested('image', {
-                  allowEnlargement: ($event.target as HTMLSelectElement).value === 'allow'
-                })
-              "
-            >
-              <option value="prevent">不放大</option>
-              <option value="allow">允许放大</option>
-            </select>
-          </label>
+          <ToggleSwitch
+            label="目录结构"
+            :model-value="store.settings.image.preserveStructure"
+            enabled-text="保留原目录层级"
+            disabled-text="合并到输出目录"
+            @update:model-value="updateNested('image', { preserveStructure: $event })"
+          />
+          <ToggleSwitch
+            label="较小图片"
+            :model-value="store.settings.image.allowEnlargement"
+            enabled-text="允许放大"
+            disabled-text="不放大"
+            @update:model-value="updateNested('image', { allowEnlargement: $event })"
+          />
         </div>
       </section>
 

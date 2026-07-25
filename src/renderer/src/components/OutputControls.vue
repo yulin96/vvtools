@@ -42,8 +42,8 @@ async function chooseOutput(): Promise<void> {
     <label class="output-mode-picker">
       <span class="sr-only">输出位置</span>
       <select :value="store.settings.outputMode" aria-label="输出位置" @change="updateOutputMode">
-        <option value="source">输出到原目录</option>
-        <option value="custom">输出到指定目录</option>
+        <option value="source">输出：原目录</option>
+        <option value="custom">输出：指定目录</option>
       </select>
     </label>
     <Button

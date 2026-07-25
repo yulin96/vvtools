@@ -6,10 +6,10 @@ import VideoWorkspace from './views/VideoWorkspace.vue'
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: '/', redirect: '/video' },
+    { path: '/', redirect: '/image' },
     { path: '/video', component: VideoWorkspace },
     { path: '/image', component: ImageWorkspace },
-    { path: '/queue', redirect: '/video' },
+    { path: '/queue', redirect: '/image' },
     { path: '/settings', component: SettingsView }
   ]
 })
