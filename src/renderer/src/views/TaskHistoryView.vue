@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { History, RefreshCcw, Trash2 } from '@lucide/vue'
+import { History, Pause, Play, RefreshCcw, Trash2, XCircle } from '@lucide/vue'
 import type { TaskKind, TaskStatus } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import TaskTable from '../components/TaskTable.vue'
@@ -20,8 +20,9 @@ const confirmClearOpen = ref(false)
 const retryableCount = computed(
   () => store.tasks.filter((task) => ['failed', 'interrupted'].includes(task.status)).length
 )
-const completedCount = computed(
-  () => store.tasks.filter((task) => task.status === 'completed').length
+const pendingCount = computed(() => store.tasks.filter((task) => task.status === 'pending').length)
+const finishedCount = computed(
+  () => store.tasks.filter((task) => ['completed', 'cancelled'].includes(task.status)).length
 )
 const filteredTasks = computed(() => {
   const now = new Date()
@@ -42,8 +43,8 @@ const filteredTasks = computed(() => {
   })
 })
 
-async function clearCompleted(): Promise<void> {
-  await store.clearCompletedTasks()
+async function clearFinished(): Promise<void> {
+  await store.clearFinishedTasks()
   confirmClearOpen.value = false
 }
 </script>
@@ -55,7 +56,23 @@ async function clearCompleted(): Promise<void> {
         <h1>任务历史</h1>
         <p>查看处理结果、重新执行失败任务并管理本地历史记录。</p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          variant="secondary"
+          :disabled="store.activeCount === 0 && !store.queuePaused"
+          @click="store.setQueuePaused(!store.queuePaused)"
+        >
+          <component :is="store.queuePaused ? Play : Pause" class="size-4" />
+          {{ store.queuePaused ? '继续队列' : '暂停队列' }}
+        </Button>
+        <Button
+          variant="secondary"
+          :disabled="pendingCount === 0"
+          @click="store.cancelPendingTasks()"
+        >
+          <XCircle class="size-4" />
+          取消等待{{ pendingCount ? ` (${pendingCount})` : '' }}
+        </Button>
         <Button
           variant="secondary"
           :disabled="retryableCount === 0"
@@ -66,11 +83,11 @@ async function clearCompleted(): Promise<void> {
         </Button>
         <Button
           variant="secondary"
-          :disabled="completedCount === 0"
+          :disabled="finishedCount === 0"
           @click="confirmClearOpen = true"
         >
           <Trash2 class="size-4" />
-          清除已完成
+          清除完成/取消
         </Button>
       </div>
     </header>
@@ -119,13 +136,13 @@ async function clearCompleted(): Promise<void> {
 
   <Modal
     :open="confirmClearOpen"
-    title="清除已完成记录？"
+    title="清除已完成和已取消记录？"
     description="只会删除任务记录，不会删除已经生成的媒体文件。"
     @update:open="confirmClearOpen = $event"
   >
     <div class="mt-6 flex justify-end gap-2">
       <Button variant="secondary" @click="confirmClearOpen = false">取消</Button>
-      <Button @click="clearCompleted">确认清除</Button>
+      <Button @click="clearFinished">确认清除</Button>
     </div>
   </Modal>
 </template>

@@ -179,8 +179,53 @@ describe('TaskQueue', () => {
     fail = false
     expect(queue.retryFailed()).toHaveLength(1)
     await waitFor(() => queue.list().some((task) => task.status === 'completed'))
-    expect(queue.clearCompleted()).toBe(1)
+    expect(queue.clearFinished()).toBe(1)
     expect(queue.list().some((task) => task.status === 'completed')).toBe(false)
+  })
+
+  it('pauses dispatch and can cancel every pending task', async () => {
+    const paths = fixture()
+    let runCount = 0
+    const queue = new TaskQueue(
+      1,
+      async () => {
+        runCount += 1
+        return 1
+      },
+      new FailureLogService(paths.userData)
+    )
+    queue.setPaused(true)
+    queue.create({
+      kind: 'image',
+      sources: [paths.source, paths.source].map((path) => ({ path, relativeDirectory: '' })),
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+
+    expect(queue.isPaused()).toBe(true)
+    expect(queue.list().every((task) => task.status === 'pending')).toBe(true)
+    expect(runCount).toBe(0)
+    queue.setPaused(false)
+    await waitFor(() => queue.list().every((task) => task.status === 'completed'))
+    expect(runCount).toBe(2)
+    expect(queue.clearFinished()).toBe(2)
+
+    queue.setPaused(true)
+    queue.create({
+      kind: 'image',
+      sources: [paths.source, paths.source].map((path) => ({ path, relativeDirectory: '' })),
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+    expect(queue.cancelPending()).toBe(2)
+    expect(queue.list().every((task) => task.status === 'cancelled')).toBe(true)
+    expect(queue.clearFinished()).toBe(2)
+    queue.setPaused(false)
+    expect(runCount).toBe(2)
   })
 
   it('writes video output to the selected output directory', () => {

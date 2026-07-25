@@ -12,6 +12,7 @@ export const useAppStore = defineStore('app', () => {
   const tasks = ref<MediaTask[]>([])
   const settings = ref<AppSettings | null>(null)
   const capabilities = ref<RuntimeCapabilities | null>(null)
+  const queuePaused = ref(false)
   const errorMessage = ref('')
   let unsubscribe: (() => void) | null = null
 
@@ -21,12 +22,14 @@ export const useAppStore = defineStore('app', () => {
 
   async function initialize(): Promise<void> {
     try {
-      const [initialTasks, initialSettings] = await Promise.all([
+      const [initialTasks, initialSettings, initialQueuePaused] = await Promise.all([
         window.api.getTasks(),
-        window.api.getSettings()
+        window.api.getSettings(),
+        window.api.getQueuePaused()
       ])
       tasks.value = initialTasks
       settings.value = initialSettings
+      queuePaused.value = initialQueuePaused
       unsubscribe?.()
       unsubscribe = window.api.onTasksChanged((nextTasks) => (tasks.value = nextTasks))
       void refreshCapabilities()
@@ -95,9 +98,25 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  async function clearCompletedTasks(): Promise<void> {
+  async function clearFinishedTasks(): Promise<void> {
     try {
-      await window.api.clearCompletedTasks()
+      await window.api.clearFinishedTasks()
+    } catch (error) {
+      reportError(error)
+    }
+  }
+
+  async function cancelPendingTasks(): Promise<void> {
+    try {
+      await window.api.cancelPendingTasks()
+    } catch (error) {
+      reportError(error)
+    }
+  }
+
+  async function setQueuePaused(paused: boolean): Promise<void> {
+    try {
+      queuePaused.value = await window.api.setQueuePaused(paused)
     } catch (error) {
       reportError(error)
     }
@@ -127,6 +146,7 @@ export const useAppStore = defineStore('app', () => {
     tasks,
     settings,
     capabilities,
+    queuePaused,
     errorMessage,
     activeCount,
     initialize,
@@ -137,7 +157,9 @@ export const useAppStore = defineStore('app', () => {
     cancelTask,
     retryTask,
     retryFailedTasks,
-    clearCompletedTasks,
+    clearFinishedTasks,
+    cancelPendingTasks,
+    setQueuePaused,
     openTaskOutput,
     openOutputDirectory
   }

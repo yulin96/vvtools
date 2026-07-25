@@ -152,7 +152,10 @@ export interface VVToolsApi {
   cancelTask: (taskId: string) => Promise<boolean>
   retryTask: (taskId: string) => Promise<MediaTask | null>
   retryFailedTasks: () => Promise<MediaTask[]>
-  clearCompletedTasks: () => Promise<number>
+  clearFinishedTasks: () => Promise<number>
+  cancelPendingTasks: () => Promise<number>
+  getQueuePaused: () => Promise<boolean>
+  setQueuePaused: (paused: boolean) => Promise<boolean>
   openTaskOutput: (taskId: string) => Promise<void>
   getSettings: () => Promise<AppSettings>
   updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>

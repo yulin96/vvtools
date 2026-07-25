@@ -318,9 +318,22 @@ export function registerIpc(
     assertTrusted(event, window())
     return queue.retryFailed()
   })
-  handle(IPC_CHANNELS.clearCompletedTasks, (event) => {
+  handle(IPC_CHANNELS.clearFinishedTasks, (event) => {
     assertTrusted(event, window())
-    return queue.clearCompleted()
+    return queue.clearFinished()
+  })
+  handle(IPC_CHANNELS.cancelPendingTasks, (event) => {
+    assertTrusted(event, window())
+    return queue.cancelPending()
+  })
+  handle(IPC_CHANNELS.getQueuePaused, (event) => {
+    assertTrusted(event, window())
+    return queue.isPaused()
+  })
+  handle(IPC_CHANNELS.setQueuePaused, (event, paused: boolean) => {
+    assertTrusted(event, window())
+    if (typeof paused !== 'boolean') throw new Error('队列暂停参数无效')
+    return queue.setPaused(paused)
   })
   handle(IPC_CHANNELS.openTaskOutput, async (event, taskId: string) => {
     assertTrusted(event, window())

@@ -24,6 +24,7 @@ export class TaskQueue extends EventEmitter {
   private readonly tasks = new Map<string, MediaTask>()
   private readonly running = new Map<string, AbortController>()
   private readonly reservedPaths = new Set<string>()
+  private paused = false
 
   constructor(
     private concurrency: number,
@@ -142,11 +143,12 @@ export class TaskQueue extends EventEmitter {
       .filter((task): task is MediaTask => task !== null)
   }
 
-  clearCompleted(): number {
+  clearFinished(): number {
     let removed = 0
     for (const [taskId, task] of this.tasks) {
-      if (task.status !== 'completed') continue
+      if (!['completed', 'cancelled'].includes(task.status)) continue
       this.tasks.delete(taskId)
+      this.reservedPaths.delete(task.outputPath)
       removed += 1
     }
     if (removed > 0) {
@@ -159,6 +161,33 @@ export class TaskQueue extends EventEmitter {
   setConcurrency(value: number): void {
     this.concurrency = value
     this.dispatch()
+  }
+
+  isPaused(): boolean {
+    return this.paused
+  }
+
+  setPaused(value: boolean): boolean {
+    this.paused = value
+    if (!value) this.dispatch()
+    return this.paused
+  }
+
+  cancelPending(): number {
+    const completedAt = new Date().toISOString()
+    let cancelled = 0
+    for (const task of this.tasks.values()) {
+      if (task.status !== 'pending') continue
+      task.status = 'cancelled'
+      task.progress = null
+      task.completedAt = completedAt
+      cancelled += 1
+    }
+    if (cancelled > 0) {
+      this.persist()
+      this.changed()
+    }
+    return cancelled
   }
 
   setHistoryRetentionDays(value: number): void {
@@ -181,6 +210,7 @@ export class TaskQueue extends EventEmitter {
   }
 
   private dispatch(): void {
+    if (this.paused) return
     while (this.running.size < this.concurrency) {
       const task = [...this.tasks.values()].find((item) => item.status === 'pending')
       if (!task) return
@@ -256,6 +286,7 @@ export class TaskQueue extends EventEmitter {
       const timestamp = Date.parse(task.completedAt ?? task.createdAt)
       if (Number.isFinite(timestamp) && timestamp < cutoff) {
         this.tasks.delete(taskId)
+        this.reservedPaths.delete(task.outputPath)
         removed = true
       }
     }
