@@ -64,14 +64,20 @@ function formatDuration(seconds: number): string {
   >
     <div class="mt-5 flex items-center gap-3 rounded-md border border-border bg-muted/35 px-4 py-3">
       <div class="flex items-center gap-1.5 text-sm font-medium text-foreground">
-        <CheckCircle2 class="size-4 text-emerald-600" />
+        <CheckCircle2 class="semantic-success size-4" />
         可处理 {{ validCount }} 个
       </div>
-      <div v-if="invalidCount" class="flex items-center gap-1.5 text-sm font-medium text-red-700">
+      <div
+        v-if="invalidCount"
+        class="semantic-danger flex items-center gap-1.5 text-sm font-medium"
+      >
         <TriangleAlert class="size-4" />
         不可处理 {{ invalidCount }} 个
       </div>
-      <div v-if="skippedCount" class="flex items-center gap-1.5 text-sm font-medium text-amber-700">
+      <div
+        v-if="skippedCount"
+        class="semantic-warning flex items-center gap-1.5 text-sm font-medium"
+      >
         <TriangleAlert class="size-4" />
         将跳过 {{ skippedCount }} 个
       </div>
@@ -91,7 +97,11 @@ function formatDuration(seconds: number): string {
             :is="item.valid ? CheckCircle2 : TriangleAlert"
             class="mt-0.5 size-4 shrink-0"
             :class="
-              item.valid ? 'text-emerald-600' : item.skipped ? 'text-amber-600' : 'text-red-600'
+              item.valid
+                ? 'semantic-success'
+                : item.skipped
+                  ? 'semantic-warning'
+                  : 'semantic-danger'
             "
           />
           <div class="min-w-0 flex-1">
@@ -104,7 +114,7 @@ function formatDuration(seconds: number): string {
             <p
               v-else
               class="mt-0.5 text-xs"
-              :class="item.skipped ? 'text-amber-700' : 'text-red-700'"
+              :class="item.skipped ? 'semantic-warning' : 'semantic-danger'"
             >
               {{ item.error }}
             </p>

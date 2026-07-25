@@ -1,10 +1,41 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { History, Images, Music, Settings, Video, X } from '@lucide/vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  History,
+  Images,
+  Monitor,
+  Moon,
+  Music,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  Sun,
+  Video,
+  X
+} from '@lucide/vue'
 import { useAppStore } from './stores/app'
 import appIcon from '../../../resources/icon.png'
 
 const store = useAppStore()
+type ThemeMode = 'system' | 'light' | 'dark'
+
+const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
+const storedTheme = localStorage.getItem('vvtools-theme')
+const themeMode = ref<ThemeMode>(
+  storedTheme === 'light' || storedTheme === 'dark' || storedTheme === 'system'
+    ? storedTheme
+    : 'system'
+)
+const systemIsDark = ref(colorSchemeQuery.matches)
+const isDark = computed(() =>
+  themeMode.value === 'system' ? systemIsDark.value : themeMode.value === 'dark'
+)
+const sidebarCollapsed = ref(localStorage.getItem('vvtools-sidebar-collapsed') === 'true')
+const themes = [
+  { value: 'system' as const, label: '跟随系统', icon: Monitor },
+  { value: 'light' as const, label: '浅色模式', icon: Sun },
+  { value: 'dark' as const, label: '深色模式', icon: Moon }
+]
 const navigation = [
   { to: '/image', label: '图片处理', icon: Images },
   { to: '/video', label: '视频处理', icon: Video },
@@ -13,54 +44,106 @@ const navigation = [
   { to: '/settings', label: '设置', icon: Settings }
 ]
 
-onMounted(() => store.initialize())
+watch(
+  [themeMode, isDark],
+  ([mode, dark]) => {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+    document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+    localStorage.setItem('vvtools-theme', mode)
+  },
+  { immediate: true }
+)
+
+watch(sidebarCollapsed, (collapsed) => {
+  localStorage.setItem('vvtools-sidebar-collapsed', String(collapsed))
+})
+
+function handleSystemThemeChange(event: MediaQueryListEvent): void {
+  systemIsDark.value = event.matches
+}
+
+onMounted(() => {
+  colorSchemeQuery.addEventListener('change', handleSystemThemeChange)
+  void store.initialize()
+})
+
+onBeforeUnmount(() => {
+  colorSchemeQuery.removeEventListener('change', handleSystemThemeChange)
+})
 </script>
 
 <template>
-  <div class="flex h-screen min-h-0 bg-workspace text-foreground">
-    <aside class="flex w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4">
-      <div class="mb-7 flex items-center gap-3 px-2">
-        <img :src="appIcon" alt="VVTools" class="size-9 rounded-[10px]" />
-        <div>
-          <p class="text-sm font-semibold tracking-tight text-sidebar-foreground">VVTools</p>
-          <p class="text-[11px] text-sidebar-muted">媒体批处理工具</p>
+  <div class="app-shell">
+    <aside class="app-sidebar" :class="{ 'app-sidebar-collapsed': sidebarCollapsed }">
+      <div class="sidebar-brand">
+        <div class="brand-mark">
+          <img :src="appIcon" alt="" class="size-8 rounded-[9px]" />
         </div>
+        <div class="sidebar-label brand-copy">
+          <p class="brand-name">VVTools</p>
+          <p class="brand-caption">媒体工作台</p>
+        </div>
+        <button
+          class="sidebar-control sidebar-collapse"
+          type="button"
+          :aria-label="sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
+          :title="sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
+          @click="sidebarCollapsed = !sidebarCollapsed"
+        >
+          <component :is="sidebarCollapsed ? PanelLeftOpen : PanelLeftClose" class="size-4" />
+        </button>
       </div>
-      <nav class="space-y-1" aria-label="主导航">
+
+      <nav class="sidebar-nav" aria-label="主导航">
         <RouterLink
           v-for="item in navigation"
           :key="item.to"
           :to="item.to"
-          class="group flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium text-sidebar-muted transition-colors hover:bg-sidebar-hover hover:text-sidebar-foreground"
-          active-class="!bg-sidebar-active !text-sidebar-foreground"
+          class="sidebar-link"
+          active-class="sidebar-link-active"
+          :title="sidebarCollapsed ? item.label : undefined"
         >
-          <component :is="item.icon" class="size-4" />
-          <span>{{ item.label }}</span>
+          <span class="sidebar-link-icon">
+            <component :is="item.icon" class="size-4" />
+          </span>
+          <span class="sidebar-label">{{ item.label }}</span>
         </RouterLink>
       </nav>
-      <div
-        class="mt-auto border-t border-sidebar-border px-2 pt-4 text-[11px] leading-5 text-sidebar-muted"
-      >
-        <p>v1.0.0</p>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-theme-picker" aria-label="主题模式">
+          <button
+            v-for="theme in themes"
+            :key="theme.value"
+            class="sidebar-theme-button"
+            :class="{ 'sidebar-theme-button-active': themeMode === theme.value }"
+            type="button"
+            :aria-label="theme.label"
+            :aria-pressed="themeMode === theme.value"
+            :title="theme.label"
+            @click="themeMode = theme.value"
+          >
+            <component :is="theme.icon" class="size-4" aria-hidden="true" />
+          </button>
+        </div>
+        <span class="sidebar-label sidebar-version">VVTools · v1.0.0</span>
       </div>
     </aside>
 
-    <main class="relative min-w-0 flex-1 overflow-auto">
-      <div
-        v-if="store.errorMessage"
-        role="alert"
-        class="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-red-200 bg-red-50 px-6 py-2.5 text-sm text-red-900"
-      >
+    <main class="app-main">
+      <div v-if="store.errorMessage" role="alert" class="app-alert">
         <span>{{ store.errorMessage }}</span>
-        <button
-          class="rounded p-1 hover:bg-red-100"
-          aria-label="关闭错误提示"
-          @click="store.errorMessage = ''"
-        >
+        <button class="app-alert-close" aria-label="关闭错误提示" @click="store.errorMessage = ''">
           <X class="size-4" />
         </button>
       </div>
-      <RouterView :key="$route.path" />
+      <RouterView v-slot="{ Component, route }">
+        <Transition name="page-swap" mode="out-in">
+          <div :key="route.path" class="route-view">
+            <component :is="Component" />
+          </div>
+        </Transition>
+      </RouterView>
     </main>
   </div>
 </template>

@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-25T13:48:51.000Z",
+  "title": "Design System: VVTools",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Workflow Violet",
+        "canonical": "#6957e8",
+        "tonalRamp": ["#ebe8ff", "#8b78f6", "#6957e8", "#5543c8"]
+      },
+      "primary-dark": {
+        "role": "primary",
+        "displayName": "Dark Workflow Violet",
+        "canonical": "#6f5bd8",
+        "tonalRamp": ["#c1b7ff", "#9b89ff", "#6f5bd8", "#5543c8"]
+      },
+      "accent-lime": {
+        "role": "secondary",
+        "displayName": "Live Lime",
+        "canonical": "#c8f05d",
+        "tonalRamp": ["#effbd0", "#c8f05d", "#729415"]
+      },
+      "workspace": {
+        "role": "neutral",
+        "displayName": "Cool Workspace",
+        "canonical": "#f5f5f9",
+        "tonalRamp": ["#ffffff", "#f5f5f9", "#e3e2ea", "#6d6b7c", "#1c1b27"]
+      },
+      "dark-workspace": {
+        "role": "neutral",
+        "displayName": "Night Workspace",
+        "canonical": "#101116",
+        "tonalRamp": ["#2d2e38", "#18191f", "#101116"]
+      },
+      "semantic-success": {
+        "role": "tertiary",
+        "displayName": "Success",
+        "canonical": "#18794e",
+        "tonalRamp": ["#e8f8ef", "#8be0b4", "#18794e", "#163629"]
+      },
+      "semantic-warning": {
+        "role": "tertiary",
+        "displayName": "Warning",
+        "canonical": "#91600a",
+        "tonalRamp": ["#fff4dc", "#f0ca7a", "#91600a", "#3e321b"]
+      },
+      "semantic-danger": {
+        "role": "tertiary",
+        "displayName": "Danger",
+        "canonical": "#b52f2f",
+        "tonalRamp": ["#fdecec", "#ffaaaa", "#b52f2f", "#422326"]
+      }
+    },
+    "shadows": [
+      {
+        "name": "surface-low",
+        "value": "0 4px 16px rgb(30 27 55 / 7%)",
+        "purpose": "Top configuration panels only."
+      },
+      {
+        "name": "floating",
+        "value": "0 16px 40px rgb(30 27 55 / 14%)",
+        "purpose": "Advanced panels and modal dialogs."
+      }
+    ],
+    "motion": [
+      {
+        "name": "quick",
+        "value": "150ms",
+        "purpose": "Hover, press and close feedback."
+      },
+      {
+        "name": "fast",
+        "value": "250ms",
+        "purpose": "Icon swap, theme feedback and route transitions."
+      },
+      {
+        "name": "medium",
+        "value": "350ms",
+        "purpose": "Sidebar resize."
+      },
+      {
+        "name": "smooth-out",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Position and surface transitions."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-desktop",
+        "value": "1100px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Violet primary action with AA-compliant white text in both themes.",
+      "html": "<button class=\"ui-button bg-primary text-primary-foreground\">开始处理</button>",
+      "css": ".ui-button { border-radius: 9px; transition: color 150ms ease, background-color 150ms ease, transform 150ms ease; }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "description": "Collapsible 236px navigation that reduces to a 76px icon rail, with system, light and dark icon-only theme controls.",
+      "html": "<a class=\"sidebar-link sidebar-link-active\">图片处理</a>",
+      "css": ".sidebar-link { min-height: 42px; border-radius: 11px; } .sidebar-link-active { background: var(--sidebar-active); color: var(--signal-strong); }"
+    },
+    {
+      "name": "Drop Workspace",
+      "kind": "custom",
+      "description": "The full processing workspace is the drop surface; its configuration panel floats within the same visual boundary.",
+      "html": "<div class=\"video-drop-workspace\"><section class=\"video-config-panel\">...</section><div class=\"video-workspace-content\">...</div></div>",
+      "css": ".video-drop-workspace::after { inset: 14px; border: 1px dashed var(--border); border-radius: 16px; background: var(--background); }"
+    },
+    {
+      "name": "Surface Panel",
+      "kind": "card",
+      "refersTo": "surface-panel",
+      "description": "Flat bordered panel for settings, tables and task configuration.",
+      "html": "<section class=\"settings-card\">...</section>",
+      "css": ".settings-card { border: 1px solid var(--border); border-radius: 14px; background: var(--background); }"
+    },
+    {
+      "name": "Semantic Status",
+      "kind": "chip",
+      "description": "Theme-aware success, warning and danger states.",
+      "html": "<span class=\"badge-success\">已完成</span>",
+      "css": ".badge-success { background: var(--success-bg); color: var(--success-fg); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Focused Media Desk",
+    "overview": "A clear, calm desktop media workstation with restrained violet interaction color and rare lime activity signals.",
+    "keyCharacteristics": [
+      "Thin boundaries and clear surface hierarchy",
+      "Collapsible task navigation",
+      "Purposeful reduced-motion-safe transitions",
+      "Independent light and dark palettes"
+    ],
+    "rules": [
+      {
+        "name": "Signal Rarity",
+        "body": "Violet marks interaction and progress; lime marks small live states only.",
+        "section": "colors"
+      },
+      {
+        "name": "Flat at Rest",
+        "body": "Permanent surfaces use tone or border; shadows are reserved for true elevation.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Keep files, configuration, task state and results visually connected.",
+      "Calibrate light and dark themes independently.",
+      "Honor prefers-reduced-motion."
+    ],
+    "donts": [
+      "Do not use decorative gradients, glass or glowing edges.",
+      "Do not fill workspaces with unrelated metric cards.",
+      "Do not animate every element."
+    ]
+  }
+}
