@@ -715,7 +715,7 @@ textarea,
 
 .video-drop-workspace::after {
   position: absolute;
-  inset: 8px;
+  inset: 8px 8px 8px 0;
   z-index: 0;
   border: 1px dashed var(--border);
   border-radius: 16px;
@@ -741,6 +741,10 @@ textarea,
   border-radius: 14px;
   background: var(--background);
   box-shadow: var(--shadow-low);
+}
+
+.app-platform-mac .video-config-panel {
+  margin-top: 12px;
 }
 
 .video-config-heading {
