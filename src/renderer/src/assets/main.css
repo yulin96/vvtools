@@ -906,6 +906,33 @@ textarea,
   gap: 10px;
 }
 
+.history-filter-card {
+  align-items: center;
+}
+
+.history-filter-card .settings-card-title {
+  min-width: 220px;
+  flex: 1 1 320px;
+}
+
+.history-filter-controls {
+  display: grid;
+  width: min(100%, 600px);
+  min-width: 0;
+  flex: 0 1 600px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.history-filter-controls .field-label,
+.history-filter-controls .field-control {
+  min-width: 0;
+}
+
+.history-filter-controls .field-control {
+  width: 100%;
+}
+
 .video-drop-workspace {
   --drop-follow-x: 50%;
   --drop-follow-y: 58%;
@@ -1761,6 +1788,12 @@ html[data-theme='dark'] .bg-slate-950 {
     flex: 0 0 100%;
   }
 
+  .history-filter-controls {
+    width: 100%;
+    flex: 1 1 100%;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  }
+
   .settings-card-controls {
     width: 100%;
     flex-wrap: wrap;
@@ -1768,8 +1801,7 @@ html[data-theme='dark'] .bg-slate-950 {
   }
 
   .settings-card-controls > .field-label,
-  .settings-card-controls > .compact-field,
-  .history-filter-card > .field-label {
+  .settings-card-controls > .compact-field {
     width: auto;
     min-width: 190px;
     flex: 1 1 190px;

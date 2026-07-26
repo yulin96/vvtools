@@ -100,36 +100,38 @@ async function clearFinished(): Promise<void> {
           <p>历史记录仅保存在当前设备。</p>
         </div>
       </div>
-      <label class="field-label w-36">
-        <span>任务类型</span>
-        <select v-model="kindFilter" class="field-control">
-          <option value="all">全部类型</option>
-          <option value="image">图片</option>
-          <option value="video">视频</option>
-          <option value="audio">音频</option>
-        </select>
-      </label>
-      <label class="field-label w-36">
-        <span>任务状态</span>
-        <select v-model="statusFilter" class="field-control">
-          <option value="all">全部状态</option>
-          <option value="pending">等待中</option>
-          <option value="processing">处理中</option>
-          <option value="completed">已完成</option>
-          <option value="failed">失败</option>
-          <option value="interrupted">异常中断</option>
-          <option value="cancelled">已取消</option>
-        </select>
-      </label>
-      <label class="field-label w-36">
-        <span>创建时间</span>
-        <select v-model="dateFilter" class="field-control">
-          <option value="all">全部时间</option>
-          <option value="today">今天</option>
-          <option value="7days">最近 7 天</option>
-          <option value="30days">最近 30 天</option>
-        </select>
-      </label>
+      <div class="history-filter-controls">
+        <label class="field-label">
+          <span>任务类型</span>
+          <select v-model="kindFilter" class="field-control">
+            <option value="all">全部类型</option>
+            <option value="image">图片</option>
+            <option value="video">视频</option>
+            <option value="audio">音频</option>
+          </select>
+        </label>
+        <label class="field-label">
+          <span>任务状态</span>
+          <select v-model="statusFilter" class="field-control">
+            <option value="all">全部状态</option>
+            <option value="pending">等待中</option>
+            <option value="processing">处理中</option>
+            <option value="completed">已完成</option>
+            <option value="failed">失败</option>
+            <option value="interrupted">异常中断</option>
+            <option value="cancelled">已取消</option>
+          </select>
+        </label>
+        <label class="field-label">
+          <span>创建时间</span>
+          <select v-model="dateFilter" class="field-control">
+            <option value="all">全部时间</option>
+            <option value="today">今天</option>
+            <option value="7days">最近 7 天</option>
+            <option value="30days">最近 30 天</option>
+          </select>
+        </label>
+      </div>
     </section>
 
     <TaskTable :tasks="filteredTasks" empty-text="没有符合条件的任务" />
