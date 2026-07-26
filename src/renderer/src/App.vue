@@ -18,6 +18,7 @@ import {
 } from '@lucide/vue'
 import { useAppStore } from './stores/app'
 import appIcon from '../../../resources/icon.png'
+import SegmentedControl from './components/ui/SegmentedControl.vue'
 
 const store = useAppStore()
 type ThemeMode = 'system' | 'light' | 'dark'
@@ -113,7 +114,14 @@ onBeforeUnmount(() => {
           :title="isMaximized ? '还原' : '最大化'"
           @click="toggleWindowMaximize"
         >
-          <component :is="isMaximized ? Minimize2 : Maximize2" class="size-3.5" />
+          <span
+            class="t-icon-swap size-3.5"
+            :data-state="isMaximized ? 'b' : 'a'"
+            aria-hidden="true"
+          >
+            <Maximize2 class="t-icon size-3.5" data-icon="a" />
+            <Minimize2 class="t-icon size-3.5" data-icon="b" />
+          </span>
         </button>
         <button
           class="desktop-window-button desktop-window-close"
@@ -143,7 +151,14 @@ onBeforeUnmount(() => {
           :title="sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
           @click="sidebarCollapsed = !sidebarCollapsed"
         >
-          <component :is="sidebarCollapsed ? PanelLeftOpen : PanelLeftClose" class="size-4" />
+          <span
+            class="t-icon-swap size-4"
+            :data-state="sidebarCollapsed ? 'b' : 'a'"
+            aria-hidden="true"
+          >
+            <PanelLeftClose class="t-icon size-4" data-icon="a" />
+            <PanelLeftOpen class="t-icon size-4" data-icon="b" />
+          </span>
         </button>
       </div>
 
@@ -164,41 +179,44 @@ onBeforeUnmount(() => {
       </nav>
 
       <div class="sidebar-footer">
-        <div v-if="!sidebarCollapsed" class="sidebar-theme-picker" aria-label="主题模式">
-          <button
-            v-for="theme in themes"
-            :key="theme.value"
-            class="sidebar-theme-button"
-            :class="{ 'sidebar-theme-button-active': themeMode === theme.value }"
-            type="button"
-            :aria-label="theme.label"
-            :aria-pressed="themeMode === theme.value"
-            :title="theme.label"
-            @click="themeMode = theme.value"
+        <Transition name="sidebar-footer-swap" mode="out-in">
+          <SegmentedControl
+            v-if="!sidebarCollapsed"
+            class="sidebar-theme-segments"
+            label="主题模式"
+            hide-label
+            icon-only
+            :model-value="themeMode"
+            :options="themes"
+            @update:model-value="themeMode = $event as ThemeMode"
+          />
+          <div
+            v-else
+            class="sidebar-theme-current"
+            role="img"
+            :aria-label="currentTheme.label"
+            :title="currentTheme.label"
           >
-            <component :is="theme.icon" class="size-4" aria-hidden="true" />
-          </button>
-        </div>
-        <div
-          v-else
-          class="sidebar-theme-current"
-          role="img"
-          :aria-label="currentTheme.label"
-          :title="currentTheme.label"
-        >
-          <component :is="currentTheme.icon" class="size-4" aria-hidden="true" />
-        </div>
+            <component :is="currentTheme.icon" class="size-4" aria-hidden="true" />
+          </div>
+        </Transition>
         <span class="sidebar-label sidebar-version">VVTools · v1.0.0</span>
       </div>
     </aside>
 
     <main class="app-main">
-      <div v-if="store.errorMessage" role="alert" class="app-alert">
-        <span>{{ store.errorMessage }}</span>
-        <button class="app-alert-close" aria-label="关闭错误提示" @click="store.errorMessage = ''">
-          <X class="size-4" />
-        </button>
-      </div>
+      <Transition name="alert-slide">
+        <div v-if="store.errorMessage" role="alert" class="app-alert">
+          <span>{{ store.errorMessage }}</span>
+          <button
+            class="app-alert-close"
+            aria-label="关闭错误提示"
+            @click="store.errorMessage = ''"
+          >
+            <X class="size-4" />
+          </button>
+        </div>
+      </Transition>
       <RouterView v-slot="{ Component, route }">
         <Transition name="page-swap">
           <div :key="route.path" class="route-view">

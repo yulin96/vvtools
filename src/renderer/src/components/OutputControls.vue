@@ -3,14 +3,17 @@ import { FolderCog, FolderOpen } from '@lucide/vue'
 import type { OutputMode } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import Button from './ui/Button.vue'
+import SegmentedControl from './ui/SegmentedControl.vue'
 
 const store = useAppStore()
+const outputModeOptions = [
+  { value: 'source', label: '原目录' },
+  { value: 'custom', label: '指定目录' }
+]
 
-async function updateOutputMode(event: Event): Promise<void> {
+async function updateOutputMode(value: string | number): Promise<void> {
   if (!store.settings) return
-  const select = event.target as HTMLSelectElement
-  const previousMode = store.settings.outputMode
-  const outputMode = select.value as OutputMode
+  const outputMode = value as OutputMode
   try {
     if (outputMode === 'source') {
       await store.updateSettings({ outputMode })
@@ -19,9 +22,7 @@ async function updateOutputMode(event: Event): Promise<void> {
 
     const path = await window.api.selectOutputDirectory(store.settings.outputDirectory)
     if (path) await store.updateSettings({ outputMode, outputDirectory: path })
-    else select.value = previousMode
   } catch (error) {
-    select.value = previousMode
     store.errorMessage = error instanceof Error ? error.message : String(error)
   }
 }
@@ -39,13 +40,14 @@ async function chooseOutput(): Promise<void> {
 
 <template>
   <div v-if="store.settings" class="header-output-control">
-    <label class="output-mode-picker">
-      <span class="sr-only">输出位置</span>
-      <select :value="store.settings.outputMode" aria-label="输出位置" @change="updateOutputMode">
-        <option value="source">输出：原目录</option>
-        <option value="custom">输出：指定目录</option>
-      </select>
-    </label>
+    <SegmentedControl
+      class="output-mode-segments"
+      label="输出位置"
+      hide-label
+      :model-value="store.settings.outputMode"
+      :options="outputModeOptions"
+      @update:model-value="updateOutputMode"
+    />
     <Button
       v-if="store.settings.outputMode === 'custom'"
       variant="secondary"

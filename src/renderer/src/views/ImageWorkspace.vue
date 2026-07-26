@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
-  ChevronDown,
-  ChevronUp,
   FileImage,
   FolderPlus,
   Images,
@@ -32,6 +30,9 @@ import OutputControls from '../components/OutputControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import PreflightModal from '../components/PreflightModal.vue'
+import SegmentedControl from '../components/ui/SegmentedControl.vue'
+import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
+import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 
 const store = useAppStore()
 const configExpanded = ref(false)
@@ -41,6 +42,22 @@ const pendingInputs = ref<ImageInputFile[]>([])
 const preflightOpen = ref(false)
 const inspections = ref<MediaInspection[]>([])
 const preparedRequest = ref<CreateTasksRequest | null>(null)
+const compressionModeOptions = [
+  { value: 'quality', label: '质量' },
+  { value: 'targetSize', label: '目标大小' }
+]
+const resizeModeOptions = [
+  { value: 'source', label: '原始' },
+  { value: 'width', label: '宽度' },
+  { value: 'height', label: '高度' },
+  { value: 'percentage', label: '百分比' }
+]
+const imageFormatOptions = [
+  { value: 'original', label: '原格式' },
+  { value: 'jpeg', label: 'JPEG' },
+  { value: 'png', label: 'PNG' },
+  { value: 'webp', label: 'WebP' }
+]
 
 const imageTasks = computed(() => store.tasks.filter((task) => task.kind === 'image').slice(-20))
 const activeTaskCount = computed(
@@ -261,11 +278,13 @@ onBeforeUnmount(() => {
             @click="configExpanded = !configExpanded"
           >
             {{ configExpanded ? '收起设置' : '高级设置' }}
-            <component :is="configExpanded ? ChevronUp : ChevronDown" class="size-3.5" />
+            <AnimatedChevron :expanded="configExpanded" />
           </Button>
-          <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
-            {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
-          </span>
+          <Transition name="config-summary">
+            <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
+              {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
+            </span>
+          </Transition>
         </div>
         <div class="video-config-actions">
           <label class="preset-picker">
@@ -299,21 +318,12 @@ onBeforeUnmount(() => {
         <fieldset class="config-group">
           <legend>压缩</legend>
           <div class="config-group-fields">
-            <label class="compact-field">
-              <span>压缩模式</span>
-              <select
-                :value="store.settings.image.compressionMode"
-                @change="
-                  updateImage({
-                    compressionMode: ($event.target as HTMLSelectElement)
-                      .value as ImageCompressionMode
-                  })
-                "
-              >
-                <option value="quality">按图片质量</option>
-                <option value="targetSize">按目标大小</option>
-              </select>
-            </label>
+            <SegmentedControl
+              label="压缩模式"
+              :model-value="store.settings.image.compressionMode"
+              :options="compressionModeOptions"
+              @update:model-value="updateImage({ compressionMode: $event as ImageCompressionMode })"
+            />
             <label class="compact-field">
               <span>{{
                 store.settings.image.compressionMode === 'quality' ? '图片质量' : '目标大小'
@@ -350,22 +360,12 @@ onBeforeUnmount(() => {
         <fieldset class="config-group">
           <legend>尺寸</legend>
           <div class="config-group-fields">
-            <label class="compact-field">
-              <span>调整方式</span>
-              <select
-                :value="store.settings.image.resizeMode"
-                @change="
-                  updateImage({
-                    resizeMode: ($event.target as HTMLSelectElement).value as ImageResizeMode
-                  })
-                "
-              >
-                <option value="source">保持原始尺寸</option>
-                <option value="width">指定宽度</option>
-                <option value="height">指定高度</option>
-                <option value="percentage">按百分比</option>
-              </select>
-            </label>
+            <SegmentedControl
+              label="调整方式"
+              :model-value="store.settings.image.resizeMode"
+              :options="resizeModeOptions"
+              @update:model-value="updateImage({ resizeMode: $event as ImageResizeMode })"
+            />
             <label
               class="compact-field"
               :class="{ 'opacity-45': store.settings.image.resizeMode === 'source' }"
@@ -413,20 +413,12 @@ onBeforeUnmount(() => {
         <fieldset class="config-group">
           <legend>输出</legend>
           <div class="config-group-fields">
-            <label class="compact-field">
-              <span>输出格式</span>
-              <select
-                :value="store.settings.image.format"
-                @change="
-                  updateImage({ format: ($event.target as HTMLSelectElement).value as ImageFormat })
-                "
-              >
-                <option value="original">保持原格式</option>
-                <option value="jpeg">JPEG</option>
-                <option value="png">PNG</option>
-                <option value="webp">WebP</option>
-              </select>
-            </label>
+            <SegmentedControl
+              label="输出格式"
+              :model-value="store.settings.image.format"
+              :options="imageFormatOptions"
+              @update:model-value="updateImage({ format: $event as ImageFormat })"
+            />
             <ToggleSwitch
               label="目录结构"
               :model-value="store.settings.image.preserveStructure"
@@ -438,9 +430,9 @@ onBeforeUnmount(() => {
         </fieldset>
       </div>
 
-      <div
-        v-if="configExpanded"
+      <AdvancedSettingsPanel
         id="image-advanced-settings"
+        :open="configExpanded"
         class="video-config-expanded image-config-expanded"
       >
         <fieldset class="config-group">
@@ -481,7 +473,7 @@ onBeforeUnmount(() => {
             </label>
           </div>
         </fieldset>
-      </div>
+      </AdvancedSettingsPanel>
     </section>
 
     <div class="video-workspace-content">

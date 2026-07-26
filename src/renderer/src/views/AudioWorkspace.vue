@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
-  ChevronDown,
-  ChevronUp,
   FileAudio,
   ListTodo,
   Music,
@@ -28,6 +26,9 @@ import OutputSuffixField from '../components/OutputSuffixField.vue'
 import PreflightModal from '../components/PreflightModal.vue'
 import TaskTable from '../components/TaskTable.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
+import SegmentedControl from '../components/ui/SegmentedControl.vue'
+import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
+import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 
 const store = useAppStore()
 const configExpanded = ref(false)
@@ -37,6 +38,17 @@ const pendingPaths = ref<string[]>([])
 const preflightOpen = ref(false)
 const inspections = ref<MediaInspection[]>([])
 const preparedRequest = ref<CreateTasksRequest | null>(null)
+const audioFormatOptions = [
+  { value: 'mp3', label: 'MP3' },
+  { value: 'm4a', label: 'M4A' },
+  { value: 'wav', label: 'WAV' },
+  { value: 'flac', label: 'FLAC' }
+]
+const channelOptions = [
+  { value: 'source', label: '原始' },
+  { value: 'mono', label: '单声道' },
+  { value: 'stereo', label: '立体声' }
+]
 const supportedExtensions = new Set([
   'mp3',
   'm4a',
@@ -190,11 +202,13 @@ onBeforeUnmount(() => {
             @click="configExpanded = !configExpanded"
           >
             {{ configExpanded ? '收起设置' : '高级设置' }}
-            <component :is="configExpanded ? ChevronUp : ChevronDown" class="size-3.5" />
+            <AnimatedChevron :expanded="configExpanded" />
           </Button>
-          <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
-            {{ formatLabel }} · {{ bitrateLabel }}
-          </span>
+          <Transition name="config-summary">
+            <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
+              {{ formatLabel }} · {{ bitrateLabel }}
+            </span>
+          </Transition>
         </div>
         <div class="video-config-actions">
           <OutputControls />
@@ -213,20 +227,12 @@ onBeforeUnmount(() => {
         <fieldset class="config-group">
           <legend>格式与质量</legend>
           <div class="config-group-fields">
-            <label class="compact-field">
-              <span>输出格式</span>
-              <select
-                :value="store.settings.audio.format"
-                @change="
-                  updateAudio({ format: ($event.target as HTMLSelectElement).value as AudioFormat })
-                "
-              >
-                <option value="mp3">MP3</option>
-                <option value="m4a">M4A / AAC</option>
-                <option value="wav">WAV</option>
-                <option value="flac">FLAC</option>
-              </select>
-            </label>
+            <SegmentedControl
+              label="输出格式"
+              :model-value="store.settings.audio.format"
+              :options="audioFormatOptions"
+              @update:model-value="updateAudio({ format: $event as AudioFormat })"
+            />
             <label
               class="compact-field"
               :class="{ 'opacity-45': ['wav', 'flac'].includes(store.settings.audio.format) }"
@@ -254,21 +260,12 @@ onBeforeUnmount(() => {
         <fieldset class="config-group">
           <legend>声道与响度</legend>
           <div class="config-group-fields">
-            <label class="compact-field">
-              <span>声道</span>
-              <select
-                :value="store.settings.audio.channels"
-                @change="
-                  updateAudio({
-                    channels: ($event.target as HTMLSelectElement).value as AudioChannels
-                  })
-                "
-              >
-                <option value="source">保持原始</option>
-                <option value="mono">单声道</option>
-                <option value="stereo">立体声</option>
-              </select>
-            </label>
+            <SegmentedControl
+              label="声道"
+              :model-value="store.settings.audio.channels"
+              :options="channelOptions"
+              @update:model-value="updateAudio({ channels: $event as AudioChannels })"
+            />
             <ToggleSwitch
               label="响度标准化"
               :model-value="store.settings.audio.normalizeLoudness"
@@ -280,14 +277,18 @@ onBeforeUnmount(() => {
         </fieldset>
       </div>
 
-      <div v-if="configExpanded" id="audio-advanced-settings" class="video-config-expanded">
+      <AdvancedSettingsPanel
+        id="audio-advanced-settings"
+        :open="configExpanded"
+        class="video-config-expanded"
+      >
         <fieldset class="config-group">
           <legend>输出文件</legend>
           <div class="config-group-fields config-group-fields-single">
             <OutputSuffixField />
           </div>
         </fieldset>
-      </div>
+      </AdvancedSettingsPanel>
     </section>
 
     <div class="video-workspace-content">

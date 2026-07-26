@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import {
-  ChevronDown,
-  ChevronUp,
   FileVideo2,
   ListTodo,
   Play,
@@ -32,6 +30,9 @@ import TaskTable from '../components/TaskTable.vue'
 import OutputControls from '../components/OutputControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import PreflightModal from '../components/PreflightModal.vue'
+import SegmentedControl from '../components/ui/SegmentedControl.vue'
+import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
+import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 
 const store = useAppStore()
 const configExpanded = ref(false)
@@ -42,6 +43,46 @@ const preflightOpen = ref(false)
 const inspections = ref<MediaInspection[]>([])
 const preparedRequest = ref<CreateTasksRequest | null>(null)
 const videoExtensions = new Set(['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v', 'mpeg', 'mpg'])
+const videoFormatOptions = [
+  { value: 'source', label: '原格式' },
+  { value: 'mp4', label: 'MP4' },
+  { value: 'mov', label: 'MOV' },
+  { value: 'mkv', label: 'MKV' }
+]
+const videoCodecOptions = [
+  { value: 'source', label: '原编码' },
+  { value: 'h264', label: 'H.264', title: '兼容优先', ariaLabel: 'H.264，兼容优先' },
+  { value: 'h265', label: 'H.265', title: '更小体积', ariaLabel: 'H.265，更小体积' }
+]
+const encoderModeOptions = [
+  { value: 'auto', label: '自动', title: '自动检测（推荐）', ariaLabel: '自动检测，推荐' },
+  {
+    value: 'software',
+    label: 'CPU',
+    title: 'CPU 编码，兼容优先',
+    ariaLabel: 'CPU 编码，兼容优先'
+  },
+  {
+    value: 'hardware',
+    label: '硬件',
+    title: '硬件编码，速度优先',
+    ariaLabel: '硬件编码，速度优先'
+  }
+]
+const resolutionOptions = [
+  { value: 'source', label: '原始' },
+  { value: '1080p', label: '1080p', title: '最高 1080p', ariaLabel: '最高 1080p' },
+  { value: '720p', label: '720p', title: '最高 720p', ariaLabel: '最高 720p' }
+]
+const rateControlOptions = [
+  { value: 'quality', label: '质量' },
+  { value: 'bitrate', label: '码率' }
+]
+const qualityOptions = [
+  { value: 'high', label: '高质量' },
+  { value: 'balanced', label: '均衡' },
+  { value: 'small', label: '小体积' }
+]
 
 const videoTasks = computed(() => store.tasks.filter((task) => task.kind === 'video').slice(-20))
 const activeTaskCount = computed(
@@ -228,11 +269,13 @@ onBeforeUnmount(() => {
             @click="configExpanded = !configExpanded"
           >
             {{ configExpanded ? '收起设置' : '高级设置' }}
-            <component :is="configExpanded ? ChevronUp : ChevronDown" class="size-3.5" />
+            <AnimatedChevron :expanded="configExpanded" />
           </Button>
-          <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
-            {{ formatLabel }} · {{ codecLabel }} · {{ qualityLabel }}
-          </span>
+          <Transition name="config-summary">
+            <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
+              {{ formatLabel }} · {{ codecLabel }} · {{ qualityLabel }}
+            </span>
+          </Transition>
         </div>
         <div class="video-config-actions">
           <label class="preset-picker">
@@ -266,48 +309,24 @@ onBeforeUnmount(() => {
         <fieldset class="config-group">
           <legend>格式与编码</legend>
           <div class="config-group-fields">
-            <label class="compact-field">
-              <span>格式</span>
-              <select
-                :value="store.settings.video.format"
-                @change="
-                  updateVideo({ format: ($event.target as HTMLSelectElement).value as VideoFormat })
-                "
-              >
-                <option value="source">保持原格式</option>
-                <option value="mp4">MP4</option>
-                <option value="mov">MOV</option>
-                <option value="mkv">MKV</option>
-              </select>
-            </label>
-            <label class="compact-field">
-              <span>视频编码</span>
-              <select
-                :value="store.settings.video.codec"
-                @change="
-                  updateVideo({ codec: ($event.target as HTMLSelectElement).value as VideoCodec })
-                "
-              >
-                <option value="source">保持原编码</option>
-                <option value="h264">H.264 · 兼容优先</option>
-                <option value="h265">H.265 · 更小体积</option>
-              </select>
-            </label>
-            <label class="compact-field">
-              <span>编码设备</span>
-              <select
-                :value="store.settings.video.encoderMode"
-                @change="
-                  updateVideo({
-                    encoderMode: ($event.target as HTMLSelectElement).value as VideoEncoderMode
-                  })
-                "
-              >
-                <option value="auto">自动检测（推荐）</option>
-                <option value="software">CPU · 兼容优先</option>
-                <option value="hardware">硬件 · 速度优先</option>
-              </select>
-            </label>
+            <SegmentedControl
+              label="格式"
+              :model-value="store.settings.video.format"
+              :options="videoFormatOptions"
+              @update:model-value="updateVideo({ format: $event as VideoFormat })"
+            />
+            <SegmentedControl
+              label="视频编码"
+              :model-value="store.settings.video.codec"
+              :options="videoCodecOptions"
+              @update:model-value="updateVideo({ codec: $event as VideoCodec })"
+            />
+            <SegmentedControl
+              label="编码设备"
+              :model-value="store.settings.video.encoderMode"
+              :options="encoderModeOptions"
+              @update:model-value="updateVideo({ encoderMode: $event as VideoEncoderMode })"
+            />
           </div>
         </fieldset>
 
@@ -331,79 +350,63 @@ onBeforeUnmount(() => {
                 <option value="60">60 fps</option>
               </select>
             </label>
-            <label class="compact-field">
-              <span>分辨率</span>
-              <select
-                :value="store.settings.video.resolution"
-                @change="
-                  updateVideo({
-                    resolution: ($event.target as HTMLSelectElement).value as VideoResolution
-                  })
-                "
-              >
-                <option value="source">保持原始</option>
-                <option value="1080p">最高 1080p</option>
-                <option value="720p">最高 720p</option>
-              </select>
-            </label>
+            <SegmentedControl
+              label="分辨率"
+              :model-value="store.settings.video.resolution"
+              :options="resolutionOptions"
+              @update:model-value="updateVideo({ resolution: $event as VideoResolution })"
+            />
           </div>
         </fieldset>
 
         <fieldset class="config-group">
           <legend>压缩</legend>
           <div class="config-group-fields">
-            <label class="compact-field" :class="{ 'opacity-45': copiesSourceVideo }">
-              <span>压缩方式</span>
-              <select
-                :value="store.settings.video.rateControl"
-                :disabled="copiesSourceVideo"
-                @change="
-                  updateVideo({
-                    rateControl: ($event.target as HTMLSelectElement).value as VideoRateControl
-                  })
-                "
-              >
-                <option value="quality">按质量</option>
-                <option value="bitrate">目标码率</option>
-              </select>
-            </label>
-            <label class="compact-field" :class="{ 'opacity-45': copiesSourceVideo }">
-              <span>{{
-                store.settings.video.rateControl === 'quality' ? '质量' : '视频码率'
-              }}</span>
-              <select
+            <SegmentedControl
+              label="压缩方式"
+              :model-value="store.settings.video.rateControl"
+              :options="rateControlOptions"
+              :disabled="copiesSourceVideo"
+              :class="{ 'opacity-45': copiesSourceVideo }"
+              @update:model-value="updateVideo({ rateControl: $event as VideoRateControl })"
+            />
+            <div :class="{ 'opacity-45': copiesSourceVideo }">
+              <SegmentedControl
                 v-if="store.settings.video.rateControl === 'quality'"
-                :value="store.settings.video.quality"
+                label="质量"
+                :model-value="store.settings.video.quality"
+                :options="qualityOptions"
                 :disabled="copiesSourceVideo"
-                @change="
-                  updateVideo({
-                    quality: ($event.target as HTMLSelectElement).value as VideoQuality
-                  })
-                "
-              >
-                <option value="high">高质量</option>
-                <option value="balanced">均衡</option>
-                <option value="small">更小体积</option>
-              </select>
-              <div v-else class="number-field">
-                <input
-                  :value="store.settings.video.bitrateMbps"
-                  :disabled="copiesSourceVideo"
-                  type="number"
-                  min="0.5"
-                  max="100"
-                  step="0.5"
-                  @change="
-                    updateVideo({ bitrateMbps: Number(($event.target as HTMLInputElement).value) })
-                  "
-                /><span>Mbps</span>
-              </div>
-            </label>
+                @update:model-value="updateVideo({ quality: $event as VideoQuality })"
+              />
+              <label v-else class="compact-field">
+                <span>视频码率</span>
+                <div class="number-field">
+                  <input
+                    :value="store.settings.video.bitrateMbps"
+                    :disabled="copiesSourceVideo"
+                    type="number"
+                    min="0.5"
+                    max="100"
+                    step="0.5"
+                    @change="
+                      updateVideo({
+                        bitrateMbps: Number(($event.target as HTMLInputElement).value)
+                      })
+                    "
+                  /><span>Mbps</span>
+                </div>
+              </label>
+            </div>
           </div>
         </fieldset>
       </div>
 
-      <div v-if="configExpanded" id="video-advanced-settings" class="video-config-expanded">
+      <AdvancedSettingsPanel
+        id="video-advanced-settings"
+        :open="configExpanded"
+        class="video-config-expanded"
+      >
         <fieldset class="config-group">
           <legend>输出文件</legend>
           <div class="config-group-fields config-group-fields-single">
@@ -450,7 +453,7 @@ onBeforeUnmount(() => {
             </label>
           </div>
         </fieldset>
-      </div>
+      </AdvancedSettingsPanel>
     </section>
 
     <div class="video-workspace-content">
