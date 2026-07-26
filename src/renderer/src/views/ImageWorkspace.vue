@@ -33,6 +33,7 @@ import PreflightModal from '../components/PreflightModal.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
+import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 
 const store = useAppStore()
 const configExpanded = ref(false)
@@ -264,6 +265,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="video-drop-workspace" :class="{ 'video-drop-workspace-active': dragging }">
+    <DropFollowEffect :active="dragging" />
     <section v-if="store.settings" class="video-config-panel" aria-label="图片处理设置">
       <div class="video-config-heading">
         <div class="config-heading-main">

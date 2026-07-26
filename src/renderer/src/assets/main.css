@@ -76,6 +76,8 @@
   --icon-swap-blur: 2px;
   --icon-swap-start-scale: 0.25;
   --icon-swap-ease: ease-in-out;
+  --drop-follow-fade: 250ms;
+  --drop-follow-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html[data-theme='dark'] {
@@ -920,6 +922,127 @@ textarea,
   background: var(--drop-active);
 }
 
+.drop-follow-effect {
+  --drop-follow-x: 50%;
+  --drop-follow-y: 58%;
+  --drop-follow-shift-x: 0px;
+  --drop-follow-shift-y: 0px;
+  position: absolute;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--drop-follow-fade) var(--drop-follow-ease);
+  inset: 0;
+}
+
+.drop-follow-effect::before {
+  position: absolute;
+  background: radial-gradient(
+    circle 330px at var(--drop-follow-x) var(--drop-follow-y),
+    rgb(139 120 246 / 18%),
+    rgb(139 120 246 / 7%) 38%,
+    transparent 72%
+  );
+  content: '';
+  inset: 0;
+}
+
+.drop-follow-effect.is-active {
+  opacity: 1;
+}
+
+.drop-follow-grid {
+  position: absolute;
+  background-image: radial-gradient(circle, rgb(139 120 246 / 38%) 1px, transparent 1px);
+  background-size: 18px 18px;
+  mask-image: radial-gradient(
+    circle 250px at var(--drop-follow-x) var(--drop-follow-y),
+    black,
+    transparent 76%
+  );
+  opacity: 0.55;
+  inset: 0;
+}
+
+.drop-follow-anchor {
+  position: absolute;
+  top: var(--drop-follow-y);
+  left: var(--drop-follow-x);
+  width: 112px;
+  height: 112px;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.82);
+  transition:
+    top 80ms linear,
+    left 80ms linear,
+    opacity var(--duration-quick) var(--ease-out),
+    transform var(--duration-fast) var(--ease-smooth-out);
+}
+
+.drop-follow-effect.is-active .drop-follow-anchor {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.drop-follow-orbit,
+.drop-follow-reticle {
+  position: absolute;
+  border-radius: 999px;
+  inset: 0;
+}
+
+.drop-follow-orbit {
+  background: conic-gradient(
+    from 35deg,
+    transparent 0 28%,
+    rgb(171 156 255 / 82%) 38%,
+    transparent 49% 72%,
+    rgb(139 120 246 / 52%) 82%,
+    transparent 92%
+  );
+  mask: radial-gradient(circle, transparent 66%, black 67% 68%, transparent 69%);
+  animation: drop-follow-spin 4s linear infinite;
+}
+
+.drop-follow-reticle {
+  border: 1px solid rgb(139 120 246 / 32%);
+  box-shadow:
+    inset 0 0 24px rgb(139 120 246 / 9%),
+    0 0 24px rgb(139 120 246 / 12%);
+  transform: scale(0.56);
+}
+
+.drop-follow-reticle::before,
+.drop-follow-reticle::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 999px;
+  background: var(--signal);
+  box-shadow: 0 0 12px rgb(139 120 246 / 72%);
+  content: '';
+  transform: translate(-50%, -50%);
+}
+
+.drop-follow-reticle::before {
+  width: 5px;
+  height: 5px;
+}
+
+.drop-follow-reticle::after {
+  width: 22px;
+  height: 1px;
+  opacity: 0.46;
+}
+
+@keyframes drop-follow-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 .video-config-panel {
   position: relative;
   z-index: 20;
@@ -1276,7 +1399,8 @@ textarea,
 }
 
 .video-drop-prompt-active {
-  transform: scale(1.012);
+  transform: translate3d(var(--drop-follow-shift-x, 0), var(--drop-follow-shift-y, 0), 0)
+    scale(1.012);
   color: var(--accessible-cyan);
 }
 
@@ -1726,8 +1850,14 @@ html[data-theme='dark'] .bg-slate-950 {
   }
 
   .modal-overlay,
-  .modal-content {
+  .modal-content,
+  .drop-follow-orbit {
     animation: none !important;
+  }
+
+  .drop-follow-anchor,
+  .video-drop-prompt-active {
+    transform: none !important;
   }
 
   .page-swap-enter-active,
