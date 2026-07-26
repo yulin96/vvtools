@@ -1,5 +1,5 @@
 import { existsSync } from 'fs'
-import { extname, join, parse } from 'path'
+import { extname, join, parse, resolve } from 'path'
 import type {
   AudioFormat,
   ImageFormat,
@@ -65,6 +65,7 @@ interface ResolveOutputPathOptions {
 export interface ResolvedOutputPath {
   path: string
   skipped: boolean
+  overwritesExisting: boolean
 }
 
 export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOutputPath {
@@ -82,13 +83,34 @@ export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOu
   while (true) {
     const numberedSuffix = index === 0 ? '' : `_${index}`
     const candidate = join(outputDirectory, `${baseName}${numberedSuffix}${extension}`)
-    if (!existsSync(candidate) && !reservedPaths.has(candidate)) {
-      reservedPaths.add(candidate)
-      return { path: candidate, skipped: false }
+    if (reservedPaths.has(candidate)) {
+      if (conflictPolicy === 'skip') {
+        return { path: candidate, skipped: true, overwritesExisting: false }
+      }
+      index += 1
+      continue
     }
-    if (conflictPolicy === 'skip') return { path: candidate, skipped: true }
+    if (!existsSync(candidate)) {
+      reservedPaths.add(candidate)
+      return { path: candidate, skipped: false, overwritesExisting: false }
+    }
+    if (conflictPolicy === 'skip') {
+      return { path: candidate, skipped: true, overwritesExisting: false }
+    }
+    if (conflictPolicy === 'overwrite') {
+      reservedPaths.add(candidate)
+      return { path: candidate, skipped: false, overwritesExisting: true }
+    }
     index += 1
   }
+}
+
+export function pathsReferToSameFile(left: string, right: string): boolean {
+  const leftPath = resolve(left)
+  const rightPath = resolve(right)
+  return process.platform === 'win32'
+    ? leftPath.toLowerCase() === rightPath.toLowerCase()
+    : leftPath === rightPath
 }
 
 export function renderOutputBaseName(

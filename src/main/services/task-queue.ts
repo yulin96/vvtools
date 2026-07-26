@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto'
-import { mkdirSync, statSync } from 'fs'
+import { mkdirSync, rmSync, statSync } from 'fs'
 import { dirname, join } from 'path'
 import { EventEmitter } from 'events'
 import type {
@@ -13,6 +13,7 @@ import type {
 import { FailureLogService } from './failure-log'
 import { MediaProcessError, TaskCancelledError } from '../media/errors'
 import { getOutputExtension, resolveOutputPath } from '../media/output-path'
+import { commitStagedOutput, createStagingOutputPath } from '../media/output-commit'
 
 export type TaskRunner = (
   task: MediaTask,
@@ -196,6 +197,9 @@ export class TaskQueue extends EventEmitter {
 
   private async run(task: MediaTask): Promise<void> {
     const controller = new AbortController()
+    const stagingPath = createStagingOutputPath(task.outputPath, task.id)
+    const processingTask = structuredClone(task)
+    processingTask.outputPath = stagingPath
     this.running.set(task.id, controller)
     task.status = 'processing'
     task.progress = 0
@@ -203,10 +207,13 @@ export class TaskQueue extends EventEmitter {
     this.changed()
 
     try {
-      task.outputSize = await this.runner(task, controller.signal, (progress) => {
+      const outputSize = await this.runner(processingTask, controller.signal, (progress) => {
         task.progress = progress
         this.changed()
       })
+      if (controller.signal.aborted) throw new TaskCancelledError()
+      commitStagedOutput(stagingPath, task.outputPath, task.outputConflictPolicy === 'overwrite')
+      task.outputSize = outputSize
       task.status = 'completed'
       task.progress = 100
     } catch (error) {
@@ -223,6 +230,7 @@ export class TaskQueue extends EventEmitter {
         task.failure = failure
       }
     } finally {
+      rmSync(stagingPath, { force: true })
       task.completedAt = new Date().toISOString()
       this.running.delete(task.id)
       this.reservedPaths.delete(task.outputPath)

@@ -65,6 +65,23 @@ describe('output paths', () => {
         reservedPaths: new Set(),
         conflictPolicy: 'skip'
       })
-    ).toEqual({ path: join(directory, 'photo.jpg'), skipped: true })
+    ).toEqual({
+      path: join(directory, 'photo.jpg'),
+      skipped: true,
+      overwritesExisting: false
+    })
+    expect(
+      resolveOutputPath({
+        sourcePath: '/input/photo.jpg',
+        outputDirectory: directory,
+        extension: '.jpg',
+        reservedPaths: new Set(),
+        conflictPolicy: 'overwrite'
+      })
+    ).toEqual({
+      path: join(directory, 'photo.jpg'),
+      skipped: false,
+      overwritesExisting: true
+    })
   })
 })

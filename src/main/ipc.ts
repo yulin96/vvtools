@@ -74,7 +74,7 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
     request.outputNameTemplate ?? '{name}{suffix}'
   )
   request.outputConflictPolicy = request.outputConflictPolicy ?? 'rename'
-  if (!['rename', 'skip'].includes(request.outputConflictPolicy)) {
+  if (!['rename', 'overwrite', 'skip'].includes(request.outputConflictPolicy)) {
     throw new Error('输出冲突策略无效')
   }
   request.presetName = sanitizePresetName(request.presetName)
@@ -320,7 +320,7 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
     result.outputNameTemplate = sanitizeOutputNameTemplate(value.outputNameTemplate)
   }
   if (value.outputConflictPolicy !== undefined) {
-    if (!['rename', 'skip'].includes(value.outputConflictPolicy)) {
+    if (!['rename', 'overwrite', 'skip'].includes(value.outputConflictPolicy)) {
       throw new Error('输出冲突策略无效')
     }
     result.outputConflictPolicy = value.outputConflictPolicy
@@ -446,6 +446,21 @@ export function registerIpc(
     mkdirSync(outputDirectory, { recursive: true })
     const error = await shell.openPath(outputDirectory)
     if (error) throw new Error(error)
+  })
+  handle(IPC_CHANNELS.confirmSourceReplacement, async (event, count: number) => {
+    assertTrusted(event, window())
+    if (!Number.isInteger(count) || count < 1) throw new Error('待替换源文件数量无效')
+    const result = await dialog.showMessageBox(window(), {
+      type: 'warning',
+      title: '确认替换源文件',
+      message: `将替换 ${count} 个源文件`,
+      detail: 'VVTools 会先生成临时文件，处理成功后才替换源文件；处理失败或取消不会修改原文件。',
+      buttons: ['取消', '继续处理'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true
+    })
+    return result.response === 1
   })
 
   handle(IPC_CHANNELS.createTasks, (event, request: unknown) => {

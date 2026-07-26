@@ -58,7 +58,9 @@ export class SettingsStore {
           ? input.outputNameTemplate
           : this.settings.outputNameTemplate,
       outputConflictPolicy:
-        input.outputConflictPolicy === 'rename' || input.outputConflictPolicy === 'skip'
+        input.outputConflictPolicy === 'rename' ||
+        input.outputConflictPolicy === 'overwrite' ||
+        input.outputConflictPolicy === 'skip'
           ? input.outputConflictPolicy
           : this.settings.outputConflictPolicy,
       completionNotification:
@@ -114,7 +116,9 @@ export class SettingsStore {
             ? saved.outputNameTemplate
             : defaults.outputNameTemplate,
         outputConflictPolicy:
-          saved.outputConflictPolicy === 'rename' || saved.outputConflictPolicy === 'skip'
+          saved.outputConflictPolicy === 'rename' ||
+          saved.outputConflictPolicy === 'overwrite' ||
+          saved.outputConflictPolicy === 'skip'
             ? saved.outputConflictPolicy
             : defaults.outputConflictPolicy,
         completionNotification:

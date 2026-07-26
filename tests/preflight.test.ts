@@ -64,4 +64,32 @@ describe('media preflight', () => {
     expect(inspection.valid).toBe(false)
     expect(inspection.error).toBeTruthy()
   })
+
+  it('marks source replacement when overwrite targets the original file', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-preflight-'))
+    directories.push(root)
+    const source = join(root, 'photo.png')
+    await sharp({
+      create: { width: 8, height: 8, channels: 4, background: '#8844cc' }
+    })
+      .png()
+      .toFile(source)
+
+    const [inspection] = await inspectTasks({
+      kind: 'image',
+      sources: [{ path: source, relativeDirectory: '' }],
+      outputMode: 'source',
+      outputDirectory: root,
+      outputSuffix: '',
+      outputConflictPolicy: 'overwrite',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+
+    expect(inspection).toMatchObject({
+      valid: true,
+      outputPath: source,
+      overwritesExisting: true,
+      replacesSource: true
+    })
+  })
 })

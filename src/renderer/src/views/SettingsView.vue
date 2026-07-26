@@ -58,14 +58,6 @@ function updateOutputNameTemplate(event: Event): void {
   void store.updateSettings({ outputNameTemplate: template })
 }
 
-function updateOutputConflictPolicy(event: Event): void {
-  if (!store.settings) return
-  void store.updateSettings({
-    outputConflictPolicy: (event.target as HTMLSelectElement)
-      .value as AppSettings['outputConflictPolicy']
-  })
-}
-
 function updateCompletionAction(event: Event): void {
   if (!store.settings) return
   void store.updateSettings({
@@ -278,7 +270,7 @@ function copiesVideo(options: VideoOptions): boolean {
           <FileOutput class="size-4" />
           <div>
             <h2>输出命名</h2>
-            <p>为所有媒体任务设置安全的文件名模板和重名处理方式。</p>
+            <p>为所有媒体任务设置安全的文件名模板。</p>
           </div>
         </div>
         <div class="settings-card-controls flex flex-1 justify-end gap-4">
@@ -294,17 +286,6 @@ function copiesVideo(options: VideoOptions): boolean {
               可用：{name} {suffix} {preset} {width} {height} {date}。{suffix}
               对应各处理页的“文件名后缀”；未使用时，处理页后缀输入会禁用。
             </span>
-          </label>
-          <label class="field-label w-48">
-            <span>文件重名时</span>
-            <select
-              :value="store.settings.outputConflictPolicy"
-              class="field-control"
-              @change="updateOutputConflictPolicy"
-            >
-              <option value="rename">自动编号（推荐）</option>
-              <option value="skip">跳过已有文件</option>
-            </select>
           </label>
         </div>
       </section>

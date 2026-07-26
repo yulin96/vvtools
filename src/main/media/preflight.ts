@@ -7,7 +7,7 @@ import type {
   MediaInspection,
   VideoOptions
 } from '../../shared/types'
-import { getOutputExtension, resolveOutputPath } from './output-path'
+import { getOutputExtension, pathsReferToSameFile, resolveOutputPath } from './output-path'
 import { probeVideo } from './video-processor'
 import { probeAudio } from './audio-processor'
 
@@ -123,7 +123,12 @@ export async function inspectTasks(
         error: '输出文件已存在，当前冲突策略为跳过'
       }
     }
-    return { ...inspection, outputPath: output.path }
+    return {
+      ...inspection,
+      outputPath: output.path,
+      overwritesExisting: output.overwritesExisting,
+      replacesSource: output.overwritesExisting && pathsReferToSameFile(source.path, output.path)
+    }
   })
 }
 

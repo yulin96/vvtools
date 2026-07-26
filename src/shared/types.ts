@@ -15,7 +15,7 @@ export type ImageResizeMode = 'source' | 'width' | 'height' | 'percentage'
 export type ImageMetadataMode = 'strip' | 'colorProfile' | 'all'
 export type OutputMode = 'source' | 'custom'
 export type CloseBehavior = 'ask' | 'minimizeToTray' | 'quit'
-export type OutputConflictPolicy = 'rename' | 'skip'
+export type OutputConflictPolicy = 'rename' | 'overwrite' | 'skip'
 export type CompletionAction = 'none' | 'openOutput'
 export type AudioFormat = 'mp3' | 'm4a' | 'wav' | 'flac'
 export type AudioChannels = 'source' | 'mono' | 'stereo'
@@ -131,6 +131,8 @@ export interface MediaInspection {
   outputPath: string
   valid: boolean
   skipped?: boolean
+  overwritesExisting?: boolean
+  replacesSource?: boolean
   sourceSize: number
   format?: string
   width?: number
@@ -208,6 +210,7 @@ export interface VVToolsApi {
   selectImageDirectory: () => Promise<ImageInputFile[]>
   expandImageInputs: (paths: string[]) => Promise<ImageInputFile[]>
   openOutputDirectory: () => Promise<void>
+  confirmSourceReplacement: (count: number) => Promise<boolean>
   createTasks: (request: CreateTasksRequest) => Promise<MediaTask[]>
   inspectTasks: (request: CreateTasksRequest) => Promise<MediaInspection[]>
   getTasks: () => Promise<MediaTask[]>
