@@ -907,6 +907,10 @@ textarea,
 }
 
 .video-drop-workspace {
+  --drop-follow-x: 50%;
+  --drop-follow-y: 58%;
+  --drop-follow-shift-x: 0px;
+  --drop-follow-shift-y: 0px;
   position: relative;
   display: flex;
   height: 100%;
@@ -927,10 +931,6 @@ textarea,
 }
 
 .drop-follow-effect {
-  --drop-follow-x: 50%;
-  --drop-follow-y: 58%;
-  --drop-follow-shift-x: 0px;
-  --drop-follow-shift-y: 0px;
   position: absolute;
   z-index: 1;
   overflow: hidden;
