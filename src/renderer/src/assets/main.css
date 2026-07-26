@@ -162,6 +162,16 @@ body {
   width: 236px;
 }
 
+.main-window-drag-region {
+  position: absolute;
+  z-index: 90;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--shell-gap);
+  -webkit-app-region: drag;
+}
+
 .mac-window-controls,
 .desktop-window-controls {
   position: absolute;
@@ -587,6 +597,7 @@ textarea,
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
+  -webkit-app-region: drag;
 }
 
 .page-header h1 {
@@ -768,6 +779,7 @@ textarea,
   justify-content: space-between;
   gap: 16px;
   padding: 8px 8px 8px 16px;
+  -webkit-app-region: drag;
 }
 
 .video-config-actions {

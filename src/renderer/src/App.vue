@@ -216,6 +216,7 @@ onBeforeUnmount(() => {
     </aside>
 
     <main class="app-main">
+      <div v-if="isMac" class="main-window-drag-region" aria-hidden="true" />
       <div v-if="store.errorMessage" role="alert" class="app-alert">
         <span>{{ store.errorMessage }}</span>
         <button class="app-alert-close" aria-label="关闭错误提示" @click="store.errorMessage = ''">
