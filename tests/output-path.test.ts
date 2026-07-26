@@ -41,6 +41,11 @@ describe('output paths', () => {
 
   it('renders supported naming variables and can skip conflicts', () => {
     expect(
+      renderOutputBaseName('/input/photo.jpg', '{name}{suffix}', {
+        outputSuffix: '_compressed'
+      })
+    ).toBe('photo_compressed')
+    expect(
       renderOutputBaseName('/input/photo.jpg', '{name}_{width}x{height}_{preset}_{date}', {
         width: 1920,
         height: 1080,

@@ -24,11 +24,7 @@ import {
 import { getRuntimeCapabilities } from './media/ffmpeg-runtime'
 import { collectImageInputs } from './media/image-inputs'
 import { inspectTasks } from './media/preflight'
-import {
-  SettingsStore,
-  clampConcurrency,
-  normalizeHistoryRetentionDays
-} from './services/settings-store'
+import { SettingsStore, clampConcurrency } from './services/settings-store'
 import { TaskQueue } from './services/task-queue'
 
 const VIDEO_QUALITIES = new Set<VideoQuality>(['high', 'balanced', 'small'])
@@ -119,13 +115,13 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
 }
 
 function sanitizeOutputSuffix(value: unknown): string {
-  if (typeof value !== 'string') throw new Error('输出文件后缀无效')
+  if (typeof value !== 'string') throw new Error('文件名后缀无效')
   const suffix = value.trim()
   const invalidCharacter = [...suffix].some(
     (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*'.includes(character)
   )
   if (suffix.length > 50 || suffix.endsWith('.') || invalidCharacter) {
-    throw new Error('输出文件后缀不能超过 50 个字符，且不能包含文件名非法字符')
+    throw new Error('文件名后缀不能超过 50 个字符，且不能包含文件名非法字符')
   }
   return suffix
 }
@@ -301,9 +297,6 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
   const value = input as Partial<AppSettings>
   const result: Partial<AppSettings> = {}
   if (value.concurrency !== undefined) result.concurrency = clampConcurrency(value.concurrency)
-  if (value.historyRetentionDays !== undefined) {
-    result.historyRetentionDays = normalizeHistoryRetentionDays(value.historyRetentionDays)
-  }
   if (value.closeBehavior !== undefined) {
     if (!['ask', 'minimizeToTray', 'quit'].includes(value.closeBehavior)) {
       throw new Error('关闭窗口行为参数无效')
@@ -461,10 +454,11 @@ export function registerIpc(
   })
   handle(IPC_CHANNELS.inspectTasks, (event, request: unknown) => {
     assertTrusted(event, window())
-    return inspectTasks(
-      validateCreateRequest(request),
-      new Set(queue.list().map((task) => task.outputPath))
-    )
+    const activeOutputPaths = queue
+      .list()
+      .filter((task) => task.status === 'pending' || task.status === 'processing')
+      .map((task) => task.outputPath)
+    return inspectTasks(validateCreateRequest(request), new Set(activeOutputPaths))
   })
   handle(IPC_CHANNELS.getTasks, (event) => {
     assertTrusted(event, window())
@@ -477,27 +471,6 @@ export function registerIpc(
   handle(IPC_CHANNELS.retryTask, (event, taskId: string) => {
     assertTrusted(event, window())
     return queue.retry(taskId)
-  })
-  handle(IPC_CHANNELS.retryFailedTasks, (event) => {
-    assertTrusted(event, window())
-    return queue.retryFailed()
-  })
-  handle(IPC_CHANNELS.clearFinishedTasks, (event) => {
-    assertTrusted(event, window())
-    return queue.clearFinished()
-  })
-  handle(IPC_CHANNELS.cancelPendingTasks, (event) => {
-    assertTrusted(event, window())
-    return queue.cancelPending()
-  })
-  handle(IPC_CHANNELS.getQueuePaused, (event) => {
-    assertTrusted(event, window())
-    return queue.isPaused()
-  })
-  handle(IPC_CHANNELS.setQueuePaused, (event, paused: boolean) => {
-    assertTrusted(event, window())
-    if (typeof paused !== 'boolean') throw new Error('队列暂停参数无效')
-    return queue.setPaused(paused)
   })
   handle(IPC_CHANNELS.openTaskOutput, async (event, taskId: string) => {
     assertTrusted(event, window())
@@ -517,7 +490,6 @@ export function registerIpc(
     assertTrusted(event, window())
     const updated = settings.update(sanitizeSettings(input))
     queue.setConcurrency(updated.concurrency)
-    queue.setHistoryRetentionDays(updated.historyRetentionDays)
     return updated
   })
   handle(IPC_CHANNELS.getCapabilities, async (event): Promise<RuntimeCapabilities> => {

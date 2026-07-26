@@ -35,12 +35,6 @@ function updateConcurrency(event: Event): void {
   void store.updateSettings({ concurrency: Number((event.target as HTMLSelectElement).value) })
 }
 
-function updateHistoryRetention(event: Event): void {
-  void store.updateSettings({
-    historyRetentionDays: Number((event.target as HTMLSelectElement).value)
-  })
-}
-
 function updateCloseBehavior(event: Event): void {
   if (!store.settings) return
   void store.updateSettings({
@@ -265,18 +259,6 @@ function copiesVideo(options: VideoOptions): boolean {
             </select>
           </label>
           <label class="field-label w-56">
-            <span>历史记录保留</span>
-            <select
-              :value="store.settings.historyRetentionDays"
-              class="field-control"
-              @change="updateHistoryRetention"
-            >
-              <option :value="7">7 天</option>
-              <option :value="30">30 天（推荐）</option>
-              <option :value="90">90 天</option>
-            </select>
-          </label>
-          <label class="field-label w-56">
             <span>有任务时关闭窗口</span>
             <select
               :value="store.settings.closeBehavior"
@@ -309,7 +291,8 @@ function copiesVideo(options: VideoOptions): boolean {
               @change="updateOutputNameTemplate"
             />
             <span class="text-[11px] text-muted-foreground">
-              可用：{name} {suffix} {preset} {width} {height} {date}
+              可用：{name} {suffix} {preset} {width} {height} {date}。{suffix}
+              对应各处理页的“文件名后缀”；未使用时，处理页后缀输入会禁用。
             </span>
           </label>
           <label class="field-label w-48">

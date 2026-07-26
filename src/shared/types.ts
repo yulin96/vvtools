@@ -1,6 +1,5 @@
 export type TaskKind = 'video' | 'image' | 'audio'
-export type TaskStatus =
-  'pending' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
+export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
 export type VideoQuality = 'high' | 'balanced' | 'small'
 export type VideoResolution = 'source' | '1080p' | '720p'
@@ -74,7 +73,6 @@ export interface ImageInputFile {
 
 export interface AppSettings {
   concurrency: number
-  historyRetentionDays: number
   closeBehavior: CloseBehavior
   outputMode: OutputMode
   outputDirectory: string
@@ -215,11 +213,6 @@ export interface VVToolsApi {
   getTasks: () => Promise<MediaTask[]>
   cancelTask: (taskId: string) => Promise<boolean>
   retryTask: (taskId: string) => Promise<MediaTask | null>
-  retryFailedTasks: () => Promise<MediaTask[]>
-  clearFinishedTasks: () => Promise<number>
-  cancelPendingTasks: () => Promise<number>
-  getQueuePaused: () => Promise<boolean>
-  setQueuePaused: (paused: boolean) => Promise<boolean>
   openTaskOutput: (taskId: string) => Promise<void>
   getSettings: () => Promise<AppSettings>
   updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>

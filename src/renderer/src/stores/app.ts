@@ -21,7 +21,6 @@ export const useAppStore = defineStore('app', () => {
   const tasks = ref<MediaTask[]>([])
   const settings = ref<AppSettings | null>(null)
   const capabilities = ref<RuntimeCapabilities | null>(null)
-  const queuePaused = ref(false)
   const errorMessage = ref('')
   const pendingImageInputs = ref<ImageInputFile[]>([])
   const pendingVideoPaths = ref<string[]>([])
@@ -74,17 +73,15 @@ export const useAppStore = defineStore('app', () => {
 
   async function initialize(): Promise<void> {
     try {
-      const [initialTasks, initialSettings, initialQueuePaused] = await Promise.all([
+      const [initialTasks, initialSettings] = await Promise.all([
         window.api.getTasks(),
-        window.api.getSettings(),
-        window.api.getQueuePaused()
+        window.api.getSettings()
       ])
       tasks.value = initialTasks
       appendCurrentBatchTasks(
         initialTasks.filter((task) => ['pending', 'processing'].includes(task.status))
       )
       settings.value = initialSettings
-      queuePaused.value = initialQueuePaused
       unsubscribe?.()
       unsubscribe = window.api.onTasksChanged((nextTasks) => (tasks.value = nextTasks))
       void refreshCapabilities()
@@ -177,38 +174,6 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  async function retryFailedTasks(): Promise<void> {
-    try {
-      await window.api.retryFailedTasks()
-    } catch (error) {
-      reportError(error)
-    }
-  }
-
-  async function clearFinishedTasks(): Promise<void> {
-    try {
-      await window.api.clearFinishedTasks()
-    } catch (error) {
-      reportError(error)
-    }
-  }
-
-  async function cancelPendingTasks(): Promise<void> {
-    try {
-      await window.api.cancelPendingTasks()
-    } catch (error) {
-      reportError(error)
-    }
-  }
-
-  async function setQueuePaused(paused: boolean): Promise<void> {
-    try {
-      queuePaused.value = await window.api.setQueuePaused(paused)
-    } catch (error) {
-      reportError(error)
-    }
-  }
-
   async function openTaskOutput(id: string): Promise<void> {
     try {
       await window.api.openTaskOutput(id)
@@ -233,7 +198,6 @@ export const useAppStore = defineStore('app', () => {
     tasks,
     settings,
     capabilities,
-    queuePaused,
     errorMessage,
     pendingImageInputs,
     pendingVideoPaths,
@@ -247,10 +211,6 @@ export const useAppStore = defineStore('app', () => {
     updateSettings,
     cancelTask,
     retryTask,
-    retryFailedTasks,
-    clearFinishedTasks,
-    cancelPendingTasks,
-    setQueuePaused,
     openTaskOutput,
     openOutputDirectory
   }

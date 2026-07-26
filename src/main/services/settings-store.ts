@@ -6,8 +6,7 @@ import {
   DEFAULT_IMAGE_PRESETS,
   DEFAULT_AUDIO_OPTIONS,
   DEFAULT_VIDEO_OPTIONS,
-  DEFAULT_VIDEO_PRESETS,
-  HISTORY_RETENTION_DAYS
+  DEFAULT_VIDEO_PRESETS
 } from '../../shared/constants'
 
 export class SettingsStore {
@@ -18,7 +17,6 @@ export class SettingsStore {
     this.path = join(userDataPath, 'settings.json')
     const defaults: AppSettings = {
       concurrency: 1,
-      historyRetentionDays: 30,
       closeBehavior: 'ask',
       outputMode: 'custom',
       outputDirectory: join(downloadsPath, 'VVTools'),
@@ -44,9 +42,6 @@ export class SettingsStore {
   update(input: Partial<AppSettings>): AppSettings {
     this.settings = {
       concurrency: clampConcurrency(input.concurrency ?? this.settings.concurrency),
-      historyRetentionDays: normalizeHistoryRetentionDays(
-        input.historyRetentionDays ?? this.settings.historyRetentionDays
-      ),
       closeBehavior: normalizeCloseBehavior(input.closeBehavior ?? this.settings.closeBehavior),
       outputMode:
         input.outputMode === 'source' || input.outputMode === 'custom'
@@ -103,9 +98,6 @@ export class SettingsStore {
       }
       return {
         concurrency: clampConcurrency(saved.concurrency ?? defaults.concurrency),
-        historyRetentionDays: normalizeHistoryRetentionDays(
-          saved.historyRetentionDays ?? defaults.historyRetentionDays
-        ),
         closeBehavior: normalizeCloseBehavior(saved.closeBehavior ?? defaults.closeBehavior),
         outputMode:
           saved.outputMode === 'source' || saved.outputMode === 'custom'
@@ -232,12 +224,6 @@ function migrateImagePresets(value: unknown, defaults: ImagePreset[]): ImagePres
 export function clampConcurrency(value: number): number {
   if (!Number.isInteger(value)) return 1
   return Math.min(4, Math.max(1, value))
-}
-
-export function normalizeHistoryRetentionDays(value: number): number {
-  return HISTORY_RETENTION_DAYS.includes(value as (typeof HISTORY_RETENTION_DAYS)[number])
-    ? value
-    : 30
 }
 
 function normalizeCloseBehavior(value: unknown): AppSettings['closeBehavior'] {

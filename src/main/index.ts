@@ -19,7 +19,6 @@ import { processVideo } from './media/video-processor'
 import { batchSummaryText, summarizeBatch } from './services/completion'
 import { FailureLogService } from './services/failure-log'
 import { SettingsStore } from './services/settings-store'
-import { TaskHistoryStore } from './services/task-history-store'
 import { TaskQueue } from './services/task-queue'
 
 let mainWindow: BrowserWindow | null = null
@@ -233,9 +232,7 @@ app.whenReady().then(() => {
         : task.kind === 'audio'
           ? processAudio(task, signal, onProgress, failureLogs)
           : processImage(task, signal, onProgress),
-    failureLogs,
-    new TaskHistoryStore(app.getPath('userData')),
-    settings.get().historyRetentionDays
+    failureLogs
   )
   queue.on('changed', handleQueueChanged)
   unregisterIpc = registerIpc(() => mainWindow, queue, settings)

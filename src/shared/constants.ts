@@ -114,8 +114,6 @@ export const DEFAULT_AUDIO_OPTIONS: AudioOptions = {
   normalizeLoudness: false
 }
 
-export const HISTORY_RETENTION_DAYS = [7, 30, 90] as const
-
 export const VIDEO_EXTENSIONS = new Set([
   '.mp4',
   '.mov',
@@ -154,11 +152,6 @@ export const IPC_CHANNELS = {
   getTasks: 'tasks:get',
   cancelTask: 'tasks:cancel',
   retryTask: 'tasks:retry',
-  retryFailedTasks: 'tasks:retry-failed',
-  clearFinishedTasks: 'tasks:clear-finished',
-  cancelPendingTasks: 'tasks:cancel-pending',
-  getQueuePaused: 'queue:get-paused',
-  setQueuePaused: 'queue:set-paused',
   openTaskOutput: 'tasks:open-output',
   tasksChanged: 'tasks:changed',
   getSettings: 'settings:get',

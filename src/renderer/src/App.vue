@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
-  History,
   Images,
   Maximize2,
   Minimize2,
@@ -49,7 +48,6 @@ const navigation = [
   { to: '/image', label: '图片处理', icon: Images },
   { to: '/video', label: '视频处理', icon: Video },
   { to: '/audio', label: '音频处理', icon: Music },
-  { to: '/history', label: '任务历史', icon: History },
   { to: '/settings', label: '设置', icon: Settings }
 ]
 

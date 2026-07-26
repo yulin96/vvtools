@@ -1,10 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { FailureLogService } from '../src/main/services/failure-log'
 import { TaskQueue, type TaskRunner } from '../src/main/services/task-queue'
-import { TaskHistoryStore } from '../src/main/services/task-history-store'
 import { MediaProcessError, TaskCancelledError } from '../src/main/media/errors'
 import { DEFAULT_IMAGE_OPTIONS, DEFAULT_VIDEO_OPTIONS } from '../src/shared/constants'
 
@@ -113,61 +112,9 @@ describe('TaskQueue', () => {
     )
   })
 
-  it('persists task history and restores unfinished tasks as interrupted', async () => {
+  it('keeps task state in memory without writing task history', async () => {
     const paths = fixture()
-    let release!: () => void
-    const blocker = new Promise<void>((resolve) => (release = resolve))
-    const history = new TaskHistoryStore(paths.userData)
-    const queue = new TaskQueue(
-      1,
-      async () => {
-        await blocker
-        return 1
-      },
-      new FailureLogService(paths.userData),
-      history,
-      30
-    )
-    const [task] = queue.create({
-      kind: 'image',
-      sources: [{ path: paths.source, relativeDirectory: '' }],
-      outputMode: 'custom',
-      outputDirectory: paths.output,
-      outputSuffix: '',
-      options: { ...DEFAULT_IMAGE_OPTIONS }
-    })
-    await waitFor(() => queue.list()[0]?.status === 'processing')
-
-    const restored = new TaskQueue(
-      1,
-      async () => 1,
-      new FailureLogService(paths.userData),
-      history,
-      30
-    )
-    expect(restored.list()).toEqual([
-      expect.objectContaining({
-        id: task.id,
-        status: 'interrupted',
-        progress: null,
-        failure: expect.objectContaining({ message: expect.stringContaining('上次退出') })
-      })
-    ])
-    expect(JSON.parse(readFileSync(join(paths.userData, 'tasks.json'), 'utf8')).version).toBe(1)
-    release()
-  })
-
-  it('retries all failed tasks and clears completed history', async () => {
-    const paths = fixture()
-    let fail = true
-    const queue = new TaskQueue(
-      1,
-      async () => {
-        if (fail) throw new MediaProcessError('broken')
-        return 1
-      },
-      new FailureLogService(paths.userData)
-    )
+    const queue = new TaskQueue(1, async () => 1, new FailureLogService(paths.userData))
     queue.create({
       kind: 'image',
       sources: [{ path: paths.source, relativeDirectory: '' }],
@@ -176,57 +123,32 @@ describe('TaskQueue', () => {
       outputSuffix: '',
       options: { ...DEFAULT_IMAGE_OPTIONS }
     })
-    await waitFor(() => queue.list()[0]?.status === 'failed')
-    fail = false
-    expect(queue.retryFailed()).toHaveLength(1)
-    await waitFor(() => queue.list().some((task) => task.status === 'completed'))
-    expect(queue.clearFinished()).toBe(1)
-    expect(queue.list().some((task) => task.status === 'completed')).toBe(false)
+    await waitFor(() => queue.list()[0]?.status === 'completed')
+
+    expect(existsSync(join(paths.userData, 'tasks.json'))).toBe(false)
+    expect(new TaskQueue(1, async () => 1, new FailureLogService(paths.userData)).list()).toEqual(
+      []
+    )
   })
 
-  it('pauses dispatch and can cancel every pending task', async () => {
+  it('reuses an available output name after a settled batch', async () => {
     const paths = fixture()
-    let runCount = 0
-    const queue = new TaskQueue(
-      1,
-      async () => {
-        runCount += 1
-        return 1
-      },
-      new FailureLogService(paths.userData)
-    )
-    queue.setPaused(true)
-    queue.create({
-      kind: 'image',
-      sources: [paths.source, paths.source].map((path) => ({ path, relativeDirectory: '' })),
-      outputMode: 'custom',
+    const queue = new TaskQueue(1, async () => 1, new FailureLogService(paths.userData))
+    const request = {
+      kind: 'image' as const,
+      sources: [{ path: paths.source, relativeDirectory: '' }],
+      outputMode: 'custom' as const,
       outputDirectory: paths.output,
       outputSuffix: '',
       options: { ...DEFAULT_IMAGE_OPTIONS }
-    })
+    }
 
-    expect(queue.isPaused()).toBe(true)
-    expect(queue.list().every((task) => task.status === 'pending')).toBe(true)
-    expect(runCount).toBe(0)
-    queue.setPaused(false)
-    await waitFor(() => queue.list().every((task) => task.status === 'completed'))
-    expect(runCount).toBe(2)
-    expect(queue.clearFinished()).toBe(2)
+    const [first] = queue.create(request)
+    await waitFor(() => queue.list()[0]?.status === 'completed')
+    const [second] = queue.create(request)
 
-    queue.setPaused(true)
-    queue.create({
-      kind: 'image',
-      sources: [paths.source, paths.source].map((path) => ({ path, relativeDirectory: '' })),
-      outputMode: 'custom',
-      outputDirectory: paths.output,
-      outputSuffix: '',
-      options: { ...DEFAULT_IMAGE_OPTIONS }
-    })
-    expect(queue.cancelPending()).toBe(2)
-    expect(queue.list().every((task) => task.status === 'cancelled')).toBe(true)
-    expect(queue.clearFinished()).toBe(2)
-    queue.setPaused(false)
-    expect(runCount).toBe(2)
+    expect(second.outputPath).toBe(first.outputPath)
+    expect(queue.list()).toEqual([expect.objectContaining({ id: second.id })])
   })
 
   it('writes video output to the selected output directory', () => {

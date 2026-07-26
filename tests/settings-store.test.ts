@@ -26,7 +26,6 @@ describe('SettingsStore', () => {
       completionNotification: true,
       completionSound: false,
       completionAction: 'none',
-      historyRetentionDays: 30,
       closeBehavior: 'ask'
     })
     expect(store.get().image).toMatchObject({
@@ -82,7 +81,6 @@ describe('SettingsStore', () => {
 
     store.update({
       outputMode: 'source',
-      historyRetentionDays: 90,
       closeBehavior: 'minimizeToTray',
       outputSuffix: '-compressed',
       outputNameTemplate: '{name}_{preset}_{date}',
@@ -111,7 +109,6 @@ describe('SettingsStore', () => {
 
     expect(new SettingsStore(root, downloads).get()).toMatchObject({
       outputMode: 'source',
-      historyRetentionDays: 90,
       closeBehavior: 'minimizeToTray',
       outputNameTemplate: '{name}_{preset}_{date}',
       outputConflictPolicy: 'skip',
