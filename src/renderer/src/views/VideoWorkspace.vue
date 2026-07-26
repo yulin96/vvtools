@@ -1,15 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import {
-  FileVideo2,
-  ListTodo,
-  Play,
-  Plus,
-  SlidersHorizontal,
-  Trash2,
-  UploadCloud,
-  X
-} from '@lucide/vue'
+import { FileVideo2, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
   VideoAudioMode,
@@ -23,9 +14,8 @@ import type {
   VideoResolution
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
-import { fileName } from '../lib/utils'
 import Button from '../components/ui/Button.vue'
-import TaskTable from '../components/TaskTable.vue'
+import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import OutputControls from '../components/OutputControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
@@ -83,10 +73,8 @@ const qualityOptions = [
   { value: 'small', label: '小体积' }
 ]
 
-const videoTasks = computed(() => store.tasks.filter((task) => task.kind === 'video').slice(-20))
-const activeTaskCount = computed(
-  () => videoTasks.value.filter((task) => ['pending', 'processing'].includes(task.status)).length
-)
+const videoTasks = computed(() => store.currentBatchTasks.video)
+const pendingTableItems = computed(() => pendingPaths.value.map((path) => ({ path })))
 const copiesSourceVideo = computed(() => {
   const video = store.settings?.video
   return video?.codec === 'source' && video.resolution === 'source' && video.frameRate === 'source'
@@ -150,6 +138,7 @@ function applyPreset(event: Event): void {
 
 function stageFiles(paths: string[]): void {
   if (paths.length === 0) return
+  if (pendingPaths.value.length === 0) store.prepareCurrentBatch('video')
   pendingPaths.value = [...new Set([...pendingPaths.value, ...paths])]
 }
 
@@ -432,49 +421,26 @@ onBeforeUnmount(() => {
     </section>
 
     <div class="video-workspace-content">
-      <section
-        v-if="pendingPaths.length"
-        class="pending-file-panel"
-        aria-labelledby="pending-title"
+      <CurrentBatchTable
+        v-if="pendingPaths.length || videoTasks.length"
+        kind="video"
+        :pending-items="pendingTableItems"
+        :tasks="videoTasks"
+        @remove-pending="removePending"
       >
-        <header class="pending-file-header">
-          <div>
-            <div class="flex items-center gap-2">
-              <FileVideo2 class="size-4 text-signal-strong" />
-              <h2 id="pending-title">待处理文件</h2>
-              <span class="pending-count">{{ pendingPaths.length }}</span>
-            </div>
-            <p>确认预设和输出位置后，点击顶部“开始处理”。</p>
-          </div>
+        <template #actions>
           <div class="flex items-center gap-1">
             <Button variant="secondary" size="sm" @click="chooseFiles">
-              <Plus class="size-3.5" />继续添加
+              <Plus class="size-3.5" />添加视频
             </Button>
-            <Button variant="ghost" size="sm" @click="pendingPaths = []">
-              <Trash2 class="size-3.5" />清空
+            <Button v-if="pendingPaths.length" variant="ghost" size="sm" @click="pendingPaths = []">
+              清空待处理
             </Button>
           </div>
-        </header>
-        <ul class="pending-file-list">
-          <li v-for="path in pendingPaths" :key="path">
-            <FileVideo2 class="size-4 shrink-0 text-muted-foreground" />
-            <span class="truncate" :title="path">{{ fileName(path) }}</span>
-            <button
-              type="button"
-              :aria-label="`移除 ${fileName(path)}`"
-              @click="removePending(path)"
-            >
-              <X class="size-4" />
-            </button>
-          </li>
-        </ul>
-      </section>
+        </template>
+      </CurrentBatchTable>
 
-      <div
-        v-else-if="videoTasks.length === 0"
-        class="video-drop-prompt"
-        :class="{ 'video-drop-prompt-active': dragging }"
-      >
+      <div v-else class="video-drop-prompt" :class="{ 'video-drop-prompt-active': dragging }">
         <div class="video-drop-icon">
           <UploadCloud v-if="dragging" class="size-8" />
           <FileVideo2 v-else class="size-8" />
@@ -485,31 +451,6 @@ onBeforeUnmount(() => {
         </p>
         <Button class="mt-5" @click="chooseFiles">选择视频文件</Button>
       </div>
-
-      <section v-if="videoTasks.length" class="inline-task-section" aria-labelledby="tasks-title">
-        <header class="inline-task-header">
-          <div>
-            <div class="flex items-center gap-2">
-              <ListTodo class="size-4 text-signal-strong" />
-              <h2 id="tasks-title">任务进度</h2>
-            </div>
-            <p>
-              {{
-                activeTaskCount ? `${activeTaskCount} 个任务正在处理或等待` : '本次任务已处理完毕'
-              }}
-            </p>
-          </div>
-          <Button
-            v-if="pendingPaths.length === 0"
-            variant="secondary"
-            size="sm"
-            @click="chooseFiles"
-          >
-            <Plus class="size-3.5" />添加视频
-          </Button>
-        </header>
-        <TaskTable :tasks="videoTasks" empty-text="暂无视频任务" />
-      </section>
     </div>
   </div>
 </template>

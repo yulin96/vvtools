@@ -1,17 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import {
-  FileImage,
-  FolderPlus,
-  Images,
-  ListTodo,
-  Play,
-  Plus,
-  SlidersHorizontal,
-  Trash2,
-  UploadCloud,
-  X
-} from '@lucide/vue'
+import { FolderPlus, Images, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
   ImageCompressionMode,
@@ -24,7 +13,7 @@ import type {
 import { useAppStore } from '../stores/app'
 import { fileName } from '../lib/utils'
 import Button from '../components/ui/Button.vue'
-import TaskTable from '../components/TaskTable.vue'
+import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import OutputControls from '../components/OutputControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
@@ -58,9 +47,12 @@ const imageFormatOptions = [
   { value: 'webp', label: 'WebP' }
 ]
 
-const imageTasks = computed(() => store.tasks.filter((task) => task.kind === 'image').slice(-20))
-const activeTaskCount = computed(
-  () => imageTasks.value.filter((task) => ['pending', 'processing'].includes(task.status)).length
+const imageTasks = computed(() => store.currentBatchTasks.image)
+const pendingTableItems = computed(() =>
+  pendingInputs.value.map((input) => ({
+    path: input.path,
+    label: inputLabel(input)
+  }))
 )
 const formatLabel = computed(() => {
   const format = store.settings?.image.format
@@ -130,6 +122,7 @@ function inputLabel(input: ImageInputFile): string {
 
 function stageInputs(inputs: ImageInputFile[]): void {
   if (inputs.length === 0) return
+  if (pendingInputs.value.length === 0) store.prepareCurrentBatch('image')
   const combined = new Map(pendingInputs.value.map((input) => [input.path, input]))
   for (const input of inputs) combined.set(input.path, input)
   if (combined.size > 500) {
@@ -452,20 +445,14 @@ onBeforeUnmount(() => {
     </section>
 
     <div class="video-workspace-content">
-      <section
-        v-if="pendingInputs.length"
-        class="pending-file-panel"
-        aria-labelledby="image-pending-title"
+      <CurrentBatchTable
+        v-if="pendingInputs.length || imageTasks.length"
+        kind="image"
+        :pending-items="pendingTableItems"
+        :tasks="imageTasks"
+        @remove-pending="removePending"
       >
-        <header class="pending-file-header">
-          <div>
-            <div class="flex items-center gap-2">
-              <Images class="size-4 text-signal-strong" />
-              <h2 id="image-pending-title">待处理图片</h2>
-              <span class="pending-count">{{ pendingInputs.length }}</span>
-            </div>
-            <p>确认图片参数和输出位置后，点击顶部“开始处理”。</p>
-          </div>
+        <template #actions>
           <div class="flex items-center gap-1">
             <Button variant="secondary" size="sm" @click="chooseFiles">
               <Plus class="size-3.5" />添加图片
@@ -473,31 +460,19 @@ onBeforeUnmount(() => {
             <Button variant="secondary" size="sm" @click="chooseDirectory">
               <FolderPlus class="size-3.5" />添加文件夹
             </Button>
-            <Button variant="ghost" size="sm" @click="pendingInputs = []">
-              <Trash2 class="size-3.5" />清空
+            <Button
+              v-if="pendingInputs.length"
+              variant="ghost"
+              size="sm"
+              @click="pendingInputs = []"
+            >
+              清空待处理
             </Button>
           </div>
-        </header>
-        <ul class="pending-file-list">
-          <li v-for="input in pendingInputs" :key="input.path">
-            <FileImage class="size-4 shrink-0 text-muted-foreground" />
-            <span class="truncate" :title="input.path">{{ inputLabel(input) }}</span>
-            <button
-              type="button"
-              :aria-label="`移除 ${fileName(input.path)}`"
-              @click="removePending(input.path)"
-            >
-              <X class="size-4" />
-            </button>
-          </li>
-        </ul>
-      </section>
+        </template>
+      </CurrentBatchTable>
 
-      <div
-        v-else-if="imageTasks.length === 0"
-        class="video-drop-prompt"
-        :class="{ 'video-drop-prompt-active': dragging }"
-      >
+      <div v-else class="video-drop-prompt" :class="{ 'video-drop-prompt-active': dragging }">
         <div class="video-drop-icon">
           <UploadCloud v-if="dragging" class="size-8" />
           <Images v-else class="size-8" />
@@ -513,35 +488,6 @@ onBeforeUnmount(() => {
           <Button variant="secondary" @click="chooseDirectory">选择文件夹</Button>
         </div>
       </div>
-
-      <section
-        v-if="imageTasks.length"
-        class="inline-task-section"
-        aria-labelledby="image-tasks-title"
-      >
-        <header class="inline-task-header">
-          <div>
-            <div class="flex items-center gap-2">
-              <ListTodo class="size-4 text-signal-strong" />
-              <h2 id="image-tasks-title">任务进度</h2>
-            </div>
-            <p>
-              {{
-                activeTaskCount ? `${activeTaskCount} 个任务正在处理或等待` : '本次任务已处理完毕'
-              }}
-            </p>
-          </div>
-          <div v-if="pendingInputs.length === 0" class="flex items-center gap-1">
-            <Button variant="secondary" size="sm" @click="chooseFiles">
-              <Plus class="size-3.5" />添加图片
-            </Button>
-            <Button variant="secondary" size="sm" @click="chooseDirectory">
-              <FolderPlus class="size-3.5" />添加文件夹
-            </Button>
-          </div>
-        </header>
-        <TaskTable :tasks="imageTasks" empty-text="暂无图片任务" />
-      </section>
     </div>
   </div>
 </template>

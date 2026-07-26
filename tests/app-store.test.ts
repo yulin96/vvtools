@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { reactive } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { CreateTasksRequest, VVToolsApi } from '../src/shared/types'
+import type { CreateTasksRequest, MediaTask, VVToolsApi } from '../src/shared/types'
 import { DEFAULT_IMAGE_OPTIONS } from '../src/shared/constants'
 import { useAppStore } from '../src/renderer/src/stores/app'
 
@@ -26,9 +26,22 @@ describe('app store task submission', () => {
   })
 
   it('converts reactive task requests to IPC-cloneable data before submission', async () => {
+    const createdTask: MediaTask = {
+      id: 'image-task-1',
+      kind: 'image',
+      sourcePath: '/tmp/source.png',
+      outputPath: '/tmp/source_processed.png',
+      status: 'pending',
+      progress: 0,
+      options: { ...DEFAULT_IMAGE_OPTIONS },
+      sourceSize: 10,
+      sourceWidth: 16,
+      sourceHeight: 9,
+      createdAt: new Date().toISOString()
+    }
     const createTasks = vi.fn(async (request: CreateTasksRequest) => {
       expect(() => structuredClone(request)).not.toThrow()
-      return []
+      return [createdTask]
     })
     const api = {
       inspectTasks: vi.fn(async () => [
@@ -57,9 +70,14 @@ describe('app store task submission', () => {
       options: { ...DEFAULT_IMAGE_OPTIONS }
     })
 
-    const result = await useAppStore().submitTasks(request)
+    const store = useAppStore()
+    const result = await store.submitTasks(request)
 
     expect(result).toEqual({ handledPaths: ['/tmp/source.png'] })
+    expect(store.currentBatchTasks.image).toEqual([createdTask])
+    store.tasks[0].status = 'completed'
+    store.prepareCurrentBatch('image')
+    expect(store.currentBatchTasks.image).toEqual([])
     expect(createTasks).toHaveBeenCalledOnce()
     expect(createTasks.mock.calls[0][0]).toMatchObject({
       kind: 'image',

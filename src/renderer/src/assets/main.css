@@ -1459,47 +1459,225 @@ textarea,
   padding: 16px var(--shell-gap) var(--shell-gap);
 }
 
-.pending-file-panel,
-.inline-task-section {
-  width: 100%;
+.video-workspace-content:has(.batch-task-panel) {
+  overflow: hidden;
 }
 
-.pending-file-panel {
+.batch-task-panel {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
   overflow: hidden;
-  flex-shrink: 0;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--background);
 }
 
-.pending-file-header,
-.inline-task-header,
+.batch-task-header {
+  display: flex;
+  min-height: 58px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--border);
+  padding: 10px 12px 10px 16px;
+}
+
+.batch-task-header h2 {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 20px;
+}
+
+.batch-task-header p {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-task-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.batch-savings-summary {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.batch-savings-summary strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.batch-savings-total {
+  margin-left: 5px;
+  font-weight: 600;
+}
+
+.batch-task-table-wrap {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.batch-task-table {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  color: var(--foreground);
+  font-size: 12px;
+  text-align: left;
+}
+
+.batch-task-table thead {
+  position: sticky;
+  z-index: 4;
+  top: 0;
+  background: var(--surface-raised);
+  color: var(--muted-foreground);
+}
+
+.batch-task-table th {
+  height: 32px;
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.batch-task-table td {
+  height: 48px;
+  border-bottom: 1px solid var(--border);
+  padding: 6px 12px;
+  vertical-align: middle;
+}
+
+.batch-task-table tbody tr {
+  transition: background-color var(--duration-quick) var(--ease-out);
+}
+
+.batch-task-table tbody tr:hover {
+  background: var(--surface-raised);
+}
+
+.batch-col-name {
+  width: 27%;
+}
+
+.batch-col-size {
+  width: 15%;
+}
+
+.batch-col-savings {
+  width: 10%;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.batch-col-savings small {
+  display: block;
+  margin-top: 1px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+
+.batch-col-spec {
+  width: 11%;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.batch-col-progress {
+  width: 19%;
+}
+
+.batch-col-status {
+  width: 11%;
+}
+
+.batch-col-actions {
+  width: 7%;
+  text-align: right;
+}
+
+.batch-file-cell {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.batch-status-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.batch-file-path {
+  margin-top: 1px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.batch-size-cell {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.batch-progress-cell {
+  display: grid;
+  grid-template-columns: minmax(64px, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+.batch-progress-cell > span {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.batch-failure-message {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--danger-fg);
+  font-size: 10px;
+  line-height: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .settings-section-heading,
 .preset-editor-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-}
-
-.pending-file-header {
-  align-items: center;
-  padding: 16px;
-}
-
-.pending-file-header h2,
-.inline-task-header h2 {
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 20px;
-}
-
-.pending-file-header p,
-.inline-task-header p {
-  margin-top: 4px;
-  color: var(--muted-foreground);
-  font-size: 12px;
-  line-height: 16px;
 }
 
 .pending-count {
@@ -1514,56 +1692,6 @@ textarea,
   color: var(--muted-foreground);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-}
-
-.pending-file-list {
-  max-height: 190px;
-  overflow: auto;
-  border-top: 1px solid var(--border);
-}
-
-.pending-file-list li {
-  display: flex;
-  min-height: 42px;
-  align-items: center;
-  gap: 8px;
-  padding: 0 8px 0 16px;
-  font-size: 13px;
-}
-
-.pending-file-list li + li {
-  border-top: 1px solid var(--border);
-}
-
-.pending-file-list li button {
-  display: inline-flex;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  margin-left: auto;
-  border-radius: 6px;
-  color: var(--muted-foreground);
-}
-
-.pending-file-list li button:hover {
-  background: var(--muted);
-  color: var(--foreground);
-}
-
-.pending-file-list li button:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 1px;
-}
-
-.inline-task-section {
-  padding-bottom: 4px;
-}
-
-.inline-task-header {
-  align-items: center;
-  margin-bottom: 12px;
 }
 
 .settings-card-stack {
@@ -1814,6 +1942,39 @@ html[data-theme='dark'] .bg-slate-950 {
   .video-config-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .batch-task-header {
+    flex-wrap: wrap;
+  }
+
+  .batch-task-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .batch-col-spec {
+    display: none;
+  }
+
+  .batch-col-name {
+    width: 36%;
+  }
+
+  .batch-col-size {
+    width: 15%;
+  }
+
+  .batch-col-progress {
+    width: 25%;
+  }
+
+  .batch-col-status {
+    width: 15%;
+  }
+
+  .batch-col-actions {
+    width: 9%;
   }
 
   .video-config-primary,
