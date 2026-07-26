@@ -1,26 +1,26 @@
+import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import {
   app,
-  shell,
   BrowserWindow,
   dialog,
   Menu,
   Notification,
+  shell,
   systemPreferences,
   Tray
 } from 'electron'
 import { dirname, join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import type { MediaTask } from '../shared/types'
+import { registerIpc } from './ipc'
+import { processAudio } from './media/audio-processor'
+import { processImage } from './media/image-processor'
+import { processVideo } from './media/video-processor'
+import { batchSummaryText, summarizeBatch } from './services/completion'
 import { FailureLogService } from './services/failure-log'
 import { SettingsStore } from './services/settings-store'
-import { TaskQueue } from './services/task-queue'
 import { TaskHistoryStore } from './services/task-history-store'
-import { processVideo } from './media/video-processor'
-import { processImage } from './media/image-processor'
-import { processAudio } from './media/audio-processor'
-import { registerIpc } from './ipc'
-import type { MediaTask } from '../shared/types'
-import { batchSummaryText, summarizeBatch } from './services/completion'
+import { TaskQueue } from './services/task-queue'
 
 let mainWindow: BrowserWindow | null = null
 let queue: TaskQueue | null = null
@@ -47,7 +47,9 @@ function createWindow(): void {
     height: 900,
     minWidth: 1040,
     minHeight: 680,
-    frame: false,
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 15, y: 14 } }
+      : { frame: false }),
     show: false,
     autoHideMenuBar: true,
     icon,

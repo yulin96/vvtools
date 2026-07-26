@@ -96,30 +96,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="app-shell" :class="isMac ? 'app-platform-mac' : 'app-platform-desktop'">
     <header class="window-titlebar" aria-label="窗口标题栏">
-      <div v-if="isMac" class="mac-window-controls">
-        <button
-          class="mac-window-button mac-window-close"
-          type="button"
-          aria-label="关闭窗口"
-          title="关闭"
-          @click="closeWindow"
-        />
-        <button
-          class="mac-window-button mac-window-minimize"
-          type="button"
-          aria-label="最小化窗口"
-          title="最小化"
-          @click="minimizeWindow"
-        />
-        <button
-          class="mac-window-button mac-window-maximize"
-          type="button"
-          aria-label="最大化窗口"
-          title="最大化"
-          @click="toggleWindowMaximize"
-        />
-      </div>
-      <div v-else class="desktop-window-controls">
+      <div v-if="!isMac" class="desktop-window-controls">
         <button
           class="desktop-window-button"
           type="button"
@@ -216,7 +193,6 @@ onBeforeUnmount(() => {
     </aside>
 
     <main class="app-main">
-      <div v-if="isMac" class="main-window-drag-region" aria-hidden="true" />
       <div v-if="store.errorMessage" role="alert" class="app-alert">
         <span>{{ store.errorMessage }}</span>
         <button class="app-alert-close" aria-label="关闭错误提示" @click="store.errorMessage = ''">
