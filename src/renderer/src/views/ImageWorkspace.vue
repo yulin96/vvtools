@@ -19,8 +19,7 @@ import type {
   ImageInputFile,
   ImageMetadataMode,
   ImageOptions,
-  ImageResizeMode,
-  MediaInspection
+  ImageResizeMode
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import { fileName } from '../lib/utils'
@@ -29,7 +28,6 @@ import TaskTable from '../components/TaskTable.vue'
 import OutputControls from '../components/OutputControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
-import PreflightModal from '../components/PreflightModal.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
@@ -39,10 +37,10 @@ const store = useAppStore()
 const configExpanded = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
-const pendingInputs = ref<ImageInputFile[]>([])
-const preflightOpen = ref(false)
-const inspections = ref<MediaInspection[]>([])
-const preparedRequest = ref<CreateTasksRequest | null>(null)
+const pendingInputs = computed<ImageInputFile[]>({
+  get: () => store.pendingImageInputs,
+  set: (value) => (store.pendingImageInputs = value)
+})
 const compressionModeOptions = [
   { value: 'quality', label: '质量' },
   { value: 'targetSize', label: '目标大小' }
@@ -179,37 +177,14 @@ async function startProcessing(): Promise<void> {
     options: { ...settings.image }
   }
   starting.value = true
-  const results = await store.inspectTasks(request)
-  starting.value = false
-  if (!results) return
-  preparedRequest.value = request
-  inspections.value = results
-  preflightOpen.value = true
-}
-
-async function confirmProcessing(): Promise<void> {
-  const request = preparedRequest.value
-  if (!request || request.kind !== 'image') return
-  const acceptedPaths = new Set(
-    inspections.value.filter((item) => item.valid || item.skipped).map((item) => item.sourcePath)
-  )
-  preflightOpen.value = false
-  const created = await store.createTasks({
-    ...request,
-    sources: request.sources.filter((source) => acceptedPaths.has(source.path)),
-    inputMetadata: inspections.value
-      .filter((item) => item.valid || item.skipped)
-      .map((item) => ({
-        path: item.sourcePath,
-        width: item.outputWidth ?? item.width,
-        height: item.outputHeight ?? item.height
-      }))
-  })
-  if (created) {
-    pendingInputs.value = pendingInputs.value.filter((input) => !acceptedPaths.has(input.path))
-    preparedRequest.value = null
-    inspections.value = []
-  } else preflightOpen.value = true
+  try {
+    const result = await store.submitTasks(request)
+    if (!result) return
+    const handledPaths = new Set(result.handledPaths)
+    pendingInputs.value = pendingInputs.value.filter((input) => !handledPaths.has(input.path))
+  } finally {
+    starting.value = false
+  }
 }
 
 function removePending(path: string): void {
@@ -307,7 +282,7 @@ onBeforeUnmount(() => {
             <Play class="size-4" />
             {{
               starting
-                ? '正在检查…'
+                ? '正在开始…'
                 : `开始处理${pendingInputs.length ? ` (${pendingInputs.length})` : ''}`
             }}
           </Button>
@@ -569,10 +544,4 @@ onBeforeUnmount(() => {
       </section>
     </div>
   </div>
-  <PreflightModal
-    :open="preflightOpen"
-    :inspections="inspections"
-    @update:open="preflightOpen = $event"
-    @confirm="confirmProcessing"
-  />
 </template>

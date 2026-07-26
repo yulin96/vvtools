@@ -3,10 +3,18 @@ import { defineStore } from 'pinia'
 import type {
   AppSettings,
   CreateTasksRequest,
-  MediaInspection,
+  ImageInputFile,
   MediaTask,
   RuntimeCapabilities
 } from '../../../shared/types'
+
+interface TaskSubmissionResult {
+  handledPaths: string[]
+}
+
+function serializable<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
 
 export const useAppStore = defineStore('app', () => {
   const tasks = ref<MediaTask[]>([])
@@ -14,6 +22,9 @@ export const useAppStore = defineStore('app', () => {
   const capabilities = ref<RuntimeCapabilities | null>(null)
   const queuePaused = ref(false)
   const errorMessage = ref('')
+  const pendingImageInputs = ref<ImageInputFile[]>([])
+  const pendingVideoPaths = ref<string[]>([])
+  const pendingAudioPaths = ref<string[]>([])
   let unsubscribe: (() => void) | null = null
 
   const activeCount = computed(
@@ -46,19 +57,45 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  async function createTasks(request: CreateTasksRequest): Promise<boolean> {
+  async function submitTasks(request: CreateTasksRequest): Promise<TaskSubmissionResult | null> {
     try {
-      await window.api.createTasks(request)
-      return true
-    } catch (error) {
-      reportError(error)
-      return false
-    }
-  }
+      const inspectedRequest = serializable(request)
+      const inspections = await window.api.inspectTasks(inspectedRequest)
+      const handled = inspections.filter((item) => item.valid || item.skipped)
+      const rejected = inspections.filter((item) => !item.valid && !item.skipped)
+      if (handled.length === 0) {
+        errorMessage.value =
+          rejected.length === 1
+            ? (rejected[0].error ?? '文件无法处理')
+            : `${rejected.length} 个文件无法处理，请检查源文件和输出设置`
+        return null
+      }
 
-  async function inspectTasks(request: CreateTasksRequest): Promise<MediaInspection[] | null> {
-    try {
-      return await window.api.inspectTasks(request)
+      const handledPaths = handled.map((item) => item.sourcePath)
+      const handledPathSet = new Set(handledPaths)
+      const inputMetadata = handled.map((item) => ({
+        path: item.sourcePath,
+        width: item.outputWidth ?? item.width,
+        height: item.outputHeight ?? item.height
+      }))
+      const submission: CreateTasksRequest =
+        inspectedRequest.kind === 'image'
+          ? {
+              ...inspectedRequest,
+              sources: inspectedRequest.sources.filter((source) => handledPathSet.has(source.path)),
+              inputMetadata
+            }
+          : {
+              ...inspectedRequest,
+              sourcePaths: inspectedRequest.sourcePaths.filter((path) => handledPathSet.has(path)),
+              inputMetadata: inspectedRequest.kind === 'video' ? inputMetadata : undefined
+            }
+
+      await window.api.createTasks(serializable(submission))
+      if (rejected.length > 0) {
+        errorMessage.value = `${rejected.length} 个文件未加入任务：${rejected[0].error ?? '文件无法处理'}`
+      }
+      return { handledPaths }
     } catch (error) {
       reportError(error)
       return null
@@ -67,8 +104,7 @@ export const useAppStore = defineStore('app', () => {
 
   async function updateSettings(input: Partial<AppSettings>): Promise<void> {
     try {
-      const serializableInput = JSON.parse(JSON.stringify(input)) as Partial<AppSettings>
-      settings.value = await window.api.updateSettings(serializableInput)
+      settings.value = await window.api.updateSettings(serializable(input))
     } catch (error) {
       reportError(error)
     }
@@ -148,11 +184,13 @@ export const useAppStore = defineStore('app', () => {
     capabilities,
     queuePaused,
     errorMessage,
+    pendingImageInputs,
+    pendingVideoPaths,
+    pendingAudioPaths,
     activeCount,
     initialize,
     refreshCapabilities,
-    createTasks,
-    inspectTasks,
+    submitTasks,
     updateSettings,
     cancelTask,
     retryTask,

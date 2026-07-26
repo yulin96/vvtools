@@ -146,8 +146,17 @@ async function inspectBinary(getPath: () => string): Promise<RuntimeCapabilities
   }
 }
 
+export async function inspectSharpRuntime(): Promise<RuntimeCapabilities['sharp']> {
+  try {
+    const { default: sharp } = await import('sharp')
+    return { available: true, version: sharp.versions.sharp }
+  } catch (error) {
+    return { available: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
 export async function getRuntimeCapabilities(): Promise<RuntimeCapabilities> {
-  const [ffmpeg, ffprobe, hardwareResult] = await Promise.all([
+  const [ffmpeg, ffprobe, hardwareResult, sharp] = await Promise.all([
     inspectBinary(getFfmpegPath),
     inspectBinary(getFfprobePath),
     refreshHardwareVideoEncoders()
@@ -155,7 +164,8 @@ export async function getRuntimeCapabilities(): Promise<RuntimeCapabilities> {
       .catch((error) => ({
         encoders: [],
         error: error instanceof Error ? error.message : String(error)
-      }))
+      })),
+    inspectSharpRuntime()
   ])
   const hardwareVideo = {
     available: hardwareResult.encoders.length > 0,
@@ -169,20 +179,10 @@ export async function getRuntimeCapabilities(): Promise<RuntimeCapabilities> {
           : undefined
   }
 
-  try {
-    const sharp = await import('sharp')
-    return {
-      ffmpeg,
-      ffprobe,
-      sharp: { available: true, version: sharp.versions.sharp },
-      hardwareVideo
-    }
-  } catch (error) {
-    return {
-      ffmpeg,
-      ffprobe,
-      sharp: { available: false, error: error instanceof Error ? error.message : String(error) },
-      hardwareVideo
-    }
+  return {
+    ffmpeg,
+    ffprobe,
+    sharp,
+    hardwareVideo
   }
 }

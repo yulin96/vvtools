@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 import type { MediaTask, VideoOptions } from '../src/shared/types'
 import { DEFAULT_VIDEO_OPTIONS } from '../src/shared/constants'
 import { buildVideoArgs } from '../src/main/media/video-processor'
-import { createTaskCommand, hardwareEncoderCandidates } from '../src/main/media/ffmpeg-runtime'
+import {
+  createTaskCommand,
+  hardwareEncoderCandidates,
+  inspectSharpRuntime
+} from '../src/main/media/ffmpeg-runtime'
 
 function task(options: Partial<VideoOptions>): MediaTask {
   return {
@@ -19,6 +23,12 @@ function task(options: Partial<VideoOptions>): MediaTask {
 }
 
 describe('video command', () => {
+  it('detects the installed sharp runtime through its default export', async () => {
+    const capability = await inspectSharpRuntime()
+    expect(capability.available).toBe(true)
+    expect(capability.version).toMatch(/^\d+\.\d+\.\d+/u)
+  })
+
   it('builds the compatibility-first default command as argument array', () => {
     const args = buildVideoArgs(task({ quality: 'balanced', resolution: 'source' }))
     expect(args).toContain('libx264')

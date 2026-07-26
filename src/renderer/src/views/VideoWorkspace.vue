@@ -12,7 +12,6 @@ import {
 } from '@lucide/vue'
 import type {
   CreateTasksRequest,
-  MediaInspection,
   VideoAudioMode,
   VideoCodec,
   VideoEncoderMode,
@@ -29,7 +28,6 @@ import Button from '../components/ui/Button.vue'
 import TaskTable from '../components/TaskTable.vue'
 import OutputControls from '../components/OutputControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
-import PreflightModal from '../components/PreflightModal.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
@@ -39,10 +37,10 @@ const store = useAppStore()
 const configExpanded = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
-const pendingPaths = ref<string[]>([])
-const preflightOpen = ref(false)
-const inspections = ref<MediaInspection[]>([])
-const preparedRequest = ref<CreateTasksRequest | null>(null)
+const pendingPaths = computed<string[]>({
+  get: () => store.pendingVideoPaths,
+  set: (value) => (store.pendingVideoPaths = value)
+})
 const videoExtensions = new Set(['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v', 'mpeg', 'mpg'])
 const videoFormatOptions = [
   { value: 'source', label: '原格式' },
@@ -174,37 +172,14 @@ async function startProcessing(): Promise<void> {
     options: { ...settings.video }
   }
   starting.value = true
-  const results = await store.inspectTasks(request)
-  starting.value = false
-  if (!results) return
-  preparedRequest.value = request
-  inspections.value = results
-  preflightOpen.value = true
-}
-
-async function confirmProcessing(): Promise<void> {
-  const request = preparedRequest.value
-  if (!request || request.kind !== 'video') return
-  const acceptedPaths = new Set(
-    inspections.value.filter((item) => item.valid || item.skipped).map((item) => item.sourcePath)
-  )
-  preflightOpen.value = false
-  const created = await store.createTasks({
-    ...request,
-    sourcePaths: request.sourcePaths.filter((path) => acceptedPaths.has(path)),
-    inputMetadata: inspections.value
-      .filter((item) => item.valid || item.skipped)
-      .map((item) => ({
-        path: item.sourcePath,
-        width: item.outputWidth ?? item.width,
-        height: item.outputHeight ?? item.height
-      }))
-  })
-  if (created) {
-    pendingPaths.value = pendingPaths.value.filter((path) => !acceptedPaths.has(path))
-    preparedRequest.value = null
-    inspections.value = []
-  } else preflightOpen.value = true
+  try {
+    const result = await store.submitTasks(request)
+    if (!result) return
+    const handledPaths = new Set(result.handledPaths)
+    pendingPaths.value = pendingPaths.value.filter((path) => !handledPaths.has(path))
+  } finally {
+    starting.value = false
+  }
 }
 
 function removePending(path: string): void {
@@ -298,7 +273,7 @@ onBeforeUnmount(() => {
             <Play class="size-4" />
             {{
               starting
-                ? '正在检查…'
+                ? '正在开始…'
                 : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
             }}
           </Button>
@@ -537,10 +512,4 @@ onBeforeUnmount(() => {
       </section>
     </div>
   </div>
-  <PreflightModal
-    :open="preflightOpen"
-    :inspections="inspections"
-    @update:open="preflightOpen = $event"
-    @confirm="confirmProcessing"
-  />
 </template>
