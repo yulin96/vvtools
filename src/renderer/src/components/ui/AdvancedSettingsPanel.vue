@@ -44,7 +44,7 @@ function closePanel(): void {
       state.value = 'closed'
       closeTimer = undefined
     },
-    transitionDuration('--dropdown-close-dur', 150)
+    transitionDuration('--panel-close-dur', 350)
   )
 }
 
@@ -62,12 +62,10 @@ onBeforeUnmount(clearTimers)
 <template>
   <div
     v-if="rendered"
-    class="t-dropdown"
-    data-origin="top-center"
-    :class="{
-      'is-open': state === 'open',
-      'is-closing': state === 'closing'
-    }"
+    class="t-panel-slide"
+    :data-open="state === 'open'"
+    :aria-hidden="state !== 'open'"
+    :inert="state !== 'open'"
   >
     <slot />
   </div>

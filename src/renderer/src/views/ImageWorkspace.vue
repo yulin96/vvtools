@@ -282,11 +282,9 @@ onBeforeUnmount(() => {
             {{ configExpanded ? '收起设置' : '高级设置' }}
             <AnimatedChevron :expanded="configExpanded" />
           </Button>
-          <Transition name="config-summary">
-            <span v-if="!configExpanded" class="truncate text-xs text-muted-foreground">
-              {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
-            </span>
-          </Transition>
+          <span class="truncate text-xs text-muted-foreground">
+            {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
+          </span>
         </div>
         <div class="video-config-actions">
           <label class="preset-picker">
