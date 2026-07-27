@@ -1,13 +1,22 @@
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import sharp from 'sharp'
+import sharp, { type Metadata } from 'sharp'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { MediaTask } from '../src/shared/types'
 import { processImage } from '../src/main/media/image-processor'
 import { DEFAULT_IMAGE_OPTIONS } from '../src/shared/constants'
 
 const directories: string[] = []
+
+async function readMetadata(path: string): Promise<Metadata> {
+  const image = sharp(path)
+  try {
+    return await image.metadata()
+  } finally {
+    image.destroy()
+  }
+}
 
 afterEach(() => {
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
@@ -40,7 +49,7 @@ describe('image processor', () => {
       createdAt: new Date(0).toISOString()
     }
     expect(await processImage(task, new AbortController().signal)).toBeGreaterThan(0)
-    expect(await sharp(outputPath).metadata()).toMatchObject({
+    expect(await readMetadata(outputPath)).toMatchObject({
       format: 'webp',
       width: 20,
       height: 15
@@ -72,7 +81,7 @@ describe('image processor', () => {
     }
 
     expect(await processImage(task, new AbortController().signal)).toBeGreaterThan(0)
-    expect(await sharp(outputPath).metadata()).toMatchObject({
+    expect(await readMetadata(outputPath)).toMatchObject({
       format: 'heif',
       compression: 'av1',
       width: 40,
@@ -134,7 +143,7 @@ describe('image processor', () => {
     }
 
     await processImage(task, new AbortController().signal)
-    const metadata = await sharp(outputPath).metadata()
+    const metadata = await readMetadata(outputPath)
     expect(Boolean(metadata.exif)).toBe(keepsExif)
     expect(Boolean(metadata.icc)).toBe(keepsIcc)
   })
