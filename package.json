@@ -1,6 +1,6 @@
 {
   "name": "vvtools",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "公司内部使用的跨平台媒体批处理工具",
   "main": "./out/main/index.js",
   "author": "VVTools",
