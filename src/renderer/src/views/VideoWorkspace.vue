@@ -16,7 +16,8 @@ import type {
 import { useAppStore } from '../stores/app'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
-import OutputControls from '../components/OutputControls.vue'
+import OutputLocationControls from '../components/OutputLocationControls.vue'
+import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
@@ -257,7 +258,7 @@ onBeforeUnmount(() => {
               </option>
             </select>
           </label>
-          <OutputControls />
+          <OutputLocationControls />
           <Button :disabled="pendingPaths.length === 0 || starting" @click="startProcessing">
             <Play class="size-4" />
             {{
@@ -373,8 +374,9 @@ onBeforeUnmount(() => {
       >
         <fieldset class="config-group">
           <legend class="sr-only">输出文件</legend>
-          <div class="config-group-fields config-group-fields-single">
+          <div class="config-group-fields">
             <OutputSuffixField />
+            <OutputConflictPolicyField />
           </div>
         </fieldset>
         <fieldset class="config-group">

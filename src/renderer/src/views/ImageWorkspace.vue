@@ -14,7 +14,8 @@ import { useAppStore } from '../stores/app'
 import { fileName } from '../lib/utils'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
-import OutputControls from '../components/OutputControls.vue'
+import OutputLocationControls from '../components/OutputLocationControls.vue'
+import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
@@ -270,7 +271,7 @@ onBeforeUnmount(() => {
               </option>
             </select>
           </label>
-          <OutputControls />
+          <OutputLocationControls />
           <Button :disabled="pendingInputs.length === 0 || starting" @click="startProcessing">
             <Play class="size-4" />
             {{
@@ -380,19 +381,12 @@ onBeforeUnmount(() => {
 
         <fieldset class="config-group">
           <legend class="sr-only">输出</legend>
-          <div class="config-group-fields">
+          <div class="config-group-fields config-group-fields-single">
             <SegmentedControl
               label="输出格式"
               :model-value="store.settings.image.format"
               :options="imageFormatOptions"
               @update:model-value="updateImage({ format: $event as ImageFormat })"
-            />
-            <ToggleSwitch
-              label="目录结构"
-              :model-value="store.settings.image.preserveStructure"
-              enabled-text="保留层级"
-              disabled-text="合并输出"
-              @update:model-value="updateImage({ preserveStructure: $event })"
             />
           </div>
         </fieldset>
@@ -405,19 +399,27 @@ onBeforeUnmount(() => {
       >
         <fieldset class="config-group">
           <legend class="sr-only">输出文件</legend>
-          <div class="config-group-fields config-group-fields-single">
+          <div class="config-group-fields">
             <OutputSuffixField />
+            <OutputConflictPolicyField />
           </div>
         </fieldset>
         <fieldset class="config-group">
           <legend class="sr-only">缩放行为</legend>
-          <div class="config-group-fields config-group-fields-single">
+          <div class="config-group-fields">
             <ToggleSwitch
               label="较小图片"
               :model-value="store.settings.image.allowEnlargement"
               enabled-text="允许放大"
               disabled-text="不放大"
               @update:model-value="updateImage({ allowEnlargement: $event })"
+            />
+            <ToggleSwitch
+              label="目录结构"
+              :model-value="store.settings.image.preserveStructure"
+              enabled-text="保留层级"
+              disabled-text="合并输出"
+              @update:model-value="updateImage({ preserveStructure: $event })"
             />
           </div>
         </fieldset>

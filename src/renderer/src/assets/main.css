@@ -1125,7 +1125,15 @@ textarea,
 }
 
 .conflict-policy-segments {
-  width: 174px;
+  width: 100%;
+}
+
+.output-conflict-control {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .source-overwrite-warning {
