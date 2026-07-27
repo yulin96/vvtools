@@ -2,6 +2,7 @@ node_modules
 dist
 out
 .media-bin
+.release
 .DS_Store
 .eslintcache
 *.log*

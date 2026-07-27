@@ -157,5 +157,13 @@ export const IPC_CHANNELS = {
   tasksChanged: 'tasks:changed',
   getSettings: 'settings:get',
   updateSettings: 'settings:update',
-  getCapabilities: 'runtime:capabilities'
+  getCapabilities: 'runtime:capabilities',
+  getVersion: 'system:version',
+  getReleaseNotes: 'system:release-notes',
+  getUpdateState: 'updates:get-state',
+  checkForUpdates: 'updates:check',
+  downloadUpdate: 'updates:download',
+  installUpdate: 'updates:install',
+  openReleasePage: 'updates:open-release-page',
+  updatesChanged: 'updates:changed'
 } as const

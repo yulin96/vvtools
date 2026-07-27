@@ -1,0 +1,178 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS ARM64
+            os: macos-15
+            command: pnpm exec electron-builder --mac dmg zip --arm64 --publish never
+            artifact: mac-arm64
+            files: |
+              dist/*.dmg
+              dist/*.zip
+              dist/*.blockmap
+          - name: macOS x64
+            os: macos-15-intel
+            command: pnpm exec electron-builder --mac dmg zip --x64 --publish never
+            artifact: mac-x64
+            files: |
+              dist/*.dmg
+              dist/*.zip
+              dist/*.blockmap
+          - name: Windows x64
+            os: windows-latest
+            command: pnpm exec electron-builder --win nsis zip --x64 --publish never
+            artifact: win-x64
+            files: |
+              dist/*.exe
+              dist/*.zip
+              dist/*.blockmap
+              dist/latest.yml
+          - name: Linux x64
+            os: ubuntu-latest
+            command: pnpm exec electron-builder --linux AppImage deb --x64 --publish never
+            artifact: linux-x64
+            files: |
+              dist/*.AppImage
+              dist/*.deb
+              dist/*.blockmap
+              dist/latest-linux.yml
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify update configuration
+        shell: bash
+        env:
+          VVTOOLS_UPDATE_BASE_URL: ${{ vars.VVTOOLS_UPDATE_BASE_URL }}
+        run: test -n "$VVTOOLS_UPDATE_BASE_URL"
+
+      - name: Verify tag version
+        shell: bash
+        run: |
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "v${PACKAGE_VERSION}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version v${PACKAGE_VERSION}."
+            exit 1
+          fi
+
+      - name: Check types
+        run: pnpm typecheck
+
+      - name: Lint source
+        run: pnpm lint
+
+      - name: Test application
+        run: pnpm test
+
+      - name: Stage media binaries
+        run: pnpm stage:media
+
+      - name: Compile application
+        run: pnpm exec electron-vite build
+
+      - name: Prepare release notes
+        run: pnpm release-notes:prepare
+
+      - name: Prepare update configuration
+        env:
+          VVTOOLS_UPDATE_BASE_URL: ${{ vars.VVTOOLS_UPDATE_BASE_URL }}
+        run: pnpm update-config:prepare
+
+      - name: Package application
+        env:
+          VVTOOLS_UPDATE_BASE_URL: ${{ vars.VVTOOLS_UPDATE_BASE_URL }}
+        run: ${{ matrix.command }}
+
+      - name: Upload packaged files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download packaged files
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Prepare release metadata
+        env:
+          VVTOOLS_UPDATE_BASE_URL: ${{ vars.VVTOOLS_UPDATE_BASE_URL }}
+        run: |
+          pnpm release-notes:prepare
+          node scripts/create-release-manifest.mjs
+          cp .release/latest.json release-assets/latest.json
+
+      - name: Upload update files to OSS
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.OSS_ACCESS_KEY_SECRET }}
+          OSS_BUCKET: ${{ vars.OSS_BUCKET }}
+          OSS_REGION: ${{ vars.OSS_REGION }}
+          OSS_ENDPOINT: ${{ vars.OSS_ENDPOINT }}
+          OSS_RELEASE_PREFIX: ${{ vars.OSS_RELEASE_PREFIX }}
+        run: node scripts/upload-release-to-oss.mjs
+
+      - name: Create release and upload files
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -d '' ASSETS < <(find release-assets -type f -print0)
+          gh release create "${GITHUB_REF_NAME}" \
+            "${ASSETS[@]}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "VVTools ${GITHUB_REF_NAME}" \
+            --notes-file .release/release-notes.md \
+            --verify-tag

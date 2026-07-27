@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   Images,
+  Download,
   Maximize2,
   Minimize2,
   Minus,
@@ -18,6 +19,8 @@ import {
 import { useAppStore } from './stores/app'
 import appIcon from '../../../resources/icon.png'
 import SegmentedControl from './components/ui/SegmentedControl.vue'
+import Button from './components/ui/Button.vue'
+import Modal from './components/ui/Modal.vue'
 
 const store = useAppStore()
 type ThemeMode = 'system' | 'light' | 'dark'
@@ -36,6 +39,7 @@ const isDark = computed(() =>
 const sidebarCollapsed = ref(localStorage.getItem('vvtools-sidebar-collapsed') === 'true')
 const isMac = window.api.platform === 'darwin'
 const isMaximized = ref(false)
+const releaseNotesOpen = ref(false)
 const themes = [
   { value: 'system' as const, label: '跟随系统', icon: Monitor },
   { value: 'light' as const, label: '浅色模式', icon: Sun },
@@ -89,6 +93,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   colorSchemeQuery.removeEventListener('change', handleSystemThemeChange)
+  store.dispose()
 })
 </script>
 
@@ -198,7 +203,29 @@ onBeforeUnmount(() => {
             <component :is="currentTheme.icon" class="size-4" aria-hidden="true" />
           </div>
         </Transition>
-        <span class="sidebar-label sidebar-version">VVTools · v1.0.0</span>
+        <button
+          v-if="store.appVersion"
+          class="sidebar-label sidebar-version"
+          type="button"
+          :class="{
+            'has-update': ['available', 'downloading', 'downloaded'].includes(
+              store.updateState.status
+            )
+          }"
+          :title="
+            ['available', 'downloading', 'downloaded'].includes(store.updateState.status)
+              ? '发现新版本 · 查看更新日志'
+              : '查看更新日志'
+          "
+          @click="releaseNotesOpen = true"
+        >
+          VVTools · v{{ store.appVersion }}
+          <span
+            v-if="['available', 'downloading', 'downloaded'].includes(store.updateState.status)"
+            class="sidebar-version-dot"
+            aria-hidden="true"
+          />
+        </button>
       </div>
     </aside>
 
@@ -223,5 +250,54 @@ onBeforeUnmount(() => {
         </Transition>
       </RouterView>
     </main>
+
+    <Modal
+      :open="releaseNotesOpen"
+      title="更新日志"
+      :description="`VVTools v${store.appVersion}`"
+      @update:open="releaseNotesOpen = $event"
+    >
+      <div
+        class="mt-5 whitespace-pre-wrap rounded-xl border border-border bg-muted/35 p-4 text-sm leading-6 text-foreground"
+        :class="{ 'text-muted-foreground': !store.currentReleaseNotes }"
+      >
+        {{ store.currentReleaseNotes || '暂无更新日志' }}
+      </div>
+    </Modal>
+
+    <Modal
+      :open="store.updateDialog !== null"
+      :title="store.updateDialog === 'downloaded' ? '更新已准备好' : '发现新版本'"
+      :description="
+        store.updateDialog === 'downloaded'
+          ? '程序将关闭并安装新版本，是否立即重启？'
+          : isMac
+            ? `发现新版本 ${store.updateState.version ?? ''}，请前往 GitHub 下载。`
+            : `新版本 ${store.updateState.version ?? ''} 已发布，是否现在下载？`
+      "
+      @update:open="!$event && (store.updateDialog = null)"
+    >
+      <div
+        v-if="store.updateDialog === 'available' && store.updateState.releaseNotes"
+        class="mt-5 whitespace-pre-wrap rounded-xl border border-border bg-muted/35 p-4 text-sm leading-6 text-foreground"
+      >
+        {{ store.updateState.releaseNotes }}
+      </div>
+      <p
+        v-if="store.updateDialog === 'downloaded' && store.activeCount > 0"
+        class="mt-5 rounded-xl border border-amber-500/35 bg-amber-500/10 p-3 text-sm text-foreground"
+      >
+        当前还有 {{ store.activeCount }} 个任务正在处理，立即重启会取消这些任务。
+      </p>
+      <div class="mt-6 flex justify-end gap-2">
+        <Button variant="secondary" @click="store.updateDialog = null">稍后</Button>
+        <Button @click="store.confirmUpdateAction">
+          <Download v-if="store.updateDialog === 'available'" class="size-4" />
+          {{
+            store.updateDialog === 'downloaded' ? '重启安装' : isMac ? '前往 GitHub' : '下载更新'
+          }}
+        </Button>
+      </div>
+    </Modal>
   </div>
 </template>

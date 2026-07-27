@@ -617,10 +617,40 @@ body {
 }
 
 .sidebar-version {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  border: 0;
+  background: transparent;
   padding: 0 11px;
   color: var(--sidebar-muted);
+  cursor: pointer;
   font-size: 10px;
   line-height: 18px;
+  transition:
+    color var(--duration-fast) var(--ease-in-out),
+    background-color var(--duration-fast) var(--ease-in-out);
+}
+
+.sidebar-version:hover,
+.sidebar-version:focus-visible,
+.sidebar-version.has-update {
+  color: var(--signal-strong);
+}
+
+.sidebar-version:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.sidebar-version-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--signal-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal-strong) 16%, transparent);
 }
 
 .app-main {

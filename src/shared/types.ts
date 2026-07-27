@@ -198,6 +198,24 @@ export interface RuntimeCapabilities {
   hardwareVideo: { available: boolean; encoders: string[]; version?: string; error?: string }
 }
 
+export type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'not-available'
+  | 'error'
+  | 'unsupported'
+
+export interface UpdateState {
+  status: UpdateStatus
+  version?: string
+  percent?: number
+  message?: string
+  releaseNotes?: string
+}
+
 export interface VVToolsApi {
   platform: 'darwin' | 'win32' | 'linux'
   windowMinimize: () => Promise<void>
@@ -220,5 +238,13 @@ export interface VVToolsApi {
   getSettings: () => Promise<AppSettings>
   updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>
   getCapabilities: () => Promise<RuntimeCapabilities>
+  getVersion: () => Promise<string>
+  getReleaseNotes: () => Promise<string>
+  getUpdateState: () => Promise<UpdateState>
+  checkForUpdates: () => Promise<UpdateState>
+  downloadUpdate: () => Promise<void>
+  installUpdate: () => Promise<void>
+  openReleasePage: () => Promise<void>
   onTasksChanged: (callback: (tasks: MediaTask[]) => void) => () => void
+  onUpdateChanged: (callback: (state: UpdateState) => void) => () => void
 }

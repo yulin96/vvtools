@@ -11,6 +11,7 @@ import { batchSummaryText, summarizeBatch } from './services/completion'
 import { FailureLogService } from './services/failure-log'
 import { SettingsStore } from './services/settings-store'
 import { TaskQueue } from './services/task-queue'
+import { UpdateService } from './services/update-service'
 import { configureOverlayScrollbars } from './scrollbar-config'
 
 let mainWindow: BrowserWindow | null = null
@@ -22,6 +23,7 @@ let isQuitting = false
 let closeDialogOpen = false
 let batchWasActive = false
 const batchTaskIds = new Set<string>()
+const updates = new UpdateService(() => mainWindow)
 
 app.setName('VVTools')
 configureOverlayScrollbars(app.commandLine, process.platform)
@@ -222,9 +224,10 @@ app.whenReady().then(() => {
     failureLogs
   )
   queue.on('changed', handleQueueChanged)
-  unregisterIpc = registerIpc(() => mainWindow, queue, settings)
+  unregisterIpc = registerIpc(() => mainWindow, queue, settings, updates)
 
   createWindow()
+  updates.initialize()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

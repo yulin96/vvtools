@@ -1,6 +1,7 @@
-import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { app, dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { existsSync, mkdirSync, statSync } from 'fs'
-import { dirname, extname, isAbsolute, normalize, sep } from 'path'
+import { readFile } from 'fs/promises'
+import { dirname, extname, isAbsolute, join, normalize, sep } from 'path'
 import type {
   AppSettings,
   AudioOptions,
@@ -21,11 +22,13 @@ import {
   IPC_CHANNELS,
   VIDEO_EXTENSIONS
 } from '../shared/constants'
+import { extractVersionReleaseNotes } from '../shared/release-notes.mjs'
 import { getRuntimeCapabilities } from './media/ffmpeg-runtime'
 import { collectImageInputs } from './media/image-inputs'
 import { inspectTasks } from './media/preflight'
 import { SettingsStore, clampConcurrency } from './services/settings-store'
 import { TaskQueue } from './services/task-queue'
+import { UpdateService } from './services/update-service'
 
 const VIDEO_QUALITIES = new Set<VideoQuality>(['high', 'balanced', 'small'])
 const VIDEO_RESOLUTIONS = new Set<VideoResolution>(['source', '1080p', '720p'])
@@ -363,7 +366,8 @@ function sanitizeSettings(input: unknown): Partial<AppSettings> {
 export function registerIpc(
   getWindow: () => BrowserWindow | null,
   queue: TaskQueue,
-  settings: SettingsStore
+  settings: SettingsStore,
+  updates: UpdateService
 ): () => void {
   const window = (): BrowserWindow => {
     const current = getWindow()
@@ -511,6 +515,49 @@ export function registerIpc(
     assertTrusted(event, window())
     return getRuntimeCapabilities()
   })
+  handle(IPC_CHANNELS.getVersion, (event) => {
+    assertTrusted(event, window())
+    return app.getVersion()
+  })
+  handle(IPC_CHANNELS.getReleaseNotes, async (event) => {
+    assertTrusted(event, window())
+    const path = app.isPackaged
+      ? join(process.resourcesPath, 'release-notes.md')
+      : join(app.getAppPath(), 'release-notes.md')
+    try {
+      const content = (await readFile(path, 'utf8')).trim()
+      if (app.isPackaged) return content
+      const releaseNotes = extractVersionReleaseNotes(content, app.getVersion())
+      if (releaseNotes === undefined) {
+        console.error(`更新日志中缺少 v${app.getVersion()} 版本`)
+        return ''
+      }
+      return releaseNotes
+    } catch (error) {
+      console.error('读取更新日志失败', error)
+      return ''
+    }
+  })
+  handle(IPC_CHANNELS.getUpdateState, (event) => {
+    assertTrusted(event, window())
+    return updates.getState()
+  })
+  handle(IPC_CHANNELS.checkForUpdates, (event) => {
+    assertTrusted(event, window())
+    return updates.check()
+  })
+  handle(IPC_CHANNELS.downloadUpdate, (event) => {
+    assertTrusted(event, window())
+    return updates.download()
+  })
+  handle(IPC_CHANNELS.installUpdate, (event) => {
+    assertTrusted(event, window())
+    return updates.install()
+  })
+  handle(IPC_CHANNELS.openReleasePage, (event) => {
+    assertTrusted(event, window())
+    return updates.openReleasePage()
+  })
 
   const notify = (tasks: ReturnType<TaskQueue['list']>): void => {
     const current = getWindow()
@@ -522,7 +569,9 @@ export function registerIpc(
   return () => {
     queue.off('changed', notify)
     for (const channel of Object.values(IPC_CHANNELS)) {
-      if (channel !== IPC_CHANNELS.tasksChanged) ipcMain.removeHandler(channel)
+      if (channel !== IPC_CHANNELS.tasksChanged && channel !== IPC_CHANNELS.updatesChanged) {
+        ipcMain.removeHandler(channel)
+      }
     }
   }
 }

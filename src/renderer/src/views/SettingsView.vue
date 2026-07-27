@@ -267,6 +267,41 @@ function copiesVideo(options: VideoOptions): boolean {
 
       <section class="settings-card">
         <div class="settings-card-title">
+          <RefreshCw class="size-4" />
+          <div>
+            <h2>软件更新</h2>
+            <p>{{ store.updateDescription }}</p>
+            <div
+              v-if="store.updateState.status === 'downloading'"
+              class="mt-2 h-1.5 w-64 overflow-hidden rounded-full bg-muted"
+            >
+              <div
+                class="h-full rounded-full bg-primary transition-[width]"
+                :style="{
+                  width: `${Math.min(100, Math.max(0, store.updateState.percent ?? 0))}%`
+                }"
+              />
+            </div>
+          </div>
+        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          :disabled="
+            store.updateState.status === 'checking' || store.updateState.status === 'downloading'
+          "
+          @click="store.requestUpdateAction"
+        >
+          <RefreshCw
+            class="size-3.5"
+            :class="{ 'animate-spin': store.updateState.status === 'checking' }"
+          />
+          {{ store.updateButtonLabel }}
+        </Button>
+      </section>
+
+      <section class="settings-card">
+        <div class="settings-card-title">
           <FileOutput class="size-4" />
           <div>
             <h2>输出命名</h2>
