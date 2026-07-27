@@ -1,6 +1,9 @@
 # VVTools
 
-VVTools 是一款公司内部使用的跨平台媒体批处理桌面工具。当前支持视频批量压缩、图片批量压缩、音频转换与提取、任务队列、取消与重试、失败日志和输出目录管理。
+VVTools 是一款面向公开用户的跨平台桌面媒体批处理工具，支持视频批量压缩、图片批量压缩、音频转换与提取、任务队列、取消与重试、失败日志和输出目录管理。
+
+项目代码公开托管于 [GitHub](https://github.com/yulin96/vvtools)，可从
+[Releases](https://github.com/yulin96/vvtools/releases) 下载已发布版本。
 
 ## 技术栈
 
@@ -48,9 +51,9 @@ DMG 下载地址。
 [`release-notes.md`](./release-notes.md) 顶部的 `未发布` 章节。发布时执行：
 
 ```bash
-pnpm release patch
-pnpm release minor
-pnpm release major
+pnpm release:patch
+pnpm release:minor
+pnpm release:major
 pnpm release 0.1.0
 ```
 

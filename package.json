@@ -1,7 +1,7 @@
 {
   "name": "vvtools",
   "version": "0.0.0",
-  "description": "公司内部使用的跨平台媒体批处理工具",
+  "description": "跨平台桌面媒体批处理工具，支持视频、图片和音频的批量转换与压缩",
   "packageManager": "pnpm@11.17.0",
   "main": "./out/main/index.js",
   "author": "VVTools",
@@ -13,6 +13,9 @@
     "typecheck": "pnpm typecheck:node && pnpm typecheck:web",
     "test": "vitest run",
     "release": "node scripts/release.mts",
+    "release:patch": "pnpm release patch",
+    "release:minor": "pnpm release minor",
+    "release:major": "pnpm release major",
     "release-notes:prepare": "node scripts/extract-release-notes.mjs --output .release/release-notes.md",
     "update-config:prepare": "node scripts/prepare-update-config.mjs",
     "release-resources:prepare": "pnpm release-notes:prepare && pnpm update-config:prepare",
