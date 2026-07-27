@@ -1,14 +1,5 @@
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import {
-  app,
-  BrowserWindow,
-  dialog,
-  Menu,
-  Notification,
-  shell,
-  systemPreferences,
-  Tray
-} from 'electron'
+import { app, BrowserWindow, dialog, Menu, Notification, shell, Tray } from 'electron'
 import { dirname, join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import type { MediaTask } from '../shared/types'
@@ -20,6 +11,7 @@ import { batchSummaryText, summarizeBatch } from './services/completion'
 import { FailureLogService } from './services/failure-log'
 import { SettingsStore } from './services/settings-store'
 import { TaskQueue } from './services/task-queue'
+import { configureOverlayScrollbars } from './scrollbar-config'
 
 let mainWindow: BrowserWindow | null = null
 let queue: TaskQueue | null = null
@@ -32,12 +24,7 @@ let batchWasActive = false
 const batchTaskIds = new Set<string>()
 
 app.setName('VVTools')
-if (process.platform === 'darwin') {
-  // 强制本应用使用悬浮滚动条，不受系统"显示滚动条"偏好影响
-  systemPreferences.setUserDefault('AppleShowScrollBars', 'string', 'WhenScrolling')
-} else {
-  app.commandLine.appendSwitch('enable-features', 'OverlayScrollbar,FluentOverlayScrollbar')
-}
+configureOverlayScrollbars(app.commandLine, process.platform)
 
 function createWindow(): void {
   const window = new BrowserWindow({
