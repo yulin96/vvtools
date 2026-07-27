@@ -5,6 +5,10 @@ import type { ImageFormat, ImageOptions, MediaTask } from '../../shared/types'
 import { MediaProcessError, TaskCancelledError } from './errors'
 import { createTaskCommand } from './ffmpeg-runtime'
 
+if (process.platform === 'win32') {
+  sharp.cache({ files: 0 })
+}
+
 function sourceFormat(sourcePath: string): Exclude<ImageFormat, 'original'> {
   const extension = extname(sourcePath).toLowerCase()
   if (extension === '.png') return 'png'

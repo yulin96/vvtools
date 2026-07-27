@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync } from 'fs'
+import { readFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import sharp, { type Metadata } from 'sharp'
@@ -10,7 +11,7 @@ import { DEFAULT_IMAGE_OPTIONS } from '../src/shared/constants'
 const directories: string[] = []
 
 async function readMetadata(path: string): Promise<Metadata> {
-  const image = sharp(path)
+  const image = sharp(await readFile(path))
   try {
     return await image.metadata()
   } finally {
