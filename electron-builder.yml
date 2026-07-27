@@ -14,6 +14,8 @@ extraResources:
 releaseInfo:
   releaseNotesFile: .release/release-notes.md
 files:
+  - '!node_modules/ffmpeg-static/**'
+  - '!node_modules/@derhuerst/ffprobe-static/**'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
@@ -39,11 +41,10 @@ mac:
   artifactName: ${name}-${version}-${arch}.${ext}
   target:
     - target: dmg
-    - target: zip
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-${arch}.${ext}
 linux:
   target:
     - AppImage

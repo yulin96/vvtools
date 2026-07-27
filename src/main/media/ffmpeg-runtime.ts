@@ -1,24 +1,32 @@
 import { app } from 'electron'
 import { spawn } from 'child_process'
+import { createRequire } from 'module'
 import { basename, join } from 'path'
-import ffmpegStaticPath from 'ffmpeg-static'
-import ffprobeStaticPath from '@derhuerst/ffprobe-static'
 import type { RuntimeCapabilities, TaskCommand } from '../../shared/types'
 
 let hardwareEncodersPromise: Promise<string[]> | null = null
+const require = createRequire(import.meta.url)
 
 function packagedBinaryPath(name: 'ffmpeg' | 'ffprobe'): string {
   return join(process.resourcesPath, 'bin', process.platform === 'win32' ? `${name}.exe` : name)
 }
 
+function developmentBinaryPath(packageName: 'ffmpeg-static' | '@derhuerst/ffprobe-static'): string {
+  return require(packageName) as string
+}
+
 export function getFfmpegPath(): string {
-  const path = app.isPackaged ? packagedBinaryPath('ffmpeg') : ffmpegStaticPath
+  const path = app.isPackaged
+    ? packagedBinaryPath('ffmpeg')
+    : developmentBinaryPath('ffmpeg-static')
   if (!path) throw new Error(`当前平台 ${process.platform}-${process.arch} 没有可用的 FFmpeg`)
   return path
 }
 
 export function getFfprobePath(): string {
-  const path = app.isPackaged ? packagedBinaryPath('ffprobe') : ffprobeStaticPath
+  const path = app.isPackaged
+    ? packagedBinaryPath('ffprobe')
+    : developmentBinaryPath('@derhuerst/ffprobe-static')
   if (!path) throw new Error(`当前平台 ${process.platform}-${process.arch} 没有可用的 FFprobe`)
   return path
 }

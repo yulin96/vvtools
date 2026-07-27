@@ -31,8 +31,26 @@ const files = entries
 const manifests = files.filter((file) => /(?:^|[/\\])(?:latest.*\.ya?ml|latest\.json)$/.test(file))
 const packages = files.filter((file) => !manifests.includes(file))
 const prefix = process.env.OSS_RELEASE_PREFIX.replace(/^\/+|\/+$/g, '')
+const mode = process.argv[2] ?? '--all'
+const selectedFiles =
+  mode === '--packages-only'
+    ? packages
+    : mode === '--manifests-only'
+      ? manifests
+      : mode === '--all'
+        ? [...packages, ...manifests]
+        : null
 
-for (const file of [...packages, ...manifests]) {
+if (!selectedFiles) {
+  throw new Error(
+    'Usage: node scripts/upload-release-to-oss.mjs [--packages-only|--manifests-only]'
+  )
+}
+if (selectedFiles.length === 0) {
+  throw new Error(`No release files matched ${mode}`)
+}
+
+for (const file of selectedFiles) {
   const name = relative(root, file).replaceAll('\\', '/')
   const objectName = prefix ? `${prefix}/${name}` : name
   const isManifest = manifests.includes(file)
