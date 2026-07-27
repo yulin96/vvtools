@@ -47,6 +47,39 @@ describe('image processor', () => {
     })
   })
 
+  it('converts an image to AVIF', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-image-'))
+    directories.push(root)
+    const sourcePath = join(root, 'source.png')
+    const outputPath = join(root, 'source_processed.avif')
+    await sharp({ create: { width: 40, height: 30, channels: 4, background: '#76bfd1' } })
+      .png()
+      .toFile(sourcePath)
+    const task: MediaTask = {
+      id: 'image-avif',
+      kind: 'image',
+      sourcePath,
+      outputPath,
+      status: 'processing',
+      progress: null,
+      options: {
+        ...DEFAULT_IMAGE_OPTIONS,
+        format: 'avif',
+        quality: 75
+      },
+      sourceSize: 1,
+      createdAt: new Date(0).toISOString()
+    }
+
+    expect(await processImage(task, new AbortController().signal)).toBeGreaterThan(0)
+    expect(await sharp(outputPath).metadata()).toMatchObject({
+      format: 'heif',
+      compression: 'av1',
+      width: 40,
+      height: 30
+    })
+  })
+
   it('keeps target-size output under the requested limit', async () => {
     const root = mkdtempSync(join(tmpdir(), 'vvtools-image-'))
     directories.push(root)

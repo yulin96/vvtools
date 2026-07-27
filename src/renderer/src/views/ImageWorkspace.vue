@@ -45,7 +45,8 @@ const imageFormatOptions = [
   { value: 'original', label: '原格式' },
   { value: 'jpeg', label: 'JPEG' },
   { value: 'png', label: 'PNG' },
-  { value: 'webp', label: 'WebP' }
+  { value: 'webp', label: 'WebP' },
+  { value: 'avif', label: 'AVIF' }
 ]
 
 const imageTasks = computed(() => store.currentBatchTasks.image)

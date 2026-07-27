@@ -11,7 +11,8 @@ import type {
 const IMAGE_EXTENSIONS: Record<Exclude<ImageFormat, 'original'>, string> = {
   jpeg: '.jpg',
   png: '.png',
-  webp: '.webp'
+  webp: '.webp',
+  avif: '.avif'
 }
 
 export function getOutputExtension(

@@ -34,7 +34,7 @@ const VIDEO_CODECS = new Set(['source', 'h264', 'h265'])
 const VIDEO_RATE_CONTROLS = new Set(['quality', 'bitrate'])
 const VIDEO_FRAME_RATES = new Set(['source', '24', '25', '30', '60'])
 const VIDEO_AUDIO_MODES = new Set(['aac', 'copy', 'none'])
-const IMAGE_FORMATS = new Set<ImageFormat>(['original', 'jpeg', 'png', 'webp'])
+const IMAGE_FORMATS = new Set<ImageFormat>(['original', 'jpeg', 'png', 'webp', 'avif'])
 
 function assertTrusted(event: IpcMainInvokeEvent, window: BrowserWindow): void {
   if (event.sender !== window.webContents) throw new Error('拒绝来自未知页面的请求')

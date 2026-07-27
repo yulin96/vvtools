@@ -53,6 +53,7 @@ export function configureImagePipeline(
     return transformed.png({ compressionLevel: 9, palette: true, quality })
   }
   if (format === 'webp') return transformed.webp({ quality, effort: 4 })
+  if (format === 'avif') return transformed.avif({ quality, effort: 4 })
   return transformed.jpeg({ quality, mozjpeg: true })
 }
 
@@ -99,7 +100,7 @@ async function processToTargetSize(
 
     if (!best) {
       throw new MediaProcessError(
-        `无法压缩到 ${options.targetSizeKb} KB，请降低尺寸或改用 JPEG/WebP`,
+        `无法压缩到 ${options.targetSizeKb} KB，请降低尺寸或改用 JPEG/WebP/AVIF`,
         { command }
       )
     }

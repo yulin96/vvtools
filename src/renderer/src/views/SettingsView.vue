@@ -512,6 +512,7 @@ function copiesVideo(options: VideoOptions): boolean {
                   <option value="jpeg">JPEG</option>
                   <option value="png">PNG</option>
                   <option value="webp">WebP</option>
+                  <option value="avif">AVIF</option>
                 </select>
               </label>
               <label class="compact-field">
@@ -923,6 +924,7 @@ function copiesVideo(options: VideoOptions): boolean {
               <option value="jpeg">JPEG</option>
               <option value="png">PNG</option>
               <option value="webp">WebP</option>
+              <option value="avif">AVIF</option>
             </select>
           </label>
           <label class="compact-field">

@@ -22,6 +22,7 @@ describe('output paths', () => {
     expect(getOutputExtension('video', '/tmp/a.mov', undefined, 'mkv')).toBe('.mkv')
     expect(getOutputExtension('image', '/tmp/a.jpeg', 'original')).toBe('.jpg')
     expect(getOutputExtension('image', '/tmp/a.png', 'webp')).toBe('.webp')
+    expect(getOutputExtension('image', '/tmp/a.png', 'avif')).toBe('.avif')
     expect(getOutputExtension('audio', '/tmp/a.wav', undefined, undefined, 'flac')).toBe('.flac')
   })
 
