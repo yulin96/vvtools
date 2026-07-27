@@ -284,7 +284,7 @@ onBeforeUnmount(() => {
 
       <div class="image-config-primary">
         <fieldset class="config-group">
-          <legend>压缩</legend>
+          <legend class="sr-only">压缩</legend>
           <div class="config-group-fields">
             <SegmentedControl
               label="压缩模式"
@@ -326,7 +326,7 @@ onBeforeUnmount(() => {
         </fieldset>
 
         <fieldset class="config-group">
-          <legend>尺寸</legend>
+          <legend class="sr-only">尺寸</legend>
           <div class="config-group-fields">
             <SegmentedControl
               label="调整方式"
@@ -379,7 +379,7 @@ onBeforeUnmount(() => {
         </fieldset>
 
         <fieldset class="config-group">
-          <legend>输出</legend>
+          <legend class="sr-only">输出</legend>
           <div class="config-group-fields">
             <SegmentedControl
               label="输出格式"
@@ -404,13 +404,13 @@ onBeforeUnmount(() => {
         class="video-config-expanded image-config-expanded"
       >
         <fieldset class="config-group">
-          <legend>输出文件</legend>
+          <legend class="sr-only">输出文件</legend>
           <div class="config-group-fields config-group-fields-single">
             <OutputSuffixField />
           </div>
         </fieldset>
         <fieldset class="config-group">
-          <legend>缩放行为</legend>
+          <legend class="sr-only">缩放行为</legend>
           <div class="config-group-fields config-group-fields-single">
             <ToggleSwitch
               label="较小图片"
@@ -422,7 +422,7 @@ onBeforeUnmount(() => {
           </div>
         </fieldset>
         <fieldset class="config-group">
-          <legend>元数据</legend>
+          <legend class="sr-only">元数据</legend>
           <div class="config-group-fields config-group-fields-single">
             <label class="compact-field">
               <span>保留策略</span>

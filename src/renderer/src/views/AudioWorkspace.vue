@@ -195,7 +195,7 @@ onBeforeUnmount(() => {
 
       <div class="image-config-primary">
         <fieldset class="config-group">
-          <legend>格式与质量</legend>
+          <legend class="sr-only">格式与质量</legend>
           <div class="config-group-fields">
             <SegmentedControl
               label="输出格式"
@@ -228,7 +228,7 @@ onBeforeUnmount(() => {
         </fieldset>
 
         <fieldset class="config-group">
-          <legend>声道与响度</legend>
+          <legend class="sr-only">声道与响度</legend>
           <div class="config-group-fields">
             <SegmentedControl
               label="声道"
@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
         class="video-config-expanded"
       >
         <fieldset class="config-group">
-          <legend>输出文件</legend>
+          <legend class="sr-only">输出文件</legend>
           <div class="config-group-fields config-group-fields-single">
             <OutputSuffixField />
           </div>

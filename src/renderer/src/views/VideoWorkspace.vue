@@ -271,7 +271,7 @@ onBeforeUnmount(() => {
 
       <div class="video-config-primary">
         <fieldset class="config-group">
-          <legend>格式与编码</legend>
+          <legend class="sr-only">格式与编码</legend>
           <div class="config-group-fields">
             <SegmentedControl
               label="格式"
@@ -295,7 +295,7 @@ onBeforeUnmount(() => {
         </fieldset>
 
         <fieldset class="config-group">
-          <legend>画面</legend>
+          <legend class="sr-only">画面</legend>
           <div class="config-group-fields">
             <label class="compact-field">
               <span>帧率</span>
@@ -324,7 +324,7 @@ onBeforeUnmount(() => {
         </fieldset>
 
         <fieldset class="config-group">
-          <legend>压缩</legend>
+          <legend class="sr-only">压缩</legend>
           <div class="config-group-fields">
             <SegmentedControl
               label="压缩方式"
@@ -372,13 +372,13 @@ onBeforeUnmount(() => {
         class="video-config-expanded"
       >
         <fieldset class="config-group">
-          <legend>输出文件</legend>
+          <legend class="sr-only">输出文件</legend>
           <div class="config-group-fields config-group-fields-single">
             <OutputSuffixField />
           </div>
         </fieldset>
         <fieldset class="config-group">
-          <legend>音频</legend>
+          <legend class="sr-only">音频</legend>
           <div class="config-group-fields">
             <label class="compact-field">
               <span>处理方式</span>
