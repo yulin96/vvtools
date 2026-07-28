@@ -12,6 +12,16 @@ function run(command: string, args: string[]): void {
   execFileSync(command, args, { stdio: 'inherit' })
 }
 
+function runPnpm(args: string[]): void {
+  if (process.platform === 'win32') {
+    execFileSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'pnpm', ...args], {
+      stdio: 'inherit'
+    })
+    return
+  }
+  run('pnpm', args)
+}
+
 function tagExists(tag: string): boolean {
   return spawnSync('git', ['rev-parse', '--quiet', '--verify', `refs/tags/${tag}`]).status === 0
 }
@@ -54,10 +64,10 @@ async function main(): Promise<void> {
     await writeFile(releaseNotesPath, nextReleaseNotes, 'utf8')
     filesUpdated = true
 
-    run('pnpm', ['release-notes:prepare'])
-    run('pnpm', ['typecheck'])
-    run('pnpm', ['lint'])
-    run('pnpm', ['test'])
+    runPnpm(['release-notes:prepare'])
+    runPnpm(['typecheck'])
+    runPnpm(['lint'])
+    runPnpm(['test'])
     run('git', ['diff', '--check'])
 
     run('git', ['add', '--', 'package.json', 'release-notes.md'])
