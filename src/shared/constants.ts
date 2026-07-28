@@ -142,6 +142,7 @@ export const IPC_CHANNELS = {
   windowToggleMaximize: 'window:toggle-maximize',
   windowIsMaximized: 'window:is-maximized',
   windowClose: 'window:close',
+  windowSetControlsTheme: 'window:set-controls-theme',
   selectFiles: 'files:select',
   selectOutputDirectory: 'directory:select-output',
   selectImageDirectory: 'directory:select-images',

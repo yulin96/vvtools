@@ -8,6 +8,7 @@ const api: VVToolsApi = {
   windowToggleMaximize: () => ipcRenderer.invoke(IPC_CHANNELS.windowToggleMaximize),
   windowIsMaximized: () => ipcRenderer.invoke(IPC_CHANNELS.windowIsMaximized),
   windowClose: () => ipcRenderer.invoke(IPC_CHANNELS.windowClose),
+  windowSetControlsTheme: (dark) => ipcRenderer.invoke(IPC_CHANNELS.windowSetControlsTheme, dark),
   selectFiles: (kind) => ipcRenderer.invoke(IPC_CHANNELS.selectFiles, kind),
   getDroppedFilePath: (file) => webUtils.getPathForFile(file),
   selectOutputDirectory: (current) =>

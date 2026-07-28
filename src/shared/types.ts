@@ -222,6 +222,7 @@ export interface VVToolsApi {
   windowToggleMaximize: () => Promise<boolean>
   windowIsMaximized: () => Promise<boolean>
   windowClose: () => Promise<void>
+  windowSetControlsTheme: (dark: boolean) => Promise<void>
   selectFiles: (kind: TaskKind) => Promise<string[]>
   getDroppedFilePath: (file: File) => string
   selectOutputDirectory: (current?: string) => Promise<string | null>

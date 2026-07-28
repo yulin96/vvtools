@@ -37,7 +37,16 @@ function createWindow(): void {
     minHeight: 680,
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 15, y: 14 } }
-      : { frame: false }),
+      : process.platform === 'win32'
+        ? {
+            titleBarStyle: 'hidden' as const,
+            titleBarOverlay: {
+              color: '#00000000',
+              symbolColor: '#6d6b7c',
+              height: 40
+            }
+          }
+        : { frame: false }),
     show: false,
     autoHideMenuBar: true,
     icon,

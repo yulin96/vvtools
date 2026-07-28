@@ -401,6 +401,17 @@ export function registerIpc(
     assertTrusted(event, current)
     current.close()
   })
+  handle(IPC_CHANNELS.windowSetControlsTheme, (event, dark: boolean) => {
+    const current = window()
+    assertTrusted(event, current)
+    if (process.platform !== 'win32') throw new Error('当前平台不支持窗口控制区主题')
+    if (typeof dark !== 'boolean') throw new Error('窗口控制区主题无效')
+    current.setTitleBarOverlay({
+      color: '#00000000',
+      symbolColor: dark ? '#aaa8b7' : '#6d6b7c',
+      height: 40
+    })
+  })
 
   handle(IPC_CHANNELS.selectFiles, async (event, kind: TaskKind) => {
     assertTrusted(event, window())

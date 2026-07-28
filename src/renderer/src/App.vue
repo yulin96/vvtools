@@ -38,6 +38,8 @@ const isDark = computed(() =>
 )
 const sidebarCollapsed = ref(localStorage.getItem('vvtools-sidebar-collapsed') === 'true')
 const isMac = window.api.platform === 'darwin'
+const isWindows = window.api.platform === 'win32'
+const isLinux = window.api.platform === 'linux'
 const isMaximized = ref(false)
 const releaseNotesOpen = ref(false)
 const themes = [
@@ -61,6 +63,7 @@ watch(
     document.documentElement.dataset.theme = dark ? 'dark' : 'light'
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
     localStorage.setItem('vvtools-theme', mode)
+    if (isWindows) void window.api.windowSetControlsTheme(dark)
   },
   { immediate: true }
 )
@@ -87,8 +90,12 @@ function closeWindow(): void {
 
 onMounted(async () => {
   colorSchemeQuery.addEventListener('change', handleSystemThemeChange)
-  const [, maximized] = await Promise.all([store.initialize(), window.api.windowIsMaximized()])
-  isMaximized.value = maximized
+  if (isLinux) {
+    const [, maximized] = await Promise.all([store.initialize(), window.api.windowIsMaximized()])
+    isMaximized.value = maximized
+  } else {
+    await store.initialize()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -98,9 +105,16 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell" :class="isMac ? 'app-platform-mac' : 'app-platform-desktop'">
-    <header class="window-titlebar" aria-label="窗口标题栏">
-      <div v-if="!isMac" class="desktop-window-controls">
+  <div
+    class="app-shell"
+    :class="{
+      'app-platform-mac': isMac,
+      'app-platform-windows': isWindows,
+      'app-platform-linux': isLinux
+    }"
+  >
+    <header v-if="!isWindows" class="window-titlebar" aria-label="窗口标题栏">
+      <div v-if="isLinux" class="desktop-window-controls">
         <button
           class="desktop-window-button"
           type="button"
