@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   let tagCreated = false
 
   try {
-    if (git(['rev-parse', '--show-toplevel']) !== root) {
+    if (resolve(git(['rev-parse', '--show-toplevel'])) !== resolve(root)) {
       throw new Error('请在仓库根目录执行发布命令')
     }
     if (git(['status', '--porcelain'])) throw new Error('工作区必须保持干净')
