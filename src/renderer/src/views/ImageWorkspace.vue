@@ -50,6 +50,26 @@ const imageFormatOptions = [
   { value: 'webp', label: 'WebP' },
   { value: 'avif', label: 'AVIF' }
 ]
+const metadataModeOptions = [
+  {
+    value: 'colorProfile',
+    label: '仅保留色彩',
+    title: '尽可能保留色彩配置（推荐）',
+    ariaLabel: '仅保留色彩配置，推荐'
+  },
+  {
+    value: 'strip',
+    label: '全部移除',
+    title: '移除全部元数据',
+    ariaLabel: '移除全部元数据'
+  },
+  {
+    value: 'all',
+    label: '尽量全部保留',
+    title: '尽可能保留全部元数据',
+    ariaLabel: '尽可能保留全部元数据'
+  }
+]
 
 const imageTasks = computed(() => store.currentBatchTasks.image)
 const pendingTableItems = computed(() =>
@@ -430,21 +450,12 @@ onBeforeUnmount(() => {
         <fieldset class="config-group">
           <legend class="sr-only">元数据</legend>
           <div class="config-group-fields config-group-fields-single">
-            <label class="compact-field">
-              <span>保留策略</span>
-              <select
-                :value="store.settings.image.metadataMode"
-                @change="
-                  updateImage({
-                    metadataMode: ($event.target as HTMLSelectElement).value as ImageMetadataMode
-                  })
-                "
-              >
-                <option value="colorProfile">尽可能保留色彩配置（推荐）</option>
-                <option value="strip">移除全部元数据</option>
-                <option value="all">尽可能保留全部元数据</option>
-              </select>
-            </label>
+            <SegmentedControl
+              label="元数据"
+              :model-value="store.settings.image.metadataMode"
+              :options="metadataModeOptions"
+              @update:model-value="updateImage({ metadataMode: $event as ImageMetadataMode })"
+            />
           </div>
         </fieldset>
       </AdvancedSettingsPanel>
