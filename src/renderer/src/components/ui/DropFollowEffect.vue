@@ -58,8 +58,5 @@ onBeforeUnmount(() => {
     aria-hidden="true"
   >
     <div class="drop-follow-grid" />
-    <div class="drop-follow-anchor">
-      <div class="drop-follow-reticle" />
-    </div>
   </div>
 </template>
