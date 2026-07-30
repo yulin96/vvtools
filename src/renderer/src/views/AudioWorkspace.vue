@@ -12,6 +12,7 @@ import Button from '../components/ui/Button.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
+import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
@@ -184,6 +185,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="video-config-actions">
           <OutputLocationControls />
+          <SourceOverwriteWarning />
           <Button :disabled="pendingPaths.length === 0 || starting" @click="startProcessing">
             <Play class="size-4" />
             {{

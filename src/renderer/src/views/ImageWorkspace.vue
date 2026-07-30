@@ -17,6 +17,7 @@ import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
+import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
@@ -274,6 +275,7 @@ onBeforeUnmount(() => {
             </select>
           </label>
           <OutputLocationControls />
+          <SourceOverwriteWarning />
           <Button :disabled="pendingInputs.length === 0 || starting" @click="startProcessing">
             <Play class="size-4" />
             {{

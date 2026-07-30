@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { TriangleAlert } from '@lucide/vue'
 import type { OutputConflictPolicy } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import SegmentedControl from './ui/SegmentedControl.vue'
@@ -17,24 +16,12 @@ function updateConflictPolicy(value: string | number): void {
 </script>
 
 <template>
-  <div v-if="store.settings" class="output-conflict-control">
-    <SegmentedControl
-      class="conflict-policy-segments"
-      label="同名文件"
-      :model-value="store.settings.outputConflictPolicy"
-      :options="conflictPolicyOptions"
-      @update:model-value="updateConflictPolicy"
-    />
-    <span
-      v-if="
-        store.settings.outputMode === 'source' &&
-        store.settings.outputConflictPolicy === 'overwrite'
-      "
-      class="source-overwrite-warning"
-      title="如果输出路径与源文件相同，成功处理后将替换源文件"
-    >
-      <TriangleAlert class="size-3.5" />
-      原目录覆盖模式
-    </span>
-  </div>
+  <SegmentedControl
+    v-if="store.settings"
+    class="conflict-policy-segments"
+    label="同名文件"
+    :model-value="store.settings.outputConflictPolicy"
+    :options="conflictPolicyOptions"
+    @update:model-value="updateConflictPolicy"
+  />
 </template>
