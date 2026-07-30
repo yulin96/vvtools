@@ -34,6 +34,8 @@ const isDark = computed(() =>
 )
 const sidebarCollapsed = ref(localStorage.getItem('vvtools-sidebar-collapsed') === 'true')
 const isMac = window.api.platform === 'darwin'
+const isWindows = window.api.platform === 'win32'
+const hasIntegratedTitlebar = isMac || isWindows
 const releaseNotesOpen = ref(false)
 const themes = [
   { value: 'system' as const, label: '跟随系统', icon: Monitor },
@@ -80,18 +82,15 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell">
-    <aside class="app-sidebar" :class="{ 'app-sidebar-collapsed': sidebarCollapsed }">
-      <div class="sidebar-brand">
-        <div class="brand-mark">
-          <img :src="appIcon" alt="" class="size-8 rounded-[9px]" />
-        </div>
-        <div class="sidebar-label brand-copy">
-          <p class="brand-name">VVTools</p>
-          <p class="brand-caption">媒体工作台</p>
-        </div>
+  <div class="app-shell" :class="{ 'app-window-overlay': hasIntegratedTitlebar }">
+    <header
+      v-if="hasIntegratedTitlebar"
+      class="app-titlebar"
+      :class="{ 'app-titlebar-mac': isMac, 'app-titlebar-windows': isWindows }"
+    >
+      <div class="app-titlebar-actions">
         <button
-          class="sidebar-control sidebar-collapse"
+          class="app-titlebar-button"
           type="button"
           :aria-label="sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
           :title="sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'"
@@ -106,6 +105,18 @@ onBeforeUnmount(() => {
             <PanelLeftOpen class="t-icon size-4" data-icon="b" />
           </span>
         </button>
+      </div>
+      <div id="media-titlebar-actions" class="app-titlebar-actions app-titlebar-actions-end" />
+    </header>
+    <aside class="app-sidebar" :class="{ 'app-sidebar-collapsed': sidebarCollapsed }">
+      <div class="sidebar-brand">
+        <div class="brand-mark">
+          <img :src="appIcon" alt="" class="size-8 rounded-[9px]" />
+        </div>
+        <div class="sidebar-label brand-copy">
+          <p class="brand-name">VVTools</p>
+          <p class="brand-caption">媒体工作台</p>
+        </div>
       </div>
 
       <nav class="sidebar-nav" aria-label="主导航">

@@ -55,6 +55,11 @@ function createWindow(): void {
     ...(restoredBounds ?? defaultWindowSize),
     minWidth: minimumWindowSize.width,
     minHeight: minimumWindowSize.height,
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hiddenInset' as const }
+      : process.platform === 'win32'
+        ? { titleBarStyle: 'hidden' as const, titleBarOverlay: true }
+        : {}),
     show: false,
     autoHideMenuBar: true,
     icon,

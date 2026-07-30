@@ -27,8 +27,13 @@ import OutputLocationControls from '../components/OutputLocationControls.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
+import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
+import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
+import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 
 const store = useAppStore()
+const useIntegratedTitlebar = ['darwin', 'win32'].includes(window.api.platform)
+const configExpanded = ref(false)
 const pageSettingsOpen = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
@@ -252,46 +257,63 @@ onBeforeUnmount(() => {
         <div class="config-heading-main">
           <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
           <span class="shrink-0 text-sm font-semibold">图片参数</span>
+          <Button
+            class="config-expand-toggle"
+            variant="ghost"
+            size="sm"
+            :aria-expanded="configExpanded"
+            aria-controls="image-advanced-settings"
+            @click="configExpanded = !configExpanded"
+          >
+            {{ configExpanded ? '收起参数' : '更多参数' }}
+            <AnimatedChevron :expanded="configExpanded" />
+          </Button>
           <span class="config-summary truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
           </span>
         </div>
-        <div class="video-config-actions">
-          <label class="preset-picker">
-            <span class="sr-only">图片预设</span>
-            <select :value="activePresetId" aria-label="图片预设" @change="applyPreset">
-              <option v-if="activePresetId === 'custom'" value="custom" disabled>
-                预设：自定义参数
-              </option>
-              <option
-                v-for="preset in store.settings.image.presets"
-                :key="preset.id"
-                :value="preset.id"
-              >
-                预设：{{ preset.name }}
-              </option>
-            </select>
-          </label>
-          <Button
-            variant="secondary"
-            size="icon"
-            aria-label="打开图片设置"
-            title="图片设置"
-            @click="pageSettingsOpen = true"
-          >
-            <Settings2 class="size-4" />
-          </Button>
-          <OutputLocationControls />
-          <SourceOverwriteWarning />
-          <Button :disabled="pendingInputs.length === 0 || starting" @click="startProcessing">
-            <Play class="size-4" />
-            {{
-              starting
-                ? '正在开始…'
-                : `开始处理${pendingInputs.length ? ` (${pendingInputs.length})` : ''}`
-            }}
-          </Button>
-        </div>
+        <Teleport to="#media-titlebar-actions" :disabled="!useIntegratedTitlebar">
+          <div class="video-config-actions">
+            <label class="preset-picker">
+              <span class="sr-only">图片预设</span>
+              <select :value="activePresetId" aria-label="图片预设" @change="applyPreset">
+                <option v-if="activePresetId === 'custom'" value="custom" disabled>
+                  预设：自定义参数
+                </option>
+                <option
+                  v-for="preset in store.settings.image.presets"
+                  :key="preset.id"
+                  :value="preset.id"
+                >
+                  预设：{{ preset.name }}
+                </option>
+              </select>
+            </label>
+            <Button
+              variant="secondary"
+              size="icon"
+              aria-label="打开图片设置"
+              title="图片设置"
+              @click="pageSettingsOpen = true"
+            >
+              <Settings2 class="size-4" />
+            </Button>
+            <OutputLocationControls />
+            <SourceOverwriteWarning />
+            <Button
+              size="sm"
+              :disabled="pendingInputs.length === 0 || starting"
+              @click="startProcessing"
+            >
+              <Play class="size-4" />
+              {{
+                starting
+                  ? '正在开始…'
+                  : `开始处理${pendingInputs.length ? ` (${pendingInputs.length})` : ''}`
+              }}
+            </Button>
+          </div>
+        </Teleport>
       </div>
 
       <div class="image-config-primary">
@@ -409,9 +431,51 @@ onBeforeUnmount(() => {
           </div>
         </fieldset>
       </div>
+
+      <AdvancedSettingsPanel
+        id="image-advanced-settings"
+        :open="configExpanded"
+        class="video-config-expanded"
+      >
+        <fieldset class="config-group">
+          <legend class="sr-only">处理偏好</legend>
+          <div class="config-group-fields">
+            <label class="compact-field">
+              <span>元数据</span>
+              <select
+                :value="store.settings.image.lastOptions.metadataMode"
+                @change="
+                  updateImage({
+                    metadataMode: ($event.target as HTMLSelectElement)
+                      .value as ImageOptions['metadataMode']
+                  })
+                "
+              >
+                <option value="colorProfile">保留色彩配置</option>
+                <option value="strip">全部移除</option>
+                <option value="all">尽可能全部保留</option>
+              </select>
+            </label>
+            <ToggleSwitch
+              label="目录结构"
+              :model-value="store.settings.image.lastOptions.preserveStructure"
+              enabled-text="保留层级"
+              disabled-text="合并输出"
+              @update:model-value="updateImage({ preserveStructure: $event })"
+            />
+            <ToggleSwitch
+              label="较小图片"
+              :model-value="store.settings.image.lastOptions.allowEnlargement"
+              enabled-text="允许放大"
+              disabled-text="不放大"
+              @update:model-value="updateImage({ allowEnlargement: $event })"
+            />
+          </div>
+        </fieldset>
+      </AdvancedSettingsPanel>
     </section>
 
-    <div class="video-workspace-content">
+    <div class="video-workspace-content" @click="configExpanded = false">
       <CurrentBatchTable
         v-if="pendingInputs.length || imageTasks.length"
         kind="image"

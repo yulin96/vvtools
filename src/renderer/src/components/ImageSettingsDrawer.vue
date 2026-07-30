@@ -1,24 +1,14 @@
 <script setup lang="ts">
 import { Plus, Trash2 } from '@lucide/vue'
-import type { AppSettings, ImagePresetOptions } from '../../../shared/types'
+import type { ImagePresetOptions } from '../../../shared/types'
 import { getImagePresetOptions } from '../../../shared/constants'
 import { useAppStore } from '../stores/app'
 import PageSettingsDrawer from './PageSettingsDrawer.vue'
 import Button from './ui/Button.vue'
-import ToggleSwitch from './ui/ToggleSwitch.vue'
 
 defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 const store = useAppStore()
-
-function updateImagePreference(patch: Partial<AppSettings['image']['lastOptions']>): void {
-  if (!store.settings) return
-  void store.updateSettings({
-    image: {
-      lastOptions: { ...store.settings.image.lastOptions, ...patch }
-    }
-  })
-}
 
 function addPreset(): void {
   if (!store.settings || store.settings.image.presets.length >= 20) return
@@ -102,7 +92,7 @@ function presetSummary(options: ImagePresetOptions): string {
   <PageSettingsDrawer
     :open="open"
     title="图片设置"
-    description="管理图片预设和不会随预设切换的处理偏好。"
+    description="管理图片工作区中可以快速切换的处理预设。"
     @close="emit('close')"
   >
     <template v-if="store.settings">
@@ -294,47 +284,6 @@ function presetSummary(options: ImagePresetOptions): string {
               </label>
             </div>
           </article>
-        </div>
-      </section>
-
-      <section class="page-settings-section">
-        <div class="page-settings-section-heading">
-          <div>
-            <h3>处理偏好</h3>
-            <p>这些选项独立于预设，切换预设时保持不变。</p>
-          </div>
-        </div>
-        <div class="page-settings-preferences">
-          <label class="compact-field">
-            <span>元数据</span>
-            <select
-              :value="store.settings.image.lastOptions.metadataMode"
-              @change="
-                updateImagePreference({
-                  metadataMode: ($event.target as HTMLSelectElement)
-                    .value as AppSettings['image']['lastOptions']['metadataMode']
-                })
-              "
-            >
-              <option value="colorProfile">尽可能保留色彩配置</option>
-              <option value="strip">全部移除</option>
-              <option value="all">尽可能全部保留</option>
-            </select>
-          </label>
-          <ToggleSwitch
-            label="目录结构"
-            :model-value="store.settings.image.lastOptions.preserveStructure"
-            enabled-text="保留层级"
-            disabled-text="合并输出"
-            @update:model-value="updateImagePreference({ preserveStructure: $event })"
-          />
-          <ToggleSwitch
-            label="较小图片"
-            :model-value="store.settings.image.lastOptions.allowEnlargement"
-            enabled-text="允许放大"
-            disabled-text="不放大"
-            @update:model-value="updateImagePreference({ allowEnlargement: $event })"
-          />
         </div>
       </section>
     </template>

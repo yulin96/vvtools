@@ -25,6 +25,7 @@ import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 
 const store = useAppStore()
+const useIntegratedTitlebar = ['darwin', 'win32'].includes(window.api.platform)
 const configExpanded = ref(false)
 const pageSettingsOpen = ref(false)
 const dragging = ref(false)
@@ -249,42 +250,48 @@ onBeforeUnmount(() => {
             {{ formatLabel }} · {{ codecLabel }} · {{ qualityLabel }}
           </span>
         </div>
-        <div class="video-config-actions">
-          <label class="preset-picker">
-            <span class="sr-only">视频预设</span>
-            <select :value="activePresetId" aria-label="视频预设" @change="applyPreset">
-              <option v-if="activePresetId === 'custom'" value="custom" disabled>
-                预设：自定义参数
-              </option>
-              <option
-                v-for="preset in store.settings.video.presets"
-                :key="preset.id"
-                :value="preset.id"
-              >
-                预设：{{ preset.name }}
-              </option>
-            </select>
-          </label>
-          <Button
-            variant="secondary"
-            size="icon"
-            aria-label="打开视频设置"
-            title="视频设置"
-            @click="pageSettingsOpen = true"
-          >
-            <Settings2 class="size-4" />
-          </Button>
-          <OutputLocationControls />
-          <SourceOverwriteWarning />
-          <Button :disabled="pendingPaths.length === 0 || starting" @click="startProcessing">
-            <Play class="size-4" />
-            {{
-              starting
-                ? '正在开始…'
-                : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
-            }}
-          </Button>
-        </div>
+        <Teleport to="#media-titlebar-actions" :disabled="!useIntegratedTitlebar">
+          <div class="video-config-actions">
+            <label class="preset-picker">
+              <span class="sr-only">视频预设</span>
+              <select :value="activePresetId" aria-label="视频预设" @change="applyPreset">
+                <option v-if="activePresetId === 'custom'" value="custom" disabled>
+                  预设：自定义参数
+                </option>
+                <option
+                  v-for="preset in store.settings.video.presets"
+                  :key="preset.id"
+                  :value="preset.id"
+                >
+                  预设：{{ preset.name }}
+                </option>
+              </select>
+            </label>
+            <Button
+              variant="secondary"
+              size="icon"
+              aria-label="打开视频设置"
+              title="视频设置"
+              @click="pageSettingsOpen = true"
+            >
+              <Settings2 class="size-4" />
+            </Button>
+            <OutputLocationControls />
+            <SourceOverwriteWarning />
+            <Button
+              size="sm"
+              :disabled="pendingPaths.length === 0 || starting"
+              @click="startProcessing"
+            >
+              <Play class="size-4" />
+              {{
+                starting
+                  ? '正在开始…'
+                  : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+              }}
+            </Button>
+          </div>
+        </Teleport>
       </div>
 
       <div class="video-config-primary">

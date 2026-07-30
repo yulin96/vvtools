@@ -17,6 +17,7 @@ import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 
 const store = useAppStore()
+const useIntegratedTitlebar = ['darwin', 'win32'].includes(window.api.platform)
 const dragging = ref(false)
 const starting = ref(false)
 const pendingPaths = computed<string[]>({
@@ -170,18 +171,24 @@ onBeforeUnmount(() => {
             {{ formatLabel }} · {{ bitrateLabel }}
           </span>
         </div>
-        <div class="video-config-actions">
-          <OutputLocationControls />
-          <SourceOverwriteWarning />
-          <Button :disabled="pendingPaths.length === 0 || starting" @click="startProcessing">
-            <Play class="size-4" />
-            {{
-              starting
-                ? '正在开始…'
-                : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
-            }}
-          </Button>
-        </div>
+        <Teleport to="#media-titlebar-actions" :disabled="!useIntegratedTitlebar">
+          <div class="video-config-actions">
+            <OutputLocationControls />
+            <SourceOverwriteWarning />
+            <Button
+              size="sm"
+              :disabled="pendingPaths.length === 0 || starting"
+              @click="startProcessing"
+            >
+              <Play class="size-4" />
+              {{
+                starting
+                  ? '正在开始…'
+                  : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+              }}
+            </Button>
+          </div>
+        </Teleport>
       </div>
 
       <div class="image-config-primary">
