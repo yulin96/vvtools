@@ -31,8 +31,8 @@ configureOverlayScrollbars(app.commandLine, process.platform)
 function createWindow(): void {
   const window = new BrowserWindow({
     title: 'VVTools',
-    width: 1440,
-    height: 900,
+    width: 1280,
+    height: 800,
     minWidth: 1040,
     minHeight: 680,
     ...(process.platform === 'darwin'
