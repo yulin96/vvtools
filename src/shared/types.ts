@@ -131,8 +131,6 @@ export interface MediaInspection {
   outputPath: string
   valid: boolean
   skipped?: boolean
-  overwritesExisting?: boolean
-  replacesSource?: boolean
   sourceSize: number
   format?: string
   width?: number
@@ -229,7 +227,6 @@ export interface VVToolsApi {
   selectImageDirectory: () => Promise<ImageInputFile[]>
   expandImageInputs: (paths: string[]) => Promise<ImageInputFile[]>
   openOutputDirectory: () => Promise<void>
-  confirmSourceReplacement: (count: number) => Promise<boolean>
   createTasks: (request: CreateTasksRequest) => Promise<MediaTask[]>
   inspectTasks: (request: CreateTasksRequest) => Promise<MediaInspection[]>
   getTasks: () => Promise<MediaTask[]>

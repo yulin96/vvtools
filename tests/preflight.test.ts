@@ -65,7 +65,7 @@ describe('media preflight', () => {
     expect(inspection.error).toBeTruthy()
   })
 
-  it('marks source replacement when overwrite targets the original file', async () => {
+  it('previews the source path when overwrite targets the original file', async () => {
     const root = mkdtempSync(join(tmpdir(), 'vvtools-preflight-'))
     directories.push(root)
     const source = join(root, 'photo.png')
@@ -87,9 +87,7 @@ describe('media preflight', () => {
 
     expect(inspection).toMatchObject({
       valid: true,
-      outputPath: source,
-      overwritesExisting: true,
-      replacesSource: true
+      outputPath: source
     })
   })
 })

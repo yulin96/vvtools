@@ -1,5 +1,5 @@
 import { existsSync } from 'fs'
-import { extname, join, parse, resolve } from 'path'
+import { extname, join, parse } from 'path'
 import type {
   AudioFormat,
   ImageFormat,
@@ -104,14 +104,6 @@ export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOu
     }
     index += 1
   }
-}
-
-export function pathsReferToSameFile(left: string, right: string): boolean {
-  const leftPath = resolve(left)
-  const rightPath = resolve(right)
-  return process.platform === 'win32'
-    ? leftPath.toLowerCase() === rightPath.toLowerCase()
-    : leftPath === rightPath
 }
 
 export function renderOutputBaseName(

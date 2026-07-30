@@ -16,8 +16,6 @@ const api: VVToolsApi = {
   selectImageDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.selectImageDirectory),
   expandImageInputs: (paths) => ipcRenderer.invoke(IPC_CHANNELS.expandImageInputs, paths),
   openOutputDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.openOutputDirectory),
-  confirmSourceReplacement: (count) =>
-    ipcRenderer.invoke(IPC_CHANNELS.confirmSourceReplacement, count),
   createTasks: (request) => ipcRenderer.invoke(IPC_CHANNELS.createTasks, request),
   inspectTasks: (request) => ipcRenderer.invoke(IPC_CHANNELS.inspectTasks, request),
   getTasks: () => ipcRenderer.invoke(IPC_CHANNELS.getTasks),

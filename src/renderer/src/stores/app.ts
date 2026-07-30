@@ -158,16 +158,6 @@ export const useAppStore = defineStore('app', () => {
         return null
       }
 
-      const sourceReplacementCount = handled.filter(
-        (item) => item.valid && item.replacesSource
-      ).length
-      if (
-        sourceReplacementCount > 0 &&
-        !(await window.api.confirmSourceReplacement(sourceReplacementCount))
-      ) {
-        return null
-      }
-
       const handledPaths = handled.map((item) => item.sourcePath)
       const handledPathSet = new Set(handledPaths)
       const inputMetadata = handled.map((item) => ({

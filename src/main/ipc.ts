@@ -462,21 +462,6 @@ export function registerIpc(
     const error = await shell.openPath(outputDirectory)
     if (error) throw new Error(error)
   })
-  handle(IPC_CHANNELS.confirmSourceReplacement, async (event, count: number) => {
-    assertTrusted(event, window())
-    if (!Number.isInteger(count) || count < 1) throw new Error('待替换源文件数量无效')
-    const result = await dialog.showMessageBox(window(), {
-      type: 'warning',
-      title: '确认替换源文件',
-      message: `将替换 ${count} 个源文件`,
-      detail: 'VVTools 会先生成临时文件，处理成功后才替换源文件；处理失败或取消不会修改原文件。',
-      buttons: ['取消', '继续处理'],
-      defaultId: 0,
-      cancelId: 0,
-      noLink: true
-    })
-    return result.response === 1
-  })
 
   handle(IPC_CHANNELS.createTasks, (event, request: unknown) => {
     assertTrusted(event, window())

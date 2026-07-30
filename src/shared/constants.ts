@@ -148,7 +148,6 @@ export const IPC_CHANNELS = {
   selectImageDirectory: 'directory:select-images',
   expandImageInputs: 'images:expand-inputs',
   openOutputDirectory: 'directory:open-output',
-  confirmSourceReplacement: 'output:confirm-source-replacement',
   createTasks: 'tasks:create',
   inspectTasks: 'tasks:inspect',
   getTasks: 'tasks:get',
