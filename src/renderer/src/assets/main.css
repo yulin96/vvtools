@@ -69,7 +69,6 @@
   --panel-open-dur: 400ms;
   --panel-close-dur: 350ms;
   --panel-translate-y: -12px;
-  --panel-blur: 2px;
   --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --page-slide-dur: 250ms;
   --page-fade-dur: 250ms;
@@ -240,25 +239,21 @@ html[data-theme='dark'] {
 /* transitions.dev — panel reveal */
 .t-panel-slide {
   opacity: 0;
-  filter: blur(var(--panel-blur));
   pointer-events: none;
   transform: translateY(var(--panel-translate-y));
   transition:
     transform var(--panel-close-dur) var(--panel-ease),
-    opacity var(--panel-close-dur) var(--panel-ease),
-    filter var(--panel-close-dur) var(--panel-ease);
-  will-change: transform, opacity, filter;
+    opacity var(--panel-close-dur) var(--panel-ease);
+  will-change: transform, opacity;
 }
 
 .t-panel-slide[data-open='true'] {
   opacity: 1;
-  filter: blur(0);
   pointer-events: auto;
   transform: translateY(0);
   transition:
     transform var(--panel-open-dur) var(--panel-ease),
-    opacity var(--panel-open-dur) var(--panel-ease),
-    filter var(--panel-open-dur) var(--panel-ease);
+    opacity var(--panel-open-dur) var(--panel-ease);
 }
 
 /* transitions.dev — icon swap */
