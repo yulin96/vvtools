@@ -3,7 +3,12 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { SettingsStore } from '../src/main/services/settings-store'
-import { DEFAULT_VIDEO_OPTIONS } from '../src/shared/constants'
+import { resolveTaskConcurrency } from '../src/main/services/task-concurrency'
+import {
+  DEFAULT_CONCURRENCY_SETTINGS,
+  DEFAULT_IMAGE_OPTIONS,
+  DEFAULT_VIDEO_OPTIONS
+} from '../src/shared/constants'
 
 const directories: string[] = []
 
@@ -17,58 +22,64 @@ describe('SettingsStore', () => {
     directories.push(root)
     const store = new SettingsStore(root, join(root, 'downloads'))
 
-    expect(store.get().outputDirectory).toBe(join(root, 'downloads', 'VVTools'))
+    expect(store.get().common.outputDirectory).toBe(join(root, 'downloads', 'VVTools'))
     expect(store.get()).toMatchObject({
-      outputMode: 'custom',
-      outputSuffix: '',
-      outputNameTemplate: '{name}{suffix}',
-      outputConflictPolicy: 'rename',
-      completionNotification: true,
-      completionSound: false,
-      completionAction: 'none',
-      closeBehavior: 'ask'
+      common: {
+        outputMode: 'custom',
+        outputSuffix: '',
+        outputNameTemplate: '{name}{suffix}',
+        outputConflictPolicy: 'rename',
+        completionNotification: true,
+        completionSound: false,
+        completionAction: 'none',
+        closeBehavior: 'ask',
+        concurrency: {
+          mode: 'auto',
+          custom: { image: 8, video: 1, audio: 2 }
+        }
+      }
     })
-    expect(store.get().image).toMatchObject({
+    expect(store.get().image.lastOptions).toMatchObject({
       compressionMode: 'quality',
       resizeMode: 'source',
       preserveStructure: true,
       metadataMode: 'colorProfile'
     })
-    expect(store.get().audio).toEqual({
+    expect(store.get().audio.lastOptions).toEqual({
       format: 'mp3',
       bitrateKbps: 192,
       channels: 'source',
       normalizeLoudness: false
     })
 
-    expect(store.get().videoPresets.map((preset) => preset.name)).toEqual([
+    expect(store.get().video.presets.map((preset) => preset.name)).toEqual([
       '保持原始',
       '低质量',
       '中质量',
       '高质量'
     ])
-    expect(store.get().video.encoderMode).toBe('auto')
-    expect(store.get().imagePresets.map((preset) => preset.name)).toEqual([
+    expect(store.get().video.lastOptions.encoderMode).toBe('auto')
+    expect(store.get().image.presets.map((preset) => preset.name)).toEqual([
       '原图整理',
       '网站图片',
-      '缩略图',
-      '平台上传'
+      '分享图'
     ])
+    expect(store.get().image.presets[0].options).not.toHaveProperty('metadataMode')
 
-    const presets = store.get().videoPresets
+    const presets = store.get().video.presets
     presets[0] = { ...presets[0], name: '快速封装' }
-    store.update({ videoPresets: presets })
-    const imagePresets = store.get().imagePresets
+    store.update({ video: { presets } })
+    const imagePresets = store.get().image.presets
     imagePresets[0] = { ...imagePresets[0], name: '交付原图' }
-    store.update({ imagePresets })
+    store.update({ image: { presets: imagePresets } })
 
     const saved = JSON.parse(readFileSync(join(root, 'settings.json'), 'utf8'))
-    expect(saved.videoPresets[0].name).toBe('快速封装')
-    expect(saved.imagePresets[0].name).toBe('交付原图')
-    expect(new SettingsStore(root, join(root, 'downloads')).get().videoPresets[0].name).toBe(
+    expect(saved.video.presets[0].name).toBe('快速封装')
+    expect(saved.image.presets[0].name).toBe('交付原图')
+    expect(new SettingsStore(root, join(root, 'downloads')).get().video.presets[0].name).toBe(
       '快速封装'
     )
-    expect(new SettingsStore(root, join(root, 'downloads')).get().imagePresets[0].name).toBe(
+    expect(new SettingsStore(root, join(root, 'downloads')).get().image.presets[0].name).toBe(
       '交付原图'
     )
   })
@@ -78,59 +89,72 @@ describe('SettingsStore', () => {
     directories.push(root)
     const downloads = join(root, 'downloads')
     const store = new SettingsStore(root, downloads)
+    const current = store.get()
 
     store.update({
-      outputMode: 'source',
-      closeBehavior: 'minimizeToTray',
-      outputSuffix: '-compressed',
-      outputNameTemplate: '{name}_{preset}_{date}',
-      outputConflictPolicy: 'skip',
-      completionNotification: false,
-      completionSound: true,
-      completionAction: 'openOutput',
+      common: {
+        outputMode: 'source',
+        closeBehavior: 'minimizeToTray',
+        outputSuffix: '-compressed',
+        outputNameTemplate: '{name}_{preset}_{date}',
+        outputConflictPolicy: 'skip',
+        completionNotification: false,
+        completionSound: true,
+        completionAction: 'openOutput'
+      },
       image: {
-        ...store.get().image,
-        compressionMode: 'targetSize',
-        targetSizeKb: 512,
-        resizeMode: 'percentage',
-        percentage: 75,
-        format: 'webp',
-        preserveStructure: false,
-        allowEnlargement: true,
-        metadataMode: 'all'
+        lastOptions: {
+          ...current.image.lastOptions,
+          compressionMode: 'targetSize',
+          targetSizeKb: 512,
+          resizeMode: 'percentage',
+          percentage: 75,
+          format: 'webp',
+          preserveStructure: false,
+          allowEnlargement: true,
+          metadataMode: 'all'
+        }
       },
       audio: {
-        format: 'flac',
-        bitrateKbps: 256,
-        channels: 'stereo',
-        normalizeLoudness: true
+        lastOptions: {
+          format: 'flac',
+          bitrateKbps: 256,
+          channels: 'stereo',
+          normalizeLoudness: true
+        }
       }
     })
 
     expect(new SettingsStore(root, downloads).get()).toMatchObject({
-      outputMode: 'source',
-      closeBehavior: 'minimizeToTray',
-      outputNameTemplate: '{name}_{preset}_{date}',
-      outputConflictPolicy: 'skip',
-      completionNotification: false,
-      completionSound: true,
-      completionAction: 'openOutput',
-      outputSuffix: '-compressed',
+      common: {
+        outputMode: 'source',
+        closeBehavior: 'minimizeToTray',
+        outputNameTemplate: '{name}_{preset}_{date}',
+        outputConflictPolicy: 'skip',
+        completionNotification: false,
+        completionSound: true,
+        completionAction: 'openOutput',
+        outputSuffix: '-compressed'
+      },
       image: {
-        compressionMode: 'targetSize',
-        targetSizeKb: 512,
-        resizeMode: 'percentage',
-        percentage: 75,
-        format: 'webp',
-        preserveStructure: false,
-        allowEnlargement: true,
-        metadataMode: 'all'
+        lastOptions: {
+          compressionMode: 'targetSize',
+          targetSizeKb: 512,
+          resizeMode: 'percentage',
+          percentage: 75,
+          format: 'webp',
+          preserveStructure: false,
+          allowEnlargement: true,
+          metadataMode: 'all'
+        }
       },
       audio: {
-        format: 'flac',
-        bitrateKbps: 256,
-        channels: 'stereo',
-        normalizeLoudness: true
+        lastOptions: {
+          format: 'flac',
+          bitrateKbps: 256,
+          channels: 'stereo',
+          normalizeLoudness: true
+        }
       }
     })
   })
@@ -155,15 +179,70 @@ describe('SettingsStore', () => {
 
     const settings = new SettingsStore(root, join(root, 'downloads')).get()
     expect(settings).not.toHaveProperty('videoOutputMode')
-    expect(settings.video).toMatchObject({
+    expect(settings.video.lastOptions).toMatchObject({
       codec: 'source',
       format: 'source',
       encoderMode: 'auto'
     })
-    expect(settings.videoPresets[0]).toMatchObject({
+    expect(settings.video.presets[0]).toMatchObject({
       id: 'keep-original',
       name: '保持原始',
       options: { codec: 'source', format: 'source', encoderMode: 'auto' }
+    })
+  })
+
+  it('migrates the former global concurrency and built-in image presets', () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-settings-'))
+    directories.push(root)
+    writeFileSync(
+      join(root, 'settings.json'),
+      JSON.stringify({
+        concurrency: 3,
+        imagePresets: [
+          {
+            id: 'image-original',
+            name: '原图整理',
+            options: DEFAULT_IMAGE_OPTIONS
+          },
+          {
+            id: 'image-thumbnail',
+            name: '缩略图',
+            options: { ...DEFAULT_IMAGE_OPTIONS, resizeMode: 'width', width: 600 }
+          },
+          {
+            id: 'custom-delivery',
+            name: '交付',
+            options: { ...DEFAULT_IMAGE_OPTIONS, format: 'png' }
+          }
+        ]
+      })
+    )
+
+    const settings = new SettingsStore(root, join(root, 'downloads')).get()
+    expect(settings.common.concurrency).toEqual({
+      mode: 'custom',
+      custom: { image: 3, video: 2, audio: 3 }
+    })
+    expect(settings.image.presets.map((preset) => preset.name)).toEqual([
+      '原图整理',
+      '网站图片',
+      '分享图',
+      '交付'
+    ])
+    expect(settings.image.presets[3].options).toMatchObject({ format: 'png' })
+    expect(settings.image.presets[3].options).not.toHaveProperty('preserveStructure')
+  })
+
+  it('resolves automatic concurrency by media type', () => {
+    expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 10)).toEqual({
+      image: 8,
+      video: 1,
+      audio: 2
+    })
+    expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 2)).toEqual({
+      image: 2,
+      video: 1,
+      audio: 1
     })
   })
 })

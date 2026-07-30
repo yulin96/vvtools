@@ -6,7 +6,8 @@ import { useAppStore } from '../stores/app'
 const store = useAppStore()
 const visible = computed(
   () =>
-    store.settings?.outputMode === 'source' && store.settings.outputConflictPolicy === 'overwrite'
+    store.settings?.common.outputMode === 'source' &&
+    store.settings.common.outputConflictPolicy === 'overwrite'
 )
 </script>
 

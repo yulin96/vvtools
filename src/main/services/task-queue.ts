@@ -7,6 +7,7 @@ import type {
   AudioOptions,
   ImageOptions,
   MediaTask,
+  TaskConcurrencyLimits,
   TaskFailure,
   VideoOptions
 } from '../../shared/types'
@@ -27,7 +28,7 @@ export class TaskQueue extends EventEmitter {
   private readonly reservedPaths = new Set<string>()
 
   constructor(
-    private concurrency: number,
+    private concurrency: TaskConcurrencyLimits,
     private readonly runner: TaskRunner,
     private readonly failureLogs: FailureLogService
   ) {
@@ -178,8 +179,8 @@ export class TaskQueue extends EventEmitter {
     return stored ? structuredClone(stored) : null
   }
 
-  setConcurrency(value: number): void {
-    this.concurrency = value
+  setConcurrency(value: TaskConcurrencyLimits): void {
+    this.concurrency = structuredClone(value)
     this.dispatch()
   }
 
@@ -188,11 +189,22 @@ export class TaskQueue extends EventEmitter {
   }
 
   private dispatch(): void {
-    while (this.running.size < this.concurrency) {
-      const task = [...this.tasks.values()].find((item) => item.status === 'pending')
+    while (true) {
+      const task = [...this.tasks.values()].find(
+        (item) =>
+          item.status === 'pending' && this.runningCount(item.kind) < this.concurrency[item.kind]
+      )
       if (!task) return
       void this.run(task)
     }
+  }
+
+  private runningCount(kind: MediaTask['kind']): number {
+    let count = 0
+    for (const taskId of this.running.keys()) {
+      if (this.tasks.get(taskId)?.kind === kind) count += 1
+    }
+    return count
   }
 
   private async run(task: MediaTask): Promise<void> {

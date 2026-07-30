@@ -15,12 +15,12 @@ async function updateOutputMode(value: string | number): Promise<void> {
   const outputMode = value as OutputMode
   try {
     if (outputMode === 'source') {
-      await store.updateSettings({ outputMode })
+      await store.updateSettings({ common: { outputMode } })
       return
     }
 
-    const path = await window.api.selectOutputDirectory(store.settings.outputDirectory)
-    if (path) await store.updateSettings({ outputMode, outputDirectory: path })
+    const path = await window.api.selectOutputDirectory(store.settings.common.outputDirectory)
+    if (path) await store.updateSettings({ common: { outputMode, outputDirectory: path } })
   } catch (error) {
     store.errorMessage = error instanceof Error ? error.message : String(error)
   }
@@ -29,8 +29,12 @@ async function updateOutputMode(value: string | number): Promise<void> {
 async function chooseOutput(): Promise<void> {
   if (!store.settings) return
   try {
-    const path = await window.api.selectOutputDirectory(store.settings.outputDirectory)
-    if (path) await store.updateSettings({ outputMode: 'custom', outputDirectory: path })
+    const path = await window.api.selectOutputDirectory(store.settings.common.outputDirectory)
+    if (path) {
+      await store.updateSettings({
+        common: { outputMode: 'custom', outputDirectory: path }
+      })
+    }
   } catch (error) {
     store.errorMessage = error instanceof Error ? error.message : String(error)
   }
@@ -43,22 +47,22 @@ async function chooseOutput(): Promise<void> {
       class="output-mode-segments"
       label="输出位置"
       hide-label
-      :model-value="store.settings.outputMode"
+      :model-value="store.settings.common.outputMode"
       :options="outputModeOptions"
       @update:model-value="updateOutputMode"
     />
     <Button
-      v-if="store.settings.outputMode === 'custom'"
+      v-if="store.settings.common.outputMode === 'custom'"
       variant="secondary"
       size="icon"
-      :title="`选择输出目录：${store.settings.outputDirectory}`"
+      :title="`选择输出目录：${store.settings.common.outputDirectory}`"
       aria-label="选择输出目录"
       @click="chooseOutput"
     >
       <FolderCog class="size-4" />
     </Button>
     <Button
-      v-if="store.settings.outputMode === 'custom'"
+      v-if="store.settings.common.outputMode === 'custom'"
       variant="secondary"
       size="icon"
       title="打开输出目录"

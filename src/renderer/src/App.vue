@@ -3,9 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   Images,
   Download,
-  Maximize2,
-  Minimize2,
-  Minus,
   Monitor,
   Moon,
   Music,
@@ -13,8 +10,7 @@ import {
   PanelLeftOpen,
   Settings,
   Sun,
-  Video,
-  X
+  Video
 } from '@lucide/vue'
 import { useAppStore } from './stores/app'
 import appIcon from '../../../resources/icon.png'
@@ -38,9 +34,6 @@ const isDark = computed(() =>
 )
 const sidebarCollapsed = ref(localStorage.getItem('vvtools-sidebar-collapsed') === 'true')
 const isMac = window.api.platform === 'darwin'
-const isWindows = window.api.platform === 'win32'
-const isLinux = window.api.platform === 'linux'
-const isMaximized = ref(false)
 const releaseNotesOpen = ref(false)
 const themes = [
   { value: 'system' as const, label: '跟随系统', icon: Monitor },
@@ -63,7 +56,6 @@ watch(
     document.documentElement.dataset.theme = dark ? 'dark' : 'light'
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
     localStorage.setItem('vvtools-theme', mode)
-    if (isWindows) void window.api.windowSetControlsTheme(dark)
   },
   { immediate: true }
 )
@@ -76,26 +68,9 @@ function handleSystemThemeChange(event: MediaQueryListEvent): void {
   systemIsDark.value = event.matches
 }
 
-function minimizeWindow(): void {
-  void window.api.windowMinimize()
-}
-
-async function toggleWindowMaximize(): Promise<void> {
-  isMaximized.value = await window.api.windowToggleMaximize()
-}
-
-function closeWindow(): void {
-  void window.api.windowClose()
-}
-
-onMounted(async () => {
+onMounted(() => {
   colorSchemeQuery.addEventListener('change', handleSystemThemeChange)
-  if (isLinux) {
-    const [, maximized] = await Promise.all([store.initialize(), window.api.windowIsMaximized()])
-    isMaximized.value = maximized
-  } else {
-    await store.initialize()
-  }
+  void store.initialize()
 })
 
 onBeforeUnmount(() => {
@@ -105,53 +80,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    class="app-shell"
-    :class="{
-      'app-platform-mac': isMac,
-      'app-platform-windows': isWindows,
-      'app-platform-linux': isLinux
-    }"
-  >
-    <header v-if="!isWindows" class="window-titlebar" aria-label="窗口标题栏">
-      <div v-if="isLinux" class="desktop-window-controls">
-        <button
-          class="desktop-window-button"
-          type="button"
-          aria-label="最小化窗口"
-          title="最小化"
-          @click="minimizeWindow"
-        >
-          <Minus class="size-4" />
-        </button>
-        <button
-          class="desktop-window-button"
-          type="button"
-          :aria-label="isMaximized ? '还原窗口' : '最大化窗口'"
-          :title="isMaximized ? '还原' : '最大化'"
-          @click="toggleWindowMaximize"
-        >
-          <span
-            class="t-icon-swap size-3.5"
-            :data-state="isMaximized ? 'b' : 'a'"
-            aria-hidden="true"
-          >
-            <Maximize2 class="t-icon size-3.5" data-icon="a" />
-            <Minimize2 class="t-icon size-3.5" data-icon="b" />
-          </span>
-        </button>
-        <button
-          class="desktop-window-button desktop-window-close"
-          type="button"
-          aria-label="关闭窗口"
-          title="关闭"
-          @click="closeWindow"
-        >
-          <X class="size-4" />
-        </button>
-      </div>
-    </header>
-
+  <div class="app-shell">
     <aside class="app-sidebar" :class="{ 'app-sidebar-collapsed': sidebarCollapsed }">
       <div class="sidebar-brand">
         <div class="brand-mark">

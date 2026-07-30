@@ -10,18 +10,13 @@ import type {
 import { useAppStore } from '../stores/app'
 import Button from '../components/ui/Button.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
-import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
-import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
-import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
-import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 
 const store = useAppStore()
-const configExpanded = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
 const pendingPaths = computed<string[]>({
@@ -60,16 +55,20 @@ const supportedExtensions = new Set([
 
 const audioTasks = computed(() => store.currentBatchTasks.audio)
 const pendingTableItems = computed(() => pendingPaths.value.map((path) => ({ path })))
-const formatLabel = computed(() => store.settings?.audio.format.toUpperCase() ?? '')
+const formatLabel = computed(() => store.settings?.audio.lastOptions.format.toUpperCase() ?? '')
 const bitrateLabel = computed(() => {
-  const audio = store.settings?.audio
+  const audio = store.settings?.audio.lastOptions
   if (!audio) return ''
   return ['wav', 'flac'].includes(audio.format) ? '无损编码' : `${audio.bitrateKbps} kbps`
 })
 
 function updateAudio(patch: Partial<AudioOptions>): void {
   if (!store.settings) return
-  void store.updateSettings({ audio: { ...store.settings.audio, ...patch } })
+  void store.updateSettings({
+    audio: {
+      lastOptions: { ...store.settings.audio.lastOptions, ...patch }
+    }
+  })
 }
 
 function stageFiles(paths: string[]): void {
@@ -103,13 +102,13 @@ async function startProcessing(): Promise<void> {
   const request: CreateTasksRequest = {
     kind: 'audio',
     sourcePaths: [...pendingPaths.value],
-    outputMode: settings.outputMode,
-    outputDirectory: settings.outputDirectory,
-    outputSuffix: settings.outputSuffix,
-    outputNameTemplate: settings.outputNameTemplate,
-    outputConflictPolicy: settings.outputConflictPolicy,
+    outputMode: settings.common.outputMode,
+    outputDirectory: settings.common.outputDirectory,
+    outputSuffix: settings.common.outputSuffix,
+    outputNameTemplate: settings.common.outputNameTemplate,
+    outputConflictPolicy: settings.common.outputConflictPolicy,
     presetName: '音频处理',
-    options: { ...settings.audio }
+    options: { ...settings.audio.lastOptions }
   }
   starting.value = true
   try {
@@ -166,19 +165,8 @@ onBeforeUnmount(() => {
       <div class="video-config-heading">
         <div class="config-heading-main">
           <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">音频设置</span>
-          <Button
-            class="config-expand-toggle"
-            variant="ghost"
-            size="sm"
-            :aria-expanded="configExpanded"
-            aria-controls="audio-advanced-settings"
-            @click="configExpanded = !configExpanded"
-          >
-            {{ configExpanded ? '收起设置' : '高级设置' }}
-            <AnimatedChevron :expanded="configExpanded" />
-          </Button>
-          <span class="truncate text-xs text-muted-foreground">
+          <span class="shrink-0 text-sm font-semibold">音频参数</span>
+          <span class="config-summary truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ bitrateLabel }}
           </span>
         </div>
@@ -202,18 +190,20 @@ onBeforeUnmount(() => {
           <div class="config-group-fields">
             <SegmentedControl
               label="输出格式"
-              :model-value="store.settings.audio.format"
+              :model-value="store.settings.audio.lastOptions.format"
               :options="audioFormatOptions"
               @update:model-value="updateAudio({ format: $event as AudioFormat })"
             />
             <label
               class="compact-field"
-              :class="{ 'opacity-45': ['wav', 'flac'].includes(store.settings.audio.format) }"
+              :class="{
+                'opacity-45': ['wav', 'flac'].includes(store.settings.audio.lastOptions.format)
+              }"
             >
               <span>音频码率</span>
               <select
-                :value="store.settings.audio.bitrateKbps"
-                :disabled="['wav', 'flac'].includes(store.settings.audio.format)"
+                :value="store.settings.audio.lastOptions.bitrateKbps"
+                :disabled="['wav', 'flac'].includes(store.settings.audio.lastOptions.format)"
                 @change="
                   updateAudio({
                     bitrateKbps: Number(($event.target as HTMLSelectElement).value)
@@ -235,13 +225,13 @@ onBeforeUnmount(() => {
           <div class="config-group-fields">
             <SegmentedControl
               label="声道"
-              :model-value="store.settings.audio.channels"
+              :model-value="store.settings.audio.lastOptions.channels"
               :options="channelOptions"
               @update:model-value="updateAudio({ channels: $event as AudioChannels })"
             />
             <ToggleSwitch
               label="响度标准化"
-              :model-value="store.settings.audio.normalizeLoudness"
+              :model-value="store.settings.audio.lastOptions.normalizeLoudness"
               enabled-text="已开启"
               disabled-text="已关闭"
               @update:model-value="updateAudio({ normalizeLoudness: $event })"
@@ -249,28 +239,9 @@ onBeforeUnmount(() => {
           </div>
         </fieldset>
       </div>
-
-      <AdvancedSettingsPanel
-        id="audio-advanced-settings"
-        :open="configExpanded"
-        class="video-config-expanded"
-      >
-        <fieldset class="config-group">
-          <legend class="sr-only">输出文件</legend>
-          <div class="config-group-fields config-group-fields-single">
-            <OutputSuffixField />
-          </div>
-        </fieldset>
-        <fieldset class="config-group">
-          <legend class="sr-only">同名文件</legend>
-          <div class="config-group-fields config-group-fields-single">
-            <OutputConflictPolicyField />
-          </div>
-        </fieldset>
-      </AdvancedSettingsPanel>
     </section>
 
-    <div class="video-workspace-content" @click="configExpanded = false">
+    <div class="video-workspace-content">
       <CurrentBatchTable
         v-if="pendingPaths.length || audioTasks.length"
         kind="audio"

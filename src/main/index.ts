@@ -10,6 +10,7 @@ import { processVideo } from './media/video-processor'
 import { batchSummaryText, summarizeBatch } from './services/completion'
 import { FailureLogService } from './services/failure-log'
 import { SettingsStore } from './services/settings-store'
+import { resolveTaskConcurrency } from './services/task-concurrency'
 import { TaskQueue } from './services/task-queue'
 import { UpdateService } from './services/update-service'
 import {
@@ -54,18 +55,6 @@ function createWindow(): void {
     ...(restoredBounds ?? defaultWindowSize),
     minWidth: minimumWindowSize.width,
     minHeight: minimumWindowSize.height,
-    ...(process.platform === 'darwin'
-      ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 15, y: 14 } }
-      : process.platform === 'win32'
-        ? {
-            titleBarStyle: 'hidden' as const,
-            titleBarOverlay: {
-              color: '#00000000',
-              symbolColor: '#6d6b7c',
-              height: 40
-            }
-          }
-        : { frame: false }),
     show: false,
     autoHideMenuBar: true,
     icon,
@@ -105,7 +94,7 @@ function createWindow(): void {
       return
     }
     event.preventDefault()
-    const behavior = settingsStore?.get().closeBehavior ?? 'ask'
+    const behavior = settingsStore?.get().common.closeBehavior ?? 'ask'
     if (behavior === 'minimizeToTray') {
       continueInBackground()
     } else if (behavior === 'quit') {
@@ -179,19 +168,20 @@ function handleQueueChanged(tasks: MediaTask[]): void {
 async function reportBatchCompleted(tasks: MediaTask[]): Promise<void> {
   const settings = settingsStore?.get()
   if (!settings) return
+  const common = settings.common
   const summary = summarizeBatch(tasks)
-  if (settings.completionNotification && Notification.isSupported()) {
+  if (common.completionNotification && Notification.isSupported()) {
     const notification = new Notification({
       title: '媒体任务处理完成',
       body: batchSummaryText(summary),
-      silent: !settings.completionSound,
+      silent: !common.completionSound,
       icon
     })
     notification.on('click', showMainWindow)
     notification.show()
   }
 
-  if (settings.completionAction !== 'openOutput') return
+  if (common.completionAction !== 'openOutput') return
   const completedOutputs = tasks
     .filter((task) => task.status === 'completed')
     .map((task) => task.outputPath)
@@ -255,7 +245,7 @@ app.whenReady().then(() => {
   windowStateStore = new WindowStateStore(app.getPath('userData'))
   const failureLogs = new FailureLogService(app.getPath('userData'))
   queue = new TaskQueue(
-    settings.get().concurrency,
+    resolveTaskConcurrency(settings.get().common.concurrency),
     (task, signal, onProgress) =>
       task.kind === 'video'
         ? processVideo(task, signal, onProgress, failureLogs)

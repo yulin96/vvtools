@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import type {
   AppSettings,
+  AppSettingsPatch,
   CreateTasksRequest,
   ImageInputFile,
   MediaTask,
@@ -192,7 +193,7 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  async function updateSettings(input: Partial<AppSettings>): Promise<void> {
+  async function updateSettings(input: AppSettingsPatch): Promise<void> {
     try {
       settings.value = await window.api.updateSettings(serializable(input))
     } catch (error) {

@@ -4,11 +4,13 @@ import { readFile } from 'fs/promises'
 import { dirname, extname, isAbsolute, join, normalize, sep } from 'path'
 import type {
   AppSettings,
+  AppSettingsPatch,
   AudioOptions,
   CreateTasksRequest,
   ImageFormat,
   ImageOptions,
   ImagePreset,
+  ImagePresetOptions,
   RuntimeCapabilities,
   TaskKind,
   VideoOptions,
@@ -26,8 +28,9 @@ import { extractVersionReleaseNotes } from '../shared/release-notes.mjs'
 import { getRuntimeCapabilities } from './media/ffmpeg-runtime'
 import { collectImageInputs } from './media/image-inputs'
 import { inspectTasks } from './media/preflight'
-import { SettingsStore, clampConcurrency } from './services/settings-store'
+import { SettingsStore } from './services/settings-store'
 import { TaskQueue } from './services/task-queue'
+import { isConcurrencySettings, resolveTaskConcurrency } from './services/task-concurrency'
 import { UpdateService } from './services/update-service'
 
 const VIDEO_QUALITIES = new Set<VideoQuality>(['high', 'balanced', 'small'])
@@ -289,78 +292,141 @@ function validateImagePresets(value: unknown): ImagePreset[] {
       throw new Error('图片预设标识无效或重复')
     }
     if (!name || name.length > 30) throw new Error('图片预设名称必须是 1–30 个字符')
-    validateImageOptions(preset.options, `图片预设“${name}”的参数无效`)
+    validateImagePresetOptions(preset.options, `图片预设“${name}”的参数无效`)
     ids.add(preset.id)
     return { id: preset.id, name, options: structuredClone(preset.options) }
   })
 }
 
-function sanitizeSettings(input: unknown): Partial<AppSettings> {
-  if (!input || typeof input !== 'object') throw new Error('设置参数无效')
-  const value = input as Partial<AppSettings>
-  const result: Partial<AppSettings> = {}
-  if (value.concurrency !== undefined) result.concurrency = clampConcurrency(value.concurrency)
-  if (value.closeBehavior !== undefined) {
-    if (!['ask', 'minimizeToTray', 'quit'].includes(value.closeBehavior)) {
-      throw new Error('关闭窗口行为参数无效')
+function validateImagePresetOptions(options: ImagePresetOptions, message: string): void {
+  if (
+    !options ||
+    !['quality', 'targetSize'].includes(options.compressionMode) ||
+    !Number.isInteger(options.quality) ||
+    options.quality < 1 ||
+    options.quality > 100 ||
+    !Number.isInteger(options.targetSizeKb) ||
+    options.targetSizeKb < 1 ||
+    options.targetSizeKb > 100_000 ||
+    !['source', 'width', 'height', 'percentage'].includes(options.resizeMode) ||
+    !Number.isInteger(options.width) ||
+    options.width < 1 ||
+    options.width > 32_768 ||
+    !Number.isInteger(options.height) ||
+    options.height < 1 ||
+    options.height > 32_768 ||
+    !Number.isInteger(options.percentage) ||
+    options.percentage < 1 ||
+    options.percentage > 1000 ||
+    !IMAGE_FORMATS.has(options.format)
+  ) {
+    throw new Error(message)
+  }
+}
+
+function sanitizeSettings(input: unknown): AppSettingsPatch {
+  if (!isRecord(input)) throw new Error('设置参数无效')
+  const result: AppSettingsPatch = {}
+
+  if (input.common !== undefined) {
+    if (!isRecord(input.common)) throw new Error('通用设置参数无效')
+    const value = input.common
+    const common: NonNullable<AppSettingsPatch['common']> = {}
+    if (value.concurrency !== undefined) {
+      if (!isConcurrencySettings(value.concurrency)) throw new Error('任务并发参数无效')
+      common.concurrency = structuredClone(value.concurrency)
     }
-    result.closeBehavior = value.closeBehavior
-  }
-  if (value.outputMode !== undefined) {
-    if (!['source', 'custom'].includes(value.outputMode)) throw new Error('输出位置参数无效')
-    result.outputMode = value.outputMode
-  }
-  if (value.outputDirectory !== undefined) {
-    if (typeof value.outputDirectory !== 'string' || !isAbsolute(value.outputDirectory)) {
-      throw new Error('输出目录无效')
+    if (value.closeBehavior !== undefined) {
+      if (!['ask', 'minimizeToTray', 'quit'].includes(String(value.closeBehavior))) {
+        throw new Error('关闭窗口行为参数无效')
+      }
+      common.closeBehavior = value.closeBehavior as AppSettings['common']['closeBehavior']
     }
-    result.outputDirectory = value.outputDirectory
-  }
-  if (value.outputSuffix !== undefined) {
-    result.outputSuffix = sanitizeOutputSuffix(value.outputSuffix)
-  }
-  if (value.outputNameTemplate !== undefined) {
-    result.outputNameTemplate = sanitizeOutputNameTemplate(value.outputNameTemplate)
-  }
-  if (value.outputConflictPolicy !== undefined) {
-    if (!['rename', 'overwrite', 'skip'].includes(value.outputConflictPolicy)) {
-      throw new Error('输出冲突策略无效')
+    if (value.outputMode !== undefined) {
+      if (!['source', 'custom'].includes(String(value.outputMode))) {
+        throw new Error('输出位置参数无效')
+      }
+      common.outputMode = value.outputMode as AppSettings['common']['outputMode']
     }
-    result.outputConflictPolicy = value.outputConflictPolicy
-  }
-  if (value.completionNotification !== undefined) {
-    if (typeof value.completionNotification !== 'boolean') throw new Error('完成通知参数无效')
-    result.completionNotification = value.completionNotification
-  }
-  if (value.completionSound !== undefined) {
-    if (typeof value.completionSound !== 'boolean') throw new Error('完成提示音参数无效')
-    result.completionSound = value.completionSound
-  }
-  if (value.completionAction !== undefined) {
-    if (!['none', 'openOutput'].includes(value.completionAction)) {
-      throw new Error('完成后操作参数无效')
+    if (value.outputDirectory !== undefined) {
+      if (typeof value.outputDirectory !== 'string' || !isAbsolute(value.outputDirectory)) {
+        throw new Error('输出目录无效')
+      }
+      common.outputDirectory = value.outputDirectory
     }
-    result.completionAction = value.completionAction
+    if (value.outputSuffix !== undefined) {
+      common.outputSuffix = sanitizeOutputSuffix(value.outputSuffix)
+    }
+    if (value.outputNameTemplate !== undefined) {
+      common.outputNameTemplate = sanitizeOutputNameTemplate(value.outputNameTemplate)
+    }
+    if (value.outputConflictPolicy !== undefined) {
+      if (!['rename', 'overwrite', 'skip'].includes(String(value.outputConflictPolicy))) {
+        throw new Error('输出冲突策略无效')
+      }
+      common.outputConflictPolicy =
+        value.outputConflictPolicy as AppSettings['common']['outputConflictPolicy']
+    }
+    if (value.completionNotification !== undefined) {
+      if (typeof value.completionNotification !== 'boolean') {
+        throw new Error('完成通知参数无效')
+      }
+      common.completionNotification = value.completionNotification
+    }
+    if (value.completionSound !== undefined) {
+      if (typeof value.completionSound !== 'boolean') throw new Error('完成提示音参数无效')
+      common.completionSound = value.completionSound
+    }
+    if (value.completionAction !== undefined) {
+      if (!['none', 'openOutput'].includes(String(value.completionAction))) {
+        throw new Error('完成后操作参数无效')
+      }
+      common.completionAction = value.completionAction as AppSettings['common']['completionAction']
+    }
+    result.common = common
   }
-  if (value.video) {
-    validateVideoOptions(value.video, '视频默认参数无效')
-    result.video = structuredClone(value.video)
+
+  if (input.video !== undefined) {
+    if (!isRecord(input.video)) throw new Error('视频设置参数无效')
+    const video: NonNullable<AppSettingsPatch['video']> = {}
+    if (input.video.lastOptions !== undefined) {
+      validateVideoOptions(input.video.lastOptions as VideoOptions, '视频参数无效')
+      video.lastOptions = structuredClone(input.video.lastOptions) as VideoOptions
+    }
+    if (input.video.presets !== undefined) {
+      video.presets = validateVideoPresets(input.video.presets)
+    }
+    result.video = video
   }
-  if (value.videoPresets !== undefined) {
-    result.videoPresets = validateVideoPresets(value.videoPresets)
+
+  if (input.image !== undefined) {
+    if (!isRecord(input.image)) throw new Error('图片设置参数无效')
+    const image: NonNullable<AppSettingsPatch['image']> = {}
+    if (input.image.lastOptions !== undefined) {
+      validateImageOptions(input.image.lastOptions as ImageOptions, '图片参数无效')
+      image.lastOptions = structuredClone(input.image.lastOptions) as ImageOptions
+    }
+    if (input.image.presets !== undefined) {
+      image.presets = validateImagePresets(input.image.presets)
+    }
+    result.image = image
   }
-  if (value.image) {
-    validateImageOptions(value.image, '图片默认参数无效')
-    result.image = structuredClone(value.image)
+
+  if (input.audio !== undefined) {
+    if (!isRecord(input.audio)) throw new Error('音频设置参数无效')
+    const audio: NonNullable<AppSettingsPatch['audio']> = {}
+    if (input.audio.lastOptions !== undefined) {
+      validateAudioOptions(input.audio.lastOptions as AudioOptions, '音频参数无效')
+      audio.lastOptions = structuredClone(input.audio.lastOptions) as AudioOptions
+    }
+    result.audio = audio
   }
-  if (value.imagePresets !== undefined) {
-    result.imagePresets = validateImagePresets(value.imagePresets)
-  }
-  if (value.audio) {
-    validateAudioOptions(value.audio, '音频默认参数无效')
-    result.audio = structuredClone(value.audio)
-  }
+
   return result
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
 export function registerIpc(
@@ -378,40 +444,6 @@ export function registerIpc(
     channel: string,
     listener: (event: IpcMainInvokeEvent, ...args: T) => unknown
   ): void => ipcMain.handle(channel, listener)
-
-  handle(IPC_CHANNELS.windowMinimize, (event) => {
-    const current = window()
-    assertTrusted(event, current)
-    current.minimize()
-  })
-  handle(IPC_CHANNELS.windowToggleMaximize, (event) => {
-    const current = window()
-    assertTrusted(event, current)
-    if (current.isMaximized()) current.unmaximize()
-    else current.maximize()
-    return current.isMaximized()
-  })
-  handle(IPC_CHANNELS.windowIsMaximized, (event) => {
-    const current = window()
-    assertTrusted(event, current)
-    return current.isMaximized()
-  })
-  handle(IPC_CHANNELS.windowClose, (event) => {
-    const current = window()
-    assertTrusted(event, current)
-    current.close()
-  })
-  handle(IPC_CHANNELS.windowSetControlsTheme, (event, dark: boolean) => {
-    const current = window()
-    assertTrusted(event, current)
-    if (process.platform !== 'win32') throw new Error('当前平台不支持窗口控制区主题')
-    if (typeof dark !== 'boolean') throw new Error('窗口控制区主题无效')
-    current.setTitleBarOverlay({
-      color: '#00000000',
-      symbolColor: dark ? '#aaa8b7' : '#6d6b7c',
-      height: 40
-    })
-  })
 
   handle(IPC_CHANNELS.selectFiles, async (event, kind: TaskKind) => {
     assertTrusted(event, window())
@@ -438,7 +470,7 @@ export function registerIpc(
   handle(IPC_CHANNELS.selectOutputDirectory, async (event, current?: string) => {
     assertTrusted(event, window())
     const result = await dialog.showOpenDialog(window(), {
-      defaultPath: current && isAbsolute(current) ? current : settings.get().outputDirectory,
+      defaultPath: current && isAbsolute(current) ? current : settings.get().common.outputDirectory,
       properties: ['openDirectory', 'createDirectory']
     })
     return result.canceled ? null : result.filePaths[0]
@@ -457,7 +489,7 @@ export function registerIpc(
 
   handle(IPC_CHANNELS.openOutputDirectory, async (event) => {
     assertTrusted(event, window())
-    const outputDirectory = settings.get().outputDirectory
+    const outputDirectory = settings.get().common.outputDirectory
     mkdirSync(outputDirectory, { recursive: true })
     const error = await shell.openPath(outputDirectory)
     if (error) throw new Error(error)
@@ -504,7 +536,7 @@ export function registerIpc(
   handle(IPC_CHANNELS.updateSettings, (event, input: unknown) => {
     assertTrusted(event, window())
     const updated = settings.update(sanitizeSettings(input))
-    queue.setConcurrency(updated.concurrency)
+    queue.setConcurrency(resolveTaskConcurrency(updated.common.concurrency))
     return updated
   })
   handle(IPC_CHANNELS.getCapabilities, async (event): Promise<RuntimeCapabilities> => {

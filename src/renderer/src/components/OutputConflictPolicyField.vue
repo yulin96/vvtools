@@ -11,7 +11,9 @@ const conflictPolicyOptions = [
 ]
 
 function updateConflictPolicy(value: string | number): void {
-  void store.updateSettings({ outputConflictPolicy: value as OutputConflictPolicy })
+  void store.updateSettings({
+    common: { outputConflictPolicy: value as OutputConflictPolicy }
+  })
 }
 </script>
 
@@ -20,7 +22,7 @@ function updateConflictPolicy(value: string | number): void {
     v-if="store.settings"
     class="conflict-policy-segments"
     label="同名文件"
-    :model-value="store.settings.outputConflictPolicy"
+    :model-value="store.settings.common.outputConflictPolicy"
     :options="conflictPolicyOptions"
     @update:model-value="updateConflictPolicy"
   />

@@ -19,6 +19,18 @@ export type OutputConflictPolicy = 'rename' | 'overwrite' | 'skip'
 export type CompletionAction = 'none' | 'openOutput'
 export type AudioFormat = 'mp3' | 'm4a' | 'wav' | 'flac'
 export type AudioChannels = 'source' | 'mono' | 'stereo'
+export type ConcurrencyMode = 'auto' | 'custom'
+
+export interface TaskConcurrencyLimits {
+  image: number
+  video: number
+  audio: number
+}
+
+export interface ConcurrencySettings {
+  mode: ConcurrencyMode
+  custom: TaskConcurrencyLimits
+}
 
 export interface VideoOptions {
   encoderMode: VideoEncoderMode
@@ -53,10 +65,22 @@ export interface ImageOptions {
   metadataMode: ImageMetadataMode
 }
 
+export type ImagePresetOptions = Pick<
+  ImageOptions,
+  | 'compressionMode'
+  | 'quality'
+  | 'targetSizeKb'
+  | 'resizeMode'
+  | 'width'
+  | 'height'
+  | 'percentage'
+  | 'format'
+>
+
 export interface ImagePreset {
   id: string
   name: string
-  options: ImageOptions
+  options: ImagePresetOptions
 }
 
 export interface AudioOptions {
@@ -71,8 +95,8 @@ export interface ImageInputFile {
   relativeDirectory: string
 }
 
-export interface AppSettings {
-  concurrency: number
+export interface CommonSettings {
+  concurrency: ConcurrencySettings
   closeBehavior: CloseBehavior
   outputMode: OutputMode
   outputDirectory: string
@@ -82,11 +106,42 @@ export interface AppSettings {
   completionNotification: boolean
   completionSound: boolean
   completionAction: CompletionAction
-  video: VideoOptions
-  videoPresets: VideoPreset[]
-  image: ImageOptions
-  imagePresets: ImagePreset[]
-  audio: AudioOptions
+}
+
+export interface ImageSettings {
+  lastOptions: ImageOptions
+  presets: ImagePreset[]
+}
+
+export interface VideoSettings {
+  lastOptions: VideoOptions
+  presets: VideoPreset[]
+}
+
+export interface AudioSettings {
+  lastOptions: AudioOptions
+}
+
+export interface AppSettings {
+  common: CommonSettings
+  image: ImageSettings
+  video: VideoSettings
+  audio: AudioSettings
+}
+
+export interface AppSettingsPatch {
+  common?: Partial<CommonSettings>
+  image?: {
+    lastOptions?: ImageOptions
+    presets?: ImagePreset[]
+  }
+  video?: {
+    lastOptions?: VideoOptions
+    presets?: VideoPreset[]
+  }
+  audio?: {
+    lastOptions?: AudioOptions
+  }
 }
 
 export interface TaskCommand {
@@ -216,11 +271,6 @@ export interface UpdateState {
 
 export interface VVToolsApi {
   platform: 'darwin' | 'win32' | 'linux'
-  windowMinimize: () => Promise<void>
-  windowToggleMaximize: () => Promise<boolean>
-  windowIsMaximized: () => Promise<boolean>
-  windowClose: () => Promise<void>
-  windowSetControlsTheme: (dark: boolean) => Promise<void>
   selectFiles: (kind: TaskKind) => Promise<string[]>
   getDroppedFilePath: (file: File) => string
   selectOutputDirectory: (current?: string) => Promise<string | null>
@@ -234,7 +284,7 @@ export interface VVToolsApi {
   retryTask: (taskId: string) => Promise<MediaTask | null>
   openTaskOutput: (taskId: string) => Promise<void>
   getSettings: () => Promise<AppSettings>
-  updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>
+  updateSettings: (settings: AppSettingsPatch) => Promise<AppSettings>
   getCapabilities: () => Promise<RuntimeCapabilities>
   getVersion: () => Promise<string>
   getReleaseNotes: () => Promise<string>

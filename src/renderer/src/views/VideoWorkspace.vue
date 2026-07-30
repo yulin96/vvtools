@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { FileVideo2, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
+import { FileVideo2, Play, Plus, Settings2, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
   VideoAudioMode,
@@ -17,9 +17,8 @@ import { useAppStore } from '../stores/app'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
-import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
-import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
+import VideoSettingsDrawer from '../components/VideoSettingsDrawer.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
@@ -27,6 +26,7 @@ import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 
 const store = useAppStore()
 const configExpanded = ref(false)
+const pageSettingsOpen = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
 const pendingPaths = computed<string[]>({
@@ -78,36 +78,38 @@ const qualityOptions = [
 const videoTasks = computed(() => store.currentBatchTasks.video)
 const pendingTableItems = computed(() => pendingPaths.value.map((path) => ({ path })))
 const copiesSourceVideo = computed(() => {
-  const video = store.settings?.video
+  const video = store.settings?.video.lastOptions
   return video?.codec === 'source' && video.resolution === 'source' && video.frameRate === 'source'
 })
 const activePresetId = computed(() => {
   if (!store.settings) return 'custom'
   return (
-    store.settings.videoPresets.find((preset) =>
-      optionsEqual(preset.options, store.settings!.video)
+    store.settings.video.presets.find((preset) =>
+      optionsEqual(preset.options, store.settings!.video.lastOptions)
     )?.id ?? 'custom'
   )
 })
 const activePresetName = computed(
   () =>
-    store.settings?.videoPresets.find((preset) => preset.id === activePresetId.value)?.name ??
+    store.settings?.video.presets.find((preset) => preset.id === activePresetId.value)?.name ??
     '自定义'
 )
 const qualityLabel = computed(() => {
   if (!store.settings) return ''
   if (copiesSourceVideo.value) return '保持原画面'
-  if (store.settings.video.rateControl === 'bitrate') {
-    return `${store.settings.video.bitrateMbps} Mbps`
+  if (store.settings.video.lastOptions.rateControl === 'bitrate') {
+    return `${store.settings.video.lastOptions.bitrateMbps} Mbps`
   }
-  return { high: '高质量', balanced: '均衡', small: '更小体积' }[store.settings.video.quality]
+  return { high: '高质量', balanced: '均衡', small: '更小体积' }[
+    store.settings.video.lastOptions.quality
+  ]
 })
 const codecLabel = computed(() => {
-  const codec = store.settings?.video.codec
+  const codec = store.settings?.video.lastOptions.codec
   return codec === 'source' ? '保持原编码' : codec === 'h265' ? 'H.265' : 'H.264'
 })
 const formatLabel = computed(() => {
-  const format = store.settings?.video.format
+  const format = store.settings?.video.lastOptions.format
   return format === 'source' ? '保持原格式' : (format?.toUpperCase() ?? '')
 })
 
@@ -128,14 +130,18 @@ function optionsEqual(left: VideoOptions, right: VideoOptions): boolean {
 
 function updateVideo(patch: Partial<VideoOptions>): void {
   if (!store.settings) return
-  void store.updateSettings({ video: { ...store.settings.video, ...patch } })
+  void store.updateSettings({
+    video: {
+      lastOptions: { ...store.settings.video.lastOptions, ...patch }
+    }
+  })
 }
 
 function applyPreset(event: Event): void {
   if (!store.settings) return
   const id = (event.target as HTMLSelectElement).value
-  const preset = store.settings.videoPresets.find((item) => item.id === id)
-  if (preset) void store.updateSettings({ video: { ...preset.options } })
+  const preset = store.settings.video.presets.find((item) => item.id === id)
+  if (preset) void store.updateSettings({ video: { lastOptions: { ...preset.options } } })
 }
 
 function stageFiles(paths: string[]): void {
@@ -154,13 +160,13 @@ async function startProcessing(): Promise<void> {
   const request: CreateTasksRequest = {
     kind: 'video',
     sourcePaths: [...pendingPaths.value],
-    outputMode: settings.outputMode,
-    outputDirectory: settings.outputDirectory,
-    outputSuffix: settings.outputSuffix,
-    outputNameTemplate: settings.outputNameTemplate,
-    outputConflictPolicy: settings.outputConflictPolicy,
+    outputMode: settings.common.outputMode,
+    outputDirectory: settings.common.outputDirectory,
+    outputSuffix: settings.common.outputSuffix,
+    outputNameTemplate: settings.common.outputNameTemplate,
+    outputConflictPolicy: settings.common.outputConflictPolicy,
     presetName: activePresetName.value,
-    options: { ...settings.video }
+    options: { ...settings.video.lastOptions }
   }
   starting.value = true
   try {
@@ -227,7 +233,7 @@ onBeforeUnmount(() => {
       <div class="video-config-heading">
         <div class="config-heading-main">
           <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">视频设置</span>
+          <span class="shrink-0 text-sm font-semibold">视频参数</span>
           <Button
             class="config-expand-toggle"
             variant="ghost"
@@ -236,10 +242,10 @@ onBeforeUnmount(() => {
             aria-controls="video-advanced-settings"
             @click="configExpanded = !configExpanded"
           >
-            {{ configExpanded ? '收起设置' : '高级设置' }}
+            {{ configExpanded ? '收起参数' : '更多参数' }}
             <AnimatedChevron :expanded="configExpanded" />
           </Button>
-          <span class="truncate text-xs text-muted-foreground">
+          <span class="config-summary truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ codecLabel }} · {{ qualityLabel }}
           </span>
         </div>
@@ -251,7 +257,7 @@ onBeforeUnmount(() => {
                 预设：自定义参数
               </option>
               <option
-                v-for="preset in store.settings.videoPresets"
+                v-for="preset in store.settings.video.presets"
                 :key="preset.id"
                 :value="preset.id"
               >
@@ -259,6 +265,15 @@ onBeforeUnmount(() => {
               </option>
             </select>
           </label>
+          <Button
+            variant="secondary"
+            size="icon"
+            aria-label="打开视频设置"
+            title="视频设置"
+            @click="pageSettingsOpen = true"
+          >
+            <Settings2 class="size-4" />
+          </Button>
           <OutputLocationControls />
           <SourceOverwriteWarning />
           <Button :disabled="pendingPaths.length === 0 || starting" @click="startProcessing">
@@ -278,19 +293,19 @@ onBeforeUnmount(() => {
           <div class="config-group-fields">
             <SegmentedControl
               label="格式"
-              :model-value="store.settings.video.format"
+              :model-value="store.settings.video.lastOptions.format"
               :options="videoFormatOptions"
               @update:model-value="updateVideo({ format: $event as VideoFormat })"
             />
             <SegmentedControl
               label="视频编码"
-              :model-value="store.settings.video.codec"
+              :model-value="store.settings.video.lastOptions.codec"
               :options="videoCodecOptions"
               @update:model-value="updateVideo({ codec: $event as VideoCodec })"
             />
             <SegmentedControl
               label="编码设备"
-              :model-value="store.settings.video.encoderMode"
+              :model-value="store.settings.video.lastOptions.encoderMode"
               :options="encoderModeOptions"
               @update:model-value="updateVideo({ encoderMode: $event as VideoEncoderMode })"
             />
@@ -303,7 +318,7 @@ onBeforeUnmount(() => {
             <label class="compact-field">
               <span>帧率</span>
               <select
-                :value="store.settings.video.frameRate"
+                :value="store.settings.video.lastOptions.frameRate"
                 @change="
                   updateVideo({
                     frameRate: ($event.target as HTMLSelectElement).value as VideoFrameRate
@@ -319,7 +334,7 @@ onBeforeUnmount(() => {
             </label>
             <SegmentedControl
               label="分辨率"
-              :model-value="store.settings.video.resolution"
+              :model-value="store.settings.video.lastOptions.resolution"
               :options="resolutionOptions"
               @update:model-value="updateVideo({ resolution: $event as VideoResolution })"
             />
@@ -331,7 +346,7 @@ onBeforeUnmount(() => {
           <div class="config-group-fields">
             <SegmentedControl
               label="压缩方式"
-              :model-value="store.settings.video.rateControl"
+              :model-value="store.settings.video.lastOptions.rateControl"
               :options="rateControlOptions"
               :disabled="copiesSourceVideo"
               :class="{ 'opacity-45': copiesSourceVideo }"
@@ -339,9 +354,9 @@ onBeforeUnmount(() => {
             />
             <div :class="{ 'opacity-45': copiesSourceVideo }">
               <SegmentedControl
-                v-if="store.settings.video.rateControl === 'quality'"
+                v-if="store.settings.video.lastOptions.rateControl === 'quality'"
                 label="质量"
-                :model-value="store.settings.video.quality"
+                :model-value="store.settings.video.lastOptions.quality"
                 :options="qualityOptions"
                 :disabled="copiesSourceVideo"
                 @update:model-value="updateVideo({ quality: $event as VideoQuality })"
@@ -350,7 +365,7 @@ onBeforeUnmount(() => {
                 <span>视频码率</span>
                 <div class="number-field">
                   <input
-                    :value="store.settings.video.bitrateMbps"
+                    :value="store.settings.video.lastOptions.bitrateMbps"
                     :disabled="copiesSourceVideo"
                     type="number"
                     min="0.5"
@@ -375,19 +390,12 @@ onBeforeUnmount(() => {
         class="video-config-expanded"
       >
         <fieldset class="config-group">
-          <legend class="sr-only">输出文件</legend>
-          <div class="config-group-fields">
-            <OutputSuffixField />
-            <OutputConflictPolicyField />
-          </div>
-        </fieldset>
-        <fieldset class="config-group">
           <legend class="sr-only">音频</legend>
           <div class="config-group-fields">
             <label class="compact-field">
               <span>处理方式</span>
               <select
-                :value="store.settings.video.audioMode"
+                :value="store.settings.video.lastOptions.audioMode"
                 @change="
                   updateVideo({
                     audioMode: ($event.target as HTMLSelectElement).value as VideoAudioMode
@@ -401,12 +409,12 @@ onBeforeUnmount(() => {
             </label>
             <label
               class="compact-field"
-              :class="{ 'opacity-45': store.settings.video.audioMode !== 'aac' }"
+              :class="{ 'opacity-45': store.settings.video.lastOptions.audioMode !== 'aac' }"
             >
               <span>音频码率</span>
               <select
-                :value="store.settings.video.audioBitrateKbps"
-                :disabled="store.settings.video.audioMode !== 'aac'"
+                :value="store.settings.video.lastOptions.audioBitrateKbps"
+                :disabled="store.settings.video.lastOptions.audioMode !== 'aac'"
                 @change="
                   updateVideo({
                     audioBitrateKbps: Number(($event.target as HTMLSelectElement).value)
@@ -456,5 +464,6 @@ onBeforeUnmount(() => {
         <Button class="mt-5" @click="chooseFiles">选择视频文件</Button>
       </div>
     </div>
+    <VideoSettingsDrawer :open="pageSettingsOpen" @close="pageSettingsOpen = false" />
   </div>
 </template>

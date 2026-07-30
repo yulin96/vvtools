@@ -1,31 +1,35 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { FolderPlus, Images, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
+import {
+  FolderPlus,
+  Images,
+  Play,
+  Plus,
+  Settings2,
+  SlidersHorizontal,
+  UploadCloud
+} from '@lucide/vue'
 import type {
   CreateTasksRequest,
   ImageCompressionMode,
   ImageFormat,
   ImageInputFile,
-  ImageMetadataMode,
   ImageOptions,
+  ImagePresetOptions,
   ImageResizeMode
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import { fileName } from '../lib/utils'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
+import ImageSettingsDrawer from '../components/ImageSettingsDrawer.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
-import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
-import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
-import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
-import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
-import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 
 const store = useAppStore()
-const configExpanded = ref(false)
+const pageSettingsOpen = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
 const pendingInputs = computed<ImageInputFile[]>({
@@ -49,27 +53,6 @@ const imageFormatOptions = [
   { value: 'webp', label: 'WebP' },
   { value: 'avif', label: 'AVIF' }
 ]
-const metadataModeOptions = [
-  {
-    value: 'colorProfile',
-    label: '仅保留色彩',
-    title: '尽可能保留色彩配置（推荐）',
-    ariaLabel: '仅保留色彩配置，推荐'
-  },
-  {
-    value: 'strip',
-    label: '全部移除',
-    title: '移除全部元数据',
-    ariaLabel: '移除全部元数据'
-  },
-  {
-    value: 'all',
-    label: '尽量全部保留',
-    title: '尽可能保留全部元数据',
-    ariaLabel: '尽可能保留全部元数据'
-  }
-]
-
 const imageTasks = computed(() => store.currentBatchTasks.image)
 const pendingTableItems = computed(() =>
   pendingInputs.value.map((input) => ({
@@ -78,18 +61,18 @@ const pendingTableItems = computed(() =>
   }))
 )
 const formatLabel = computed(() => {
-  const format = store.settings?.image.format
+  const format = store.settings?.image.lastOptions.format
   return format === 'original' ? '保持原格式' : (format?.toUpperCase() ?? '')
 })
 const compressionLabel = computed(() => {
-  const image = store.settings?.image
+  const image = store.settings?.image.lastOptions
   if (!image) return ''
   return image.compressionMode === 'quality'
     ? `质量 ${image.quality}`
     : `不超过 ${image.targetSizeKb} KB`
 })
 const resizeLabel = computed(() => {
-  const image = store.settings?.image
+  const image = store.settings?.image.lastOptions
   if (!image || image.resizeMode === 'source') return '原始尺寸'
   if (image.resizeMode === 'width') return `宽 ${image.width}px`
   if (image.resizeMode === 'height') return `高 ${image.height}px`
@@ -98,18 +81,18 @@ const resizeLabel = computed(() => {
 const activePresetId = computed(() => {
   if (!store.settings) return 'custom'
   return (
-    store.settings.imagePresets.find((preset) =>
-      imageOptionsEqual(preset.options, store.settings!.image)
+    store.settings.image.presets.find((preset) =>
+      imageOptionsEqual(preset.options, store.settings!.image.lastOptions)
     )?.id ?? 'custom'
   )
 })
 const activePresetName = computed(
   () =>
-    store.settings?.imagePresets.find((preset) => preset.id === activePresetId.value)?.name ??
+    store.settings?.image.presets.find((preset) => preset.id === activePresetId.value)?.name ??
     '自定义'
 )
 
-function imageOptionsEqual(left: ImageOptions, right: ImageOptions): boolean {
+function imageOptionsEqual(left: ImagePresetOptions, right: ImageOptions): boolean {
   return (
     left.compressionMode === right.compressionMode &&
     left.quality === right.quality &&
@@ -118,23 +101,30 @@ function imageOptionsEqual(left: ImageOptions, right: ImageOptions): boolean {
     left.width === right.width &&
     left.height === right.height &&
     left.percentage === right.percentage &&
-    left.allowEnlargement === right.allowEnlargement &&
-    left.format === right.format &&
-    left.preserveStructure === right.preserveStructure &&
-    left.metadataMode === right.metadataMode
+    left.format === right.format
   )
 }
 
 function applyPreset(event: Event): void {
   if (!store.settings) return
   const id = (event.target as HTMLSelectElement).value
-  const preset = store.settings.imagePresets.find((item) => item.id === id)
-  if (preset) void store.updateSettings({ image: { ...preset.options } })
+  const preset = store.settings.image.presets.find((item) => item.id === id)
+  if (preset) {
+    void store.updateSettings({
+      image: {
+        lastOptions: { ...store.settings.image.lastOptions, ...preset.options }
+      }
+    })
+  }
 }
 
 function updateImage(patch: Partial<ImageOptions>): void {
   if (!store.settings) return
-  void store.updateSettings({ image: { ...store.settings.image, ...patch } })
+  void store.updateSettings({
+    image: {
+      lastOptions: { ...store.settings.image.lastOptions, ...patch }
+    }
+  })
 }
 
 function inputLabel(input: ImageInputFile): string {
@@ -184,13 +174,13 @@ async function startProcessing(): Promise<void> {
   const request: CreateTasksRequest = {
     kind: 'image',
     sources: pendingInputs.value.map((input) => ({ ...input })),
-    outputMode: settings.outputMode,
-    outputDirectory: settings.outputDirectory,
-    outputSuffix: settings.outputSuffix,
-    outputNameTemplate: settings.outputNameTemplate,
-    outputConflictPolicy: settings.outputConflictPolicy,
+    outputMode: settings.common.outputMode,
+    outputDirectory: settings.common.outputDirectory,
+    outputSuffix: settings.common.outputSuffix,
+    outputNameTemplate: settings.common.outputNameTemplate,
+    outputConflictPolicy: settings.common.outputConflictPolicy,
     presetName: activePresetName.value,
-    options: { ...settings.image }
+    options: { ...settings.image.lastOptions }
   }
   starting.value = true
   try {
@@ -261,19 +251,8 @@ onBeforeUnmount(() => {
       <div class="video-config-heading">
         <div class="config-heading-main">
           <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">图片设置</span>
-          <Button
-            class="config-expand-toggle"
-            variant="ghost"
-            size="sm"
-            :aria-expanded="configExpanded"
-            aria-controls="image-advanced-settings"
-            @click="configExpanded = !configExpanded"
-          >
-            {{ configExpanded ? '收起设置' : '高级设置' }}
-            <AnimatedChevron :expanded="configExpanded" />
-          </Button>
-          <span class="truncate text-xs text-muted-foreground">
+          <span class="shrink-0 text-sm font-semibold">图片参数</span>
+          <span class="config-summary truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
           </span>
         </div>
@@ -285,7 +264,7 @@ onBeforeUnmount(() => {
                 预设：自定义参数
               </option>
               <option
-                v-for="preset in store.settings.imagePresets"
+                v-for="preset in store.settings.image.presets"
                 :key="preset.id"
                 :value="preset.id"
               >
@@ -293,6 +272,15 @@ onBeforeUnmount(() => {
               </option>
             </select>
           </label>
+          <Button
+            variant="secondary"
+            size="icon"
+            aria-label="打开图片设置"
+            title="图片设置"
+            @click="pageSettingsOpen = true"
+          >
+            <Settings2 class="size-4" />
+          </Button>
           <OutputLocationControls />
           <SourceOverwriteWarning />
           <Button :disabled="pendingInputs.length === 0 || starting" @click="startProcessing">
@@ -312,18 +300,20 @@ onBeforeUnmount(() => {
           <div class="config-group-fields">
             <SegmentedControl
               label="压缩模式"
-              :model-value="store.settings.image.compressionMode"
+              :model-value="store.settings.image.lastOptions.compressionMode"
               :options="compressionModeOptions"
               @update:model-value="updateImage({ compressionMode: $event as ImageCompressionMode })"
             />
             <label class="compact-field">
               <span>{{
-                store.settings.image.compressionMode === 'quality' ? '图片质量' : '目标大小'
+                store.settings.image.lastOptions.compressionMode === 'quality'
+                  ? '图片质量'
+                  : '目标大小'
               }}</span>
               <div class="number-field">
                 <input
-                  v-if="store.settings.image.compressionMode === 'quality'"
-                  :value="store.settings.image.quality"
+                  v-if="store.settings.image.lastOptions.compressionMode === 'quality'"
+                  :value="store.settings.image.lastOptions.quality"
                   type="number"
                   min="1"
                   max="100"
@@ -333,7 +323,7 @@ onBeforeUnmount(() => {
                 />
                 <input
                   v-else
-                  :value="store.settings.image.targetSizeKb"
+                  :value="store.settings.image.lastOptions.targetSizeKb"
                   type="number"
                   min="1"
                   max="100000"
@@ -342,7 +332,7 @@ onBeforeUnmount(() => {
                   "
                 />
                 <span>{{
-                  store.settings.image.compressionMode === 'quality' ? '/ 100' : 'KB'
+                  store.settings.image.lastOptions.compressionMode === 'quality' ? '/ 100' : 'KB'
                 }}</span>
               </div>
             </label>
@@ -354,19 +344,19 @@ onBeforeUnmount(() => {
           <div class="config-group-fields">
             <SegmentedControl
               label="调整方式"
-              :model-value="store.settings.image.resizeMode"
+              :model-value="store.settings.image.lastOptions.resizeMode"
               :options="resizeModeOptions"
               @update:model-value="updateImage({ resizeMode: $event as ImageResizeMode })"
             />
             <label
               class="compact-field"
-              :class="{ 'opacity-45': store.settings.image.resizeMode === 'source' }"
+              :class="{ 'opacity-45': store.settings.image.lastOptions.resizeMode === 'source' }"
             >
               <span>尺寸参数</span>
               <div class="number-field">
                 <input
-                  v-if="store.settings.image.resizeMode === 'width'"
-                  :value="store.settings.image.width"
+                  v-if="store.settings.image.lastOptions.resizeMode === 'width'"
+                  :value="store.settings.image.lastOptions.width"
                   type="number"
                   min="1"
                   max="32768"
@@ -375,8 +365,8 @@ onBeforeUnmount(() => {
                   "
                 />
                 <input
-                  v-else-if="store.settings.image.resizeMode === 'height'"
-                  :value="store.settings.image.height"
+                  v-else-if="store.settings.image.lastOptions.resizeMode === 'height'"
+                  :value="store.settings.image.lastOptions.height"
                   type="number"
                   min="1"
                   max="32768"
@@ -385,8 +375,8 @@ onBeforeUnmount(() => {
                   "
                 />
                 <input
-                  v-else-if="store.settings.image.resizeMode === 'percentage'"
-                  :value="store.settings.image.percentage"
+                  v-else-if="store.settings.image.lastOptions.resizeMode === 'percentage'"
+                  :value="store.settings.image.lastOptions.percentage"
                   type="number"
                   min="1"
                   max="1000"
@@ -395,8 +385,13 @@ onBeforeUnmount(() => {
                   "
                 />
                 <input v-else value="无需设置" disabled />
-                <span v-if="['width', 'height'].includes(store.settings.image.resizeMode)">px</span>
-                <span v-else-if="store.settings.image.resizeMode === 'percentage'">%</span>
+                <span
+                  v-if="['width', 'height'].includes(store.settings.image.lastOptions.resizeMode)"
+                  >px</span
+                >
+                <span v-else-if="store.settings.image.lastOptions.resizeMode === 'percentage'"
+                  >%</span
+                >
               </div>
             </label>
           </div>
@@ -407,60 +402,16 @@ onBeforeUnmount(() => {
           <div class="config-group-fields config-group-fields-single">
             <SegmentedControl
               label="输出格式"
-              :model-value="store.settings.image.format"
+              :model-value="store.settings.image.lastOptions.format"
               :options="imageFormatOptions"
               @update:model-value="updateImage({ format: $event as ImageFormat })"
             />
           </div>
         </fieldset>
       </div>
-
-      <AdvancedSettingsPanel
-        id="image-advanced-settings"
-        :open="configExpanded"
-        class="video-config-expanded image-config-expanded"
-      >
-        <fieldset class="config-group">
-          <legend class="sr-only">输出文件</legend>
-          <div class="config-group-fields">
-            <OutputSuffixField />
-            <OutputConflictPolicyField />
-          </div>
-        </fieldset>
-        <fieldset class="config-group">
-          <legend class="sr-only">缩放行为</legend>
-          <div class="config-group-fields">
-            <ToggleSwitch
-              label="较小图片"
-              :model-value="store.settings.image.allowEnlargement"
-              enabled-text="允许放大"
-              disabled-text="不放大"
-              @update:model-value="updateImage({ allowEnlargement: $event })"
-            />
-            <ToggleSwitch
-              label="目录结构"
-              :model-value="store.settings.image.preserveStructure"
-              enabled-text="保留层级"
-              disabled-text="合并输出"
-              @update:model-value="updateImage({ preserveStructure: $event })"
-            />
-          </div>
-        </fieldset>
-        <fieldset class="config-group">
-          <legend class="sr-only">元数据</legend>
-          <div class="config-group-fields config-group-fields-single">
-            <SegmentedControl
-              label="元数据"
-              :model-value="store.settings.image.metadataMode"
-              :options="metadataModeOptions"
-              @update:model-value="updateImage({ metadataMode: $event as ImageMetadataMode })"
-            />
-          </div>
-        </fieldset>
-      </AdvancedSettingsPanel>
     </section>
 
-    <div class="video-workspace-content" @click="configExpanded = false">
+    <div class="video-workspace-content">
       <CurrentBatchTable
         v-if="pendingInputs.length || imageTasks.length"
         kind="image"
@@ -505,5 +456,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+    <ImageSettingsDrawer :open="pageSettingsOpen" @close="pageSettingsOpen = false" />
   </div>
 </template>

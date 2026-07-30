@@ -1,4 +1,21 @@
-import type { AudioOptions, ImageOptions, ImagePreset, VideoOptions, VideoPreset } from './types'
+import type {
+  AudioOptions,
+  ConcurrencySettings,
+  ImageOptions,
+  ImagePreset,
+  ImagePresetOptions,
+  VideoOptions,
+  VideoPreset
+} from './types'
+
+export const DEFAULT_CONCURRENCY_SETTINGS: ConcurrencySettings = {
+  mode: 'auto',
+  custom: {
+    image: 8,
+    video: 1,
+    audio: 2
+  }
+}
 
 export const DEFAULT_VIDEO_OPTIONS: VideoOptions = {
   encoderMode: 'auto',
@@ -57,7 +74,7 @@ export const DEFAULT_VIDEO_PRESETS: VideoPreset[] = [
 
 export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
   compressionMode: 'quality',
-  quality: 80,
+  quality: 90,
   targetSizeKb: 500,
   resizeMode: 'source',
   width: 1920,
@@ -69,39 +86,45 @@ export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
   metadataMode: 'colorProfile'
 }
 
+export function getImagePresetOptions(options: ImageOptions): ImagePresetOptions {
+  return {
+    compressionMode: options.compressionMode,
+    quality: options.quality,
+    targetSizeKb: options.targetSizeKb,
+    resizeMode: options.resizeMode,
+    width: options.width,
+    height: options.height,
+    percentage: options.percentage,
+    format: options.format
+  }
+}
+
 export const DEFAULT_IMAGE_PRESETS: ImagePreset[] = [
   {
     id: 'image-original',
     name: '原图整理',
-    options: { ...DEFAULT_IMAGE_OPTIONS }
+    options: {
+      ...getImagePresetOptions(DEFAULT_IMAGE_OPTIONS),
+      quality: 90
+    }
   },
   {
     id: 'image-web',
     name: '网站图片',
     options: {
-      ...DEFAULT_IMAGE_OPTIONS,
-      resizeMode: 'width',
-      width: 1920,
+      ...getImagePresetOptions(DEFAULT_IMAGE_OPTIONS),
+      quality: 90,
       format: 'webp'
     }
   },
   {
-    id: 'image-thumbnail',
-    name: '缩略图',
+    id: 'image-share',
+    name: '分享图',
     options: {
-      ...DEFAULT_IMAGE_OPTIONS,
+      ...getImagePresetOptions(DEFAULT_IMAGE_OPTIONS),
+      quality: 80,
       resizeMode: 'width',
-      width: 600,
-      format: 'jpeg'
-    }
-  },
-  {
-    id: 'image-platform',
-    name: '平台上传',
-    options: {
-      ...DEFAULT_IMAGE_OPTIONS,
-      compressionMode: 'targetSize',
-      targetSizeKb: 500,
+      width: 300,
       format: 'jpeg'
     }
   }
@@ -138,11 +161,6 @@ export const AUDIO_EXTENSIONS = new Set([
 ])
 
 export const IPC_CHANNELS = {
-  windowMinimize: 'window:minimize',
-  windowToggleMaximize: 'window:toggle-maximize',
-  windowIsMaximized: 'window:is-maximized',
-  windowClose: 'window:close',
-  windowSetControlsTheme: 'window:set-controls-theme',
   selectFiles: 'files:select',
   selectOutputDirectory: 'directory:select-output',
   selectImageDirectory: 'directory:select-images',

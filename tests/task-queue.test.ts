@@ -14,6 +14,7 @@ import { FailureLogService } from '../src/main/services/failure-log'
 import { TaskQueue, type TaskRunner } from '../src/main/services/task-queue'
 import { MediaProcessError, TaskCancelledError } from '../src/main/media/errors'
 import { DEFAULT_IMAGE_OPTIONS, DEFAULT_VIDEO_OPTIONS } from '../src/shared/constants'
+import type { TaskConcurrencyLimits } from '../src/shared/types'
 
 const directories: string[] = []
 
@@ -40,6 +41,10 @@ const successfulRunner: TaskRunner = async (task) => {
   return 9
 }
 
+function concurrency(value: number): TaskConcurrencyLimits {
+  return { image: value, video: value, audio: value }
+}
+
 afterEach(() => {
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
 })
@@ -57,7 +62,7 @@ describe('TaskQueue', () => {
       writeFileSync(task.outputPath, 'processed')
       return 12
     }
-    const queue = new TaskQueue(2, runner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(concurrency(2), runner, new FailureLogService(paths.userData))
     queue.create({
       kind: 'image',
       sources: [paths.source, paths.source, paths.source].map((path) => ({
@@ -73,6 +78,47 @@ describe('TaskQueue', () => {
     expect(maximum).toBe(2)
   })
 
+  it('applies separate concurrency limits to each media type', async () => {
+    const paths = fixture()
+    const running = { image: 0, video: 0, audio: 0 }
+    const maximum = { ...running }
+    const runner: TaskRunner = async (task) => {
+      running[task.kind] += 1
+      maximum[task.kind] = Math.max(maximum[task.kind], running[task.kind])
+      await new Promise((resolve) => setTimeout(resolve, 15))
+      running[task.kind] -= 1
+      writeFileSync(task.outputPath, 'processed')
+      return 12
+    }
+    const queue = new TaskQueue(
+      { image: 2, video: 1, audio: 1 },
+      runner,
+      new FailureLogService(paths.userData)
+    )
+    queue.create({
+      kind: 'image',
+      sources: [paths.source, paths.source, paths.source].map((path) => ({
+        path,
+        relativeDirectory: ''
+      })),
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+    queue.create({
+      kind: 'video',
+      sourcePaths: [paths.source, paths.source],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_VIDEO_OPTIONS }
+    })
+
+    await waitFor(() => queue.list().every((task) => task.status === 'completed'))
+    expect(maximum).toMatchObject({ image: 2, video: 1 })
+  })
+
   it('cancels a pending task without running it', async () => {
     const paths = fixture()
     let release!: () => void
@@ -83,7 +129,7 @@ describe('TaskQueue', () => {
       writeFileSync(task.outputPath, 'processed')
       return 1
     }
-    const queue = new TaskQueue(1, runner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(concurrency(1), runner, new FailureLogService(paths.userData))
     const tasks = queue.create({
       kind: 'image',
       sources: [paths.source, paths.source].map((path) => ({ path, relativeDirectory: '' })),
@@ -108,7 +154,7 @@ describe('TaskQueue', () => {
       writeFileSync(task.outputPath, 'processed')
       return 2
     }
-    const queue = new TaskQueue(1, runner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(concurrency(1), runner, new FailureLogService(paths.userData))
     const [original] = queue.create({
       kind: 'image',
       sources: [{ path: paths.source, relativeDirectory: '' }],
@@ -130,7 +176,11 @@ describe('TaskQueue', () => {
 
   it('keeps task state in memory without writing task history', async () => {
     const paths = fixture()
-    const queue = new TaskQueue(1, successfulRunner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
     queue.create({
       kind: 'image',
       sources: [{ path: paths.source, relativeDirectory: '' }],
@@ -142,14 +192,18 @@ describe('TaskQueue', () => {
     await waitFor(() => queue.list()[0]?.status === 'completed')
 
     expect(existsSync(join(paths.userData, 'tasks.json'))).toBe(false)
-    expect(new TaskQueue(1, async () => 1, new FailureLogService(paths.userData)).list()).toEqual(
-      []
-    )
+    expect(
+      new TaskQueue(concurrency(1), async () => 1, new FailureLogService(paths.userData)).list()
+    ).toEqual([])
   })
 
   it('reuses an available output name after a settled batch', async () => {
     const paths = fixture()
-    const queue = new TaskQueue(1, successfulRunner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
     const request = {
       kind: 'image' as const,
       sources: [{ path: paths.source, relativeDirectory: '' }],
@@ -170,7 +224,11 @@ describe('TaskQueue', () => {
 
   it('replaces a source file only after processing succeeds', async () => {
     const paths = fixture()
-    const queue = new TaskQueue(1, successfulRunner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
     const [task] = queue.create({
       kind: 'image',
       sources: [{ path: paths.source, relativeDirectory: '' }],
@@ -192,7 +250,7 @@ describe('TaskQueue', () => {
   it('preserves the source and removes temporary output when processing fails', async () => {
     const paths = fixture()
     const queue = new TaskQueue(
-      1,
+      concurrency(1),
       async (task) => {
         writeFileSync(task.outputPath, 'partial output')
         throw new MediaProcessError('disk full')
@@ -219,7 +277,7 @@ describe('TaskQueue', () => {
   it('preserves the source and removes temporary output when processing is cancelled', async () => {
     const paths = fixture()
     const queue = new TaskQueue(
-      1,
+      concurrency(1),
       async (task, signal) => {
         writeFileSync(task.outputPath, 'partial output')
         await new Promise<void>((resolve) =>
@@ -250,7 +308,11 @@ describe('TaskQueue', () => {
 
   it('numbers duplicate outputs within an overwrite batch', () => {
     const paths = fixture()
-    const queue = new TaskQueue(1, successfulRunner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
     const tasks = queue.create({
       kind: 'image',
       sources: [paths.source, paths.source].map((path) => ({ path, relativeDirectory: '' })),
@@ -269,7 +331,11 @@ describe('TaskQueue', () => {
 
   it('writes video output to the selected output directory', () => {
     const paths = fixture()
-    const queue = new TaskQueue(1, successfulRunner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
     const [task] = queue.create({
       kind: 'video',
       sourcePaths: [paths.source],
@@ -283,7 +349,11 @@ describe('TaskQueue', () => {
 
   it('uses the selected audio output format', () => {
     const paths = fixture()
-    const queue = new TaskQueue(1, successfulRunner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
     const [task] = queue.create({
       kind: 'audio',
       sourcePaths: [paths.source],
@@ -302,7 +372,11 @@ describe('TaskQueue', () => {
 
   it('preserves image directory structure when requested', () => {
     const paths = fixture()
-    const queue = new TaskQueue(1, successfulRunner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
     const [task] = queue.create({
       kind: 'image',
       sources: [{ path: paths.source, relativeDirectory: join('album', 'day-1') }],
@@ -316,7 +390,11 @@ describe('TaskQueue', () => {
 
   it('writes output beside the source and applies a shared suffix', () => {
     const paths = fixture()
-    const queue = new TaskQueue(1, successfulRunner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
     const [task] = queue.create({
       kind: 'image',
       sources: [{ path: paths.source, relativeDirectory: '' }],
@@ -332,7 +410,11 @@ describe('TaskQueue', () => {
     const paths = fixture()
     mkdirSync(paths.output)
     writeFileSync(join(paths.output, 'source.jpg'), 'existing')
-    const queue = new TaskQueue(1, successfulRunner, new FailureLogService(paths.userData))
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
     const tasks = queue.create({
       kind: 'image',
       sources: [{ path: paths.source, relativeDirectory: '' }],
