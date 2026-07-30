@@ -23,9 +23,10 @@ import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
+import { useStoredBoolean } from '../composables/useStoredBoolean'
 
 const store = useAppStore()
-const configExpanded = ref(false)
+const configExpanded = useStoredBoolean('vvtools-video-advanced-settings-expanded')
 const dragging = ref(false)
 const starting = ref(false)
 const pendingPaths = computed<string[]>({

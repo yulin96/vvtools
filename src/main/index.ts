@@ -1,5 +1,5 @@
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { app, BrowserWindow, dialog, Menu, Notification, shell, Tray } from 'electron'
+import { app, BrowserWindow, dialog, Menu, Notification, screen, shell, Tray } from 'electron'
 import { dirname, join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import type { MediaTask } from '../shared/types'
@@ -12,11 +12,17 @@ import { FailureLogService } from './services/failure-log'
 import { SettingsStore } from './services/settings-store'
 import { TaskQueue } from './services/task-queue'
 import { UpdateService } from './services/update-service'
+import {
+  restoreWindowBounds,
+  WindowStateStore,
+  type WindowState
+} from './services/window-state-store'
 import { configureOverlayScrollbars } from './scrollbar-config'
 
 let mainWindow: BrowserWindow | null = null
 let queue: TaskQueue | null = null
 let settingsStore: SettingsStore | null = null
+let windowStateStore: WindowStateStore | null = null
 let tray: Tray | null = null
 let unregisterIpc: (() => void) | null = null
 let isQuitting = false
@@ -24,17 +30,30 @@ let closeDialogOpen = false
 let batchWasActive = false
 const batchTaskIds = new Set<string>()
 const updates = new UpdateService(() => mainWindow)
+const defaultWindowSize = { width: 1280, height: 800 }
+const minimumWindowSize = { width: 1040, height: 680 }
 
 app.setName('VVTools')
 configureOverlayScrollbars(app.commandLine, process.platform)
 
 function createWindow(): void {
+  let storedState: WindowState | undefined
+  try {
+    storedState = windowStateStore?.load()
+  } catch (error) {
+    console.error('读取窗口状态失败，将使用默认窗口状态', error)
+  }
+  const restoredBounds = restoreWindowBounds(
+    storedState?.bounds,
+    screen.getAllDisplays().map((display) => display.workArea),
+    screen.getPrimaryDisplay().workArea,
+    minimumWindowSize
+  )
   const window = new BrowserWindow({
     title: 'VVTools',
-    width: 1280,
-    height: 800,
-    minWidth: 1040,
-    minHeight: 680,
+    ...(restoredBounds ?? defaultWindowSize),
+    minWidth: minimumWindowSize.width,
+    minHeight: minimumWindowSize.height,
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 15, y: 14 } }
       : process.platform === 'win32'
@@ -61,6 +80,7 @@ function createWindow(): void {
   mainWindow = window
 
   window.on('ready-to-show', () => {
+    if (storedState?.maximized) window.maximize()
     window.show()
   })
 
@@ -80,7 +100,10 @@ function createWindow(): void {
   })
 
   window.on('close', (event) => {
-    if (isQuitting || activeTaskCount() === 0) return
+    if (isQuitting || activeTaskCount() === 0) {
+      saveWindowState(window)
+      return
+    }
     event.preventDefault()
     const behavior = settingsStore?.get().closeBehavior ?? 'ask'
     if (behavior === 'minimizeToTray') {
@@ -91,6 +114,14 @@ function createWindow(): void {
       void confirmActiveTaskClose()
     }
   })
+}
+
+function saveWindowState(window: BrowserWindow): void {
+  try {
+    windowStateStore?.save(window)
+  } catch (error) {
+    console.error('保存窗口状态失败', error)
+  }
 }
 
 function activeTaskCount(): number {
@@ -221,6 +252,7 @@ app.whenReady().then(() => {
 
   const settings = new SettingsStore(app.getPath('userData'), app.getPath('downloads'))
   settingsStore = settings
+  windowStateStore = new WindowStateStore(app.getPath('userData'))
   const failureLogs = new FailureLogService(app.getPath('userData'))
   queue = new TaskQueue(
     settings.get().concurrency,
