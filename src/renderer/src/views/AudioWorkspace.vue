@@ -19,10 +19,9 @@ import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
-import { useStoredBoolean } from '../composables/useStoredBoolean'
 
 const store = useAppStore()
-const configExpanded = useStoredBoolean('vvtools-audio-advanced-settings-expanded')
+const configExpanded = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
 const pendingPaths = computed<string[]>({
@@ -271,7 +270,7 @@ onBeforeUnmount(() => {
       </AdvancedSettingsPanel>
     </section>
 
-    <div class="video-workspace-content">
+    <div class="video-workspace-content" @click="configExpanded = false">
       <CurrentBatchTable
         v-if="pendingPaths.length || audioTasks.length"
         kind="audio"
