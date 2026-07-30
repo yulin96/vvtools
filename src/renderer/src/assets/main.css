@@ -1015,24 +1015,10 @@ textarea,
   transform: translate(-50%, -50%) scale(1);
 }
 
-.drop-follow-orbit,
 .drop-follow-reticle {
   position: absolute;
   border-radius: 999px;
   inset: 0;
-}
-
-.drop-follow-orbit {
-  background: conic-gradient(
-    from 35deg,
-    transparent 0 28%,
-    rgb(171 156 255 / 82%) 38%,
-    transparent 49% 72%,
-    rgb(139 120 246 / 52%) 82%,
-    transparent 92%
-  );
-  mask: radial-gradient(circle, transparent 66%, black 67% 68%, transparent 69%);
-  animation: drop-follow-spin 4s linear infinite;
 }
 
 .drop-follow-reticle {
@@ -1064,12 +1050,6 @@ textarea,
   width: 22px;
   height: 1px;
   opacity: 0.46;
-}
-
-@keyframes drop-follow-spin {
-  to {
-    transform: rotate(1turn);
-  }
 }
 
 .video-config-panel {
@@ -2081,8 +2061,7 @@ html[data-theme='dark'] .bg-slate-950 {
   }
 
   .modal-overlay,
-  .modal-content,
-  .drop-follow-orbit {
+  .modal-content {
     animation: none !important;
   }
 

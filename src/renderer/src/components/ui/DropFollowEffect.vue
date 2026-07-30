@@ -59,7 +59,6 @@ onBeforeUnmount(() => {
   >
     <div class="drop-follow-grid" />
     <div class="drop-follow-anchor">
-      <div class="drop-follow-orbit" />
       <div class="drop-follow-reticle" />
     </div>
   </div>
