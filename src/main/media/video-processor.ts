@@ -102,10 +102,12 @@ function resolveSoftwareVideoEncoder(
 ): string {
   if (codec === 'h264') return 'libx264'
   if (codec === 'h265') return 'libx265'
+  if (codec === 'mpeg4') return 'mpeg4'
   if (sourceVideoCodec === 'h264') return 'libx264'
   if (sourceVideoCodec === 'hevc' || sourceVideoCodec === 'h265') return 'libx265'
+  if (sourceVideoCodec === 'mpeg4') return 'mpeg4'
   throw new Error(
-    `源视频编码 ${sourceVideoCodec || '未知'} 暂不支持保持编码后重新处理，请选择 H.264 或 H.265`
+    `源视频编码 ${sourceVideoCodec || '未知'} 暂不支持保持编码后重新处理，请选择 H.264、H.265 或 MPEG-4`
   )
 }
 
@@ -117,6 +119,9 @@ function addQualityArgs(args: string[], encoder: string, quality: VideoOptions['
     args.push('-cq', CRF_BY_QUALITY[quality], '-b:v', '0')
   } else if (encoder.endsWith('_qsv')) {
     args.push('-global_quality', CRF_BY_QUALITY[quality])
+  } else if (encoder === 'mpeg4') {
+    const qualityValue = { high: '2', balanced: '5', small: '10' }[quality]
+    args.push('-q:v', qualityValue)
   } else {
     args.push('-crf', CRF_BY_QUALITY[quality])
   }
@@ -125,19 +130,22 @@ function addQualityArgs(args: string[], encoder: string, quality: VideoOptions['
 function addEncoderPerformanceArgs(args: string[], encoder: string): void {
   if (encoder.endsWith('_videotoolbox')) args.push('-realtime', 'true')
   else if (encoder.endsWith('_nvenc')) args.push('-preset', 'p4')
+  else if (encoder === 'mpeg4') return
   else args.push('-preset', 'medium')
 }
 
 function videoCodecFamily(
   codec: VideoOptions['codec'],
   sourceVideoCodec?: string
-): 'h264' | 'h265' {
+): 'h264' | 'h265' | null {
   if (codec === 'h264') return 'h264'
   if (codec === 'h265') return 'h265'
+  if (codec === 'mpeg4') return null
   if (sourceVideoCodec === 'h264') return 'h264'
   if (sourceVideoCodec === 'hevc' || sourceVideoCodec === 'h265') return 'h265'
+  if (sourceVideoCodec === 'mpeg4') return null
   throw new Error(
-    `源视频编码 ${sourceVideoCodec || '未知'} 暂不支持保持编码后重新处理，请选择 H.264 或 H.265`
+    `源视频编码 ${sourceVideoCodec || '未知'} 暂不支持保持编码后重新处理，请选择 H.264、H.265 或 MPEG-4`
   )
 }
 
@@ -231,8 +239,11 @@ export async function processVideo(
   let hardwareEncoder: string | undefined
   if (!copiesVideo && options.encoderMode !== 'software') {
     const codec = videoCodecFamily(options.codec, probe.videoCodec)
-    hardwareEncoder = (await resolveHardwareVideoEncoder(codec)) ?? undefined
-    if (!hardwareEncoder && options.encoderMode === 'hardware') {
+    hardwareEncoder = codec ? ((await resolveHardwareVideoEncoder(codec)) ?? undefined) : undefined
+    if (options.encoderMode === 'hardware' && !codec) {
+      throw new MediaProcessError('MPEG-4 仅支持 CPU 编码，请选择自动或 CPU 编码')
+    }
+    if (codec && !hardwareEncoder && options.encoderMode === 'hardware') {
       throw new MediaProcessError(
         `当前设备或 FFmpeg 不支持 ${codec === 'h264' ? 'H.264' : 'H.265'} 硬件编码，请选择自动或 CPU 编码`
       )

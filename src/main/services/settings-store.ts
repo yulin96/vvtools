@@ -5,19 +5,13 @@ import type {
   AppSettingsPatch,
   AudioOptions,
   CommonSettings,
-  ImageOptions,
-  ImagePreset,
-  VideoOptions,
-  VideoPreset
+  VideoOptions
 } from '../../shared/types'
 import {
   DEFAULT_AUDIO_OPTIONS,
   DEFAULT_CONCURRENCY_SETTINGS,
   DEFAULT_IMAGE_OPTIONS,
-  DEFAULT_IMAGE_PRESETS,
-  DEFAULT_VIDEO_OPTIONS,
-  DEFAULT_VIDEO_PRESETS,
-  getImagePresetOptions
+  DEFAULT_VIDEO_OPTIONS
 } from '../../shared/constants'
 import { normalizeConcurrencySettings } from './task-concurrency'
 
@@ -41,12 +35,10 @@ export class SettingsStore {
         completionAction: 'none'
       },
       image: {
-        lastOptions: { ...DEFAULT_IMAGE_OPTIONS },
-        presets: structuredClone(DEFAULT_IMAGE_PRESETS)
+        lastOptions: { ...DEFAULT_IMAGE_OPTIONS }
       },
       video: {
-        lastOptions: { ...DEFAULT_VIDEO_OPTIONS },
-        presets: structuredClone(DEFAULT_VIDEO_PRESETS)
+        lastOptions: { ...DEFAULT_VIDEO_OPTIONS }
       },
       audio: {
         lastOptions: { ...DEFAULT_AUDIO_OPTIONS }
@@ -113,18 +105,12 @@ export class SettingsStore {
               ...imageOptions,
               quality: Math.min(100, Math.max(1, imageOptions.quality))
             }
-          : this.settings.image.lastOptions,
-        presets: input.image?.presets
-          ? structuredClone(input.image.presets)
-          : this.settings.image.presets
+          : this.settings.image.lastOptions
       },
       video: {
         lastOptions: input.video?.lastOptions
           ? { ...this.settings.video.lastOptions, ...input.video.lastOptions }
-          : this.settings.video.lastOptions,
-        presets: input.video?.presets
-          ? structuredClone(input.video.presets)
-          : this.settings.video.presets
+          : this.settings.video.lastOptions
       },
       audio: {
         lastOptions: input.audio?.lastOptions
@@ -158,18 +144,6 @@ type LegacyVideoOptions = Omit<Partial<VideoOptions>, 'codec' | 'frameRate'> & {
   frameRate?: VideoOptions['frameRate'] | '25'
 }
 
-interface LegacyVideoPreset {
-  id: string
-  name: string
-  options: LegacyVideoOptions
-}
-
-interface LegacyImagePreset {
-  id: string
-  name: string
-  options: Partial<ImageOptions>
-}
-
 function migrateSettings(value: unknown, defaults: AppSettings): AppSettings {
   if (!isRecord(value)) return defaults
   const common = isRecord(value.common) ? value.common : value
@@ -183,15 +157,13 @@ function migrateSettings(value: unknown, defaults: AppSettings): AppSettings {
       lastOptions: {
         ...defaults.image.lastOptions,
         ...asRecord(image?.lastOptions ?? value.image)
-      },
-      presets: migrateImagePresets(image?.presets ?? value.imagePresets, defaults.image.presets)
+      }
     },
     video: {
       lastOptions: migrateVideoOptions(
         asRecord(video?.lastOptions ?? value.video) as LegacyVideoOptions,
         defaults.video.lastOptions
-      ),
-      presets: migrateVideoPresets(video?.presets ?? value.videoPresets, defaults.video.presets)
+      )
     },
     audio: {
       lastOptions: {
@@ -244,85 +216,20 @@ function migrateCommonSettings(
 
 function migrateVideoOptions(
   value: LegacyVideoOptions | undefined,
-  fallback: VideoOptions,
-  keepOriginal = false
+  fallback: VideoOptions
 ): VideoOptions {
   const legacyCopy = value?.codec === 'copy'
   const legacyFrameRate = value?.frameRate === '25'
-  const frameRate: VideoOptions['frameRate'] = value?.frameRate === '25'
-    ? 'custom'
-    : (value?.frameRate ?? fallback.frameRate)
+  const frameRate: VideoOptions['frameRate'] =
+    value?.frameRate === '25' ? 'custom' : (value?.frameRate ?? fallback.frameRate)
   return {
     ...fallback,
     ...value,
-    format: keepOriginal || legacyCopy ? 'source' : (value?.format ?? fallback.format),
+    format: legacyCopy ? 'source' : (value?.format ?? fallback.format),
     codec: value?.codec === 'copy' ? 'source' : (value?.codec ?? fallback.codec),
     frameRate,
     customFrameRate: legacyFrameRate ? 25 : (value?.customFrameRate ?? fallback.customFrameRate)
   }
-}
-
-function migrateVideoPresets(value: unknown, defaults: VideoPreset[]): VideoPreset[] {
-  if (!isStoredPresetList(value)) return structuredClone(defaults)
-  const presets = value.map((preset) => {
-    const keepOriginal = preset.id === 'copy-stream'
-    return {
-      id: keepOriginal ? 'keep-original' : preset.id,
-      name: keepOriginal ? '保持原始' : preset.name,
-      options: migrateVideoOptions(preset.options, DEFAULT_VIDEO_OPTIONS, keepOriginal)
-    }
-  })
-  return [...new Map(presets.map((preset) => [preset.id, preset])).values()]
-}
-
-function isStoredPresetList(value: unknown): value is LegacyVideoPreset[] {
-  return (
-    Array.isArray(value) &&
-    value.length > 0 &&
-    value.every(
-      (preset) =>
-        preset &&
-        typeof preset === 'object' &&
-        typeof preset.id === 'string' &&
-        typeof preset.name === 'string' &&
-        preset.options &&
-        typeof preset.options === 'object'
-    )
-  )
-}
-
-function migrateImagePresets(value: unknown, defaults: ImagePreset[]): ImagePreset[] {
-  if (!Array.isArray(value) || value.length === 0) return structuredClone(defaults)
-  const presets = value.filter((preset): preset is LegacyImagePreset =>
-    Boolean(
-      preset &&
-      typeof preset === 'object' &&
-      typeof preset.id === 'string' &&
-      typeof preset.name === 'string' &&
-      preset.options &&
-      typeof preset.options === 'object'
-    )
-  )
-  if (presets.length === 0) return structuredClone(defaults)
-
-  const migrated = presets.map((preset) => ({
-    id: preset.id,
-    name: preset.name,
-    options: getImagePresetOptions({ ...DEFAULT_IMAGE_OPTIONS, ...preset.options })
-  }))
-  const hasLegacyBuiltIns = migrated.some(
-    (preset) => preset.id === 'image-thumbnail' || preset.id === 'image-platform'
-  )
-  if (!hasLegacyBuiltIns) return migrated
-
-  const builtInIds = new Set([
-    'image-original',
-    'image-web',
-    'image-thumbnail',
-    'image-platform',
-    'image-share'
-  ])
-  return [...structuredClone(defaults), ...migrated.filter((preset) => !builtInIds.has(preset.id))]
 }
 
 function normalizeCloseBehavior(value: unknown): CommonSettings['closeBehavior'] {
@@ -330,7 +237,7 @@ function normalizeCloseBehavior(value: unknown): CommonSettings['closeBehavior']
 }
 
 function isNamespacedSettings(value: unknown): value is Record<string, unknown> {
-  return isRecord(value) && ('lastOptions' in value || 'presets' in value)
+  return isRecord(value) && 'lastOptions' in value
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

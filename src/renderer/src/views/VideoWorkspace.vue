@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { FileVideo2, Play, Plus, Settings2, SlidersHorizontal, UploadCloud } from '@lucide/vue'
+import { FileVideo2, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
   VideoAudioMode,
@@ -13,12 +13,12 @@ import type {
   VideoRateControl,
   VideoResolution
 } from '../../../shared/types'
+import { DEFAULT_VIDEO_OPTIONS, DEFAULT_VIDEO_PRESETS } from '../../../shared/constants'
 import { useAppStore } from '../stores/app'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
-import VideoSettingsDrawer from '../components/VideoSettingsDrawer.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
@@ -27,7 +27,6 @@ import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 const store = useAppStore()
 const useIntegratedTitlebar = ['darwin', 'win32'].includes(window.api.platform)
 const configExpanded = ref(false)
-const pageSettingsOpen = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
 const pendingPaths = computed<string[]>({
@@ -39,12 +38,19 @@ const videoFormatOptions = [
   { value: 'source', label: '原格式' },
   { value: 'mp4', label: 'MP4' },
   { value: 'mov', label: 'MOV' },
-  { value: 'mkv', label: 'MKV' }
+  { value: 'mkv', label: 'MKV' },
+  { value: 'avi', label: 'AVI' }
 ]
 const videoCodecOptions = [
   { value: 'source', label: '原编码' },
   { value: 'h264', label: 'H.264', title: '兼容优先', ariaLabel: 'H.264，兼容优先' },
-  { value: 'h265', label: 'H.265', title: '更小体积', ariaLabel: 'H.265，更小体积' }
+  { value: 'h265', label: 'H.265', title: '更小体积', ariaLabel: 'H.265，更小体积' },
+  {
+    value: 'mpeg4',
+    label: 'MPEG-4',
+    title: '适合较旧设备，仅支持 CPU 编码',
+    ariaLabel: 'MPEG-4，适合较旧设备，仅支持 CPU 编码'
+  }
 ]
 const encoderModeOptions = [
   { value: 'auto', label: '自动', title: '自动检测（推荐）', ariaLabel: '自动检测，推荐' },
@@ -83,8 +89,17 @@ const qualityOptions = [
   { value: 'balanced', label: '均衡' },
   { value: 'small', label: '小体积' }
 ]
+const videoPresetOptions = [
+  { value: 'custom', label: '自定义' },
+  ...DEFAULT_VIDEO_PRESETS.map((preset) => ({ value: preset.id, label: preset.name }))
+]
 
 const videoTasks = computed(() => store.currentBatchTasks.video)
+const availableEncoderModeOptions = computed(() =>
+  store.settings?.video.lastOptions.codec === 'mpeg4'
+    ? encoderModeOptions.filter((option) => option.value !== 'hardware')
+    : encoderModeOptions
+)
 const pendingTableItems = computed(() => pendingPaths.value.map((path) => ({ path })))
 const copiesSourceVideo = computed(() => {
   const video = store.settings?.video.lastOptions
@@ -93,15 +108,13 @@ const copiesSourceVideo = computed(() => {
 const activePresetId = computed(() => {
   if (!store.settings) return 'custom'
   return (
-    store.settings.video.presets.find((preset) =>
+    DEFAULT_VIDEO_PRESETS.find((preset) =>
       optionsEqual(preset.options, store.settings!.video.lastOptions)
     )?.id ?? 'custom'
   )
 })
 const activePresetName = computed(
-  () =>
-    store.settings?.video.presets.find((preset) => preset.id === activePresetId.value)?.name ??
-    '自定义'
+  () => DEFAULT_VIDEO_PRESETS.find((preset) => preset.id === activePresetId.value)?.name ?? '自定义'
 )
 const qualityLabel = computed(() => {
   if (!store.settings) return ''
@@ -115,7 +128,9 @@ const qualityLabel = computed(() => {
 })
 const codecLabel = computed(() => {
   const codec = store.settings?.video.lastOptions.codec
-  return codec === 'source' ? '保持原编码' : codec === 'h265' ? 'H.265' : 'H.264'
+  if (codec === 'source') return '保持原编码'
+  if (codec === 'h265') return 'H.265'
+  return codec === 'mpeg4' ? 'MPEG-4' : 'H.264'
 })
 const formatLabel = computed(() => {
   const format = store.settings?.video.lastOptions.format
@@ -148,11 +163,24 @@ function updateVideo(patch: Partial<VideoOptions>): void {
   })
 }
 
-function applyPreset(event: Event): void {
+function updateVideoCodec(value: string | number): void {
+  const codec = value as VideoCodec
+  updateVideo({
+    codec,
+    ...(codec === 'mpeg4' && store.settings?.video.lastOptions.encoderMode === 'hardware'
+      ? { encoderMode: 'auto' as const }
+      : {})
+  })
+}
+
+function applyPreset(value: string | number): void {
   if (!store.settings) return
-  const id = (event.target as HTMLSelectElement).value
-  const preset = store.settings.video.presets.find((item) => item.id === id)
-  if (preset) void store.updateSettings({ video: { lastOptions: { ...preset.options } } })
+  const id = String(value)
+  const options =
+    id === 'custom'
+      ? DEFAULT_VIDEO_OPTIONS
+      : DEFAULT_VIDEO_PRESETS.find((preset) => preset.id === id)?.options
+  if (options) void store.updateSettings({ video: { lastOptions: { ...options } } })
 }
 
 function stageFiles(paths: string[]): void {
@@ -262,30 +290,14 @@ onBeforeUnmount(() => {
         </div>
         <Teleport to="#media-titlebar-actions" :disabled="!useIntegratedTitlebar">
           <div class="video-config-actions">
-            <label class="preset-picker">
-              <span class="sr-only">视频预设</span>
-              <select :value="activePresetId" aria-label="视频预设" @change="applyPreset">
-                <option v-if="activePresetId === 'custom'" value="custom" disabled>
-                  预设：自定义参数
-                </option>
-                <option
-                  v-for="preset in store.settings.video.presets"
-                  :key="preset.id"
-                  :value="preset.id"
-                >
-                  预设：{{ preset.name }}
-                </option>
-              </select>
-            </label>
-            <Button
-              variant="secondary"
-              size="icon"
-              aria-label="打开视频设置"
-              title="视频设置"
-              @click="pageSettingsOpen = true"
-            >
-              <Settings2 class="size-4" />
-            </Button>
+            <SegmentedControl
+              class="preset-segments video-preset-segments"
+              label="视频处理方案"
+              :model-value="activePresetId"
+              :options="videoPresetOptions"
+              hide-label
+              @update:model-value="applyPreset"
+            />
             <OutputLocationControls />
             <SourceOverwriteWarning />
             <Button
@@ -307,7 +319,7 @@ onBeforeUnmount(() => {
       <div class="video-config-primary">
         <fieldset class="config-group">
           <legend class="sr-only">格式与编码</legend>
-          <div class="config-group-fields">
+          <div class="config-group-fields config-group-fields-single">
             <SegmentedControl
               label="输出格式"
               :model-value="store.settings.video.lastOptions.format"
@@ -318,13 +330,7 @@ onBeforeUnmount(() => {
               label="视频编码"
               :model-value="store.settings.video.lastOptions.codec"
               :options="videoCodecOptions"
-              @update:model-value="updateVideo({ codec: $event as VideoCodec })"
-            />
-            <SegmentedControl
-              label="编码加速"
-              :model-value="store.settings.video.lastOptions.encoderMode"
-              :options="encoderModeOptions"
-              @update:model-value="updateVideo({ encoderMode: $event as VideoEncoderMode })"
+              @update:model-value="updateVideoCodec"
             />
           </div>
         </fieldset>
@@ -399,13 +405,7 @@ onBeforeUnmount(() => {
 
         <fieldset class="config-group">
           <legend class="sr-only">压缩</legend>
-          <div
-            class="config-group-fields"
-            :class="{
-              'config-group-fields-switch-input':
-                store.settings.video.lastOptions.rateControl === 'bitrate'
-            }"
-          >
+          <div class="config-group-fields">
             <SegmentedControl
               label="画质控制"
               :model-value="store.settings.video.lastOptions.rateControl"
@@ -452,8 +452,14 @@ onBeforeUnmount(() => {
         class="video-config-expanded"
       >
         <fieldset class="config-group advanced-settings-list video-advanced-settings-list">
-          <legend class="sr-only">音频</legend>
+          <legend class="sr-only">编码与音频</legend>
           <div class="config-group-fields">
+            <SegmentedControl
+              label="编码加速"
+              :model-value="store.settings.video.lastOptions.encoderMode"
+              :options="availableEncoderModeOptions"
+              @update:model-value="updateVideo({ encoderMode: $event as VideoEncoderMode })"
+            />
             <label class="compact-field">
               <span>视频中的音频</span>
               <select
@@ -526,6 +532,5 @@ onBeforeUnmount(() => {
         <Button class="mt-5" @click="chooseFiles">选择视频文件</Button>
       </div>
     </div>
-    <VideoSettingsDrawer :open="pageSettingsOpen" @close="pageSettingsOpen = false" />
   </div>
 </template>

@@ -9,12 +9,9 @@ import type {
   CreateTasksRequest,
   ImageFormat,
   ImageOptions,
-  ImagePreset,
-  ImagePresetOptions,
   RuntimeCapabilities,
   TaskKind,
   VideoOptions,
-  VideoPreset,
   VideoQuality,
   VideoResolution
 } from '../shared/types'
@@ -35,8 +32,8 @@ import { UpdateService } from './services/update-service'
 
 const VIDEO_QUALITIES = new Set<VideoQuality>(['high', 'balanced', 'small'])
 const VIDEO_RESOLUTIONS = new Set<VideoResolution>(['source', '1080p', '720p', 'custom'])
-const VIDEO_FORMATS = new Set(['source', 'mp4', 'mov', 'mkv'])
-const VIDEO_CODECS = new Set(['source', 'h264', 'h265'])
+const VIDEO_FORMATS = new Set(['source', 'mp4', 'mov', 'mkv', 'avi'])
+const VIDEO_CODECS = new Set(['source', 'h264', 'h265', 'mpeg4'])
 const VIDEO_RATE_CONTROLS = new Set(['quality', 'bitrate'])
 const VIDEO_FRAME_RATES = new Set(['source', '24', '30', '60', 'custom'])
 const VIDEO_AUDIO_MODES = new Set(['aac', 'copy', 'none'])
@@ -266,70 +263,6 @@ function validateAudioOptions(options: AudioOptions, message: string): void {
   }
 }
 
-function validateVideoPresets(value: unknown): VideoPreset[] {
-  if (!Array.isArray(value) || value.length === 0 || value.length > 20) {
-    throw new Error('视频预设数量必须在 1–20 个之间')
-  }
-  const ids = new Set<string>()
-  return value.map((item) => {
-    if (!item || typeof item !== 'object') throw new Error('视频预设参数无效')
-    const preset = item as VideoPreset
-    const name = typeof preset.name === 'string' ? preset.name.trim() : ''
-    if (!/^[a-zA-Z0-9_-]{1,64}$/u.test(preset.id) || ids.has(preset.id)) {
-      throw new Error('视频预设标识无效或重复')
-    }
-    if (!name || name.length > 30) throw new Error('视频预设名称必须是 1–30 个字符')
-    validateVideoOptions(preset.options, `视频预设“${name}”的参数无效`)
-    ids.add(preset.id)
-    return { id: preset.id, name, options: structuredClone(preset.options) }
-  })
-}
-
-function validateImagePresets(value: unknown): ImagePreset[] {
-  if (!Array.isArray(value) || value.length === 0 || value.length > 20) {
-    throw new Error('图片预设数量必须在 1–20 个之间')
-  }
-  const ids = new Set<string>()
-  return value.map((item) => {
-    if (!item || typeof item !== 'object') throw new Error('图片预设参数无效')
-    const preset = item as ImagePreset
-    const name = typeof preset.name === 'string' ? preset.name.trim() : ''
-    if (!/^[a-zA-Z0-9_-]{1,64}$/u.test(preset.id) || ids.has(preset.id)) {
-      throw new Error('图片预设标识无效或重复')
-    }
-    if (!name || name.length > 30) throw new Error('图片预设名称必须是 1–30 个字符')
-    validateImagePresetOptions(preset.options, `图片预设“${name}”的参数无效`)
-    ids.add(preset.id)
-    return { id: preset.id, name, options: structuredClone(preset.options) }
-  })
-}
-
-function validateImagePresetOptions(options: ImagePresetOptions, message: string): void {
-  if (
-    !options ||
-    !['quality', 'targetSize'].includes(options.compressionMode) ||
-    !Number.isInteger(options.quality) ||
-    options.quality < 1 ||
-    options.quality > 100 ||
-    !Number.isInteger(options.targetSizeKb) ||
-    options.targetSizeKb < 1 ||
-    options.targetSizeKb > 100_000 ||
-    !['source', 'width', 'height', 'percentage'].includes(options.resizeMode) ||
-    !Number.isInteger(options.width) ||
-    options.width < 1 ||
-    options.width > 32_768 ||
-    !Number.isInteger(options.height) ||
-    options.height < 1 ||
-    options.height > 32_768 ||
-    !Number.isInteger(options.percentage) ||
-    options.percentage < 1 ||
-    options.percentage > 1000 ||
-    !IMAGE_FORMATS.has(options.format)
-  ) {
-    throw new Error(message)
-  }
-}
-
 function sanitizeSettings(input: unknown): AppSettingsPatch {
   if (!isRecord(input)) throw new Error('设置参数无效')
   const result: AppSettingsPatch = {}
@@ -399,9 +332,6 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
       validateVideoOptions(input.video.lastOptions as VideoOptions, '视频参数无效')
       video.lastOptions = structuredClone(input.video.lastOptions) as VideoOptions
     }
-    if (input.video.presets !== undefined) {
-      video.presets = validateVideoPresets(input.video.presets)
-    }
     result.video = video
   }
 
@@ -411,9 +341,6 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
     if (input.image.lastOptions !== undefined) {
       validateImageOptions(input.image.lastOptions as ImageOptions, '图片参数无效')
       image.lastOptions = structuredClone(input.image.lastOptions) as ImageOptions
-    }
-    if (input.image.presets !== undefined) {
-      image.presets = validateImagePresets(input.image.presets)
     }
     result.image = image
   }

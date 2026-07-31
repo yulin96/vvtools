@@ -1,14 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import {
-  FolderPlus,
-  Images,
-  Play,
-  Plus,
-  Settings2,
-  SlidersHorizontal,
-  UploadCloud
-} from '@lucide/vue'
+import { FolderPlus, Images, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
   ImageCompressionMode,
@@ -18,11 +10,15 @@ import type {
   ImagePresetOptions,
   ImageResizeMode
 } from '../../../shared/types'
+import {
+  DEFAULT_IMAGE_OPTIONS,
+  DEFAULT_IMAGE_PRESETS,
+  getImagePresetOptions
+} from '../../../shared/constants'
 import { useAppStore } from '../stores/app'
 import { fileName } from '../lib/utils'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
-import ImageSettingsDrawer from '../components/ImageSettingsDrawer.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
@@ -34,7 +30,6 @@ import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 const store = useAppStore()
 const useIntegratedTitlebar = ['darwin', 'win32'].includes(window.api.platform)
 const configExpanded = ref(false)
-const pageSettingsOpen = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
 const pendingInputs = computed<ImageInputFile[]>({
@@ -78,6 +73,10 @@ const metadataModeOptions = [
     ariaLabel: '尽量保留所有附加信息'
   }
 ]
+const imagePresetOptions = [
+  { value: 'custom', label: '自定义' },
+  ...DEFAULT_IMAGE_PRESETS.map((preset) => ({ value: preset.id, label: preset.name }))
+]
 const imageTasks = computed(() => store.currentBatchTasks.image)
 const pendingTableItems = computed(() =>
   pendingInputs.value.map((input) => ({
@@ -106,15 +105,13 @@ const resizeLabel = computed(() => {
 const activePresetId = computed(() => {
   if (!store.settings) return 'custom'
   return (
-    store.settings.image.presets.find((preset) =>
+    DEFAULT_IMAGE_PRESETS.find((preset) =>
       imageOptionsEqual(preset.options, store.settings!.image.lastOptions)
     )?.id ?? 'custom'
   )
 })
 const activePresetName = computed(
-  () =>
-    store.settings?.image.presets.find((preset) => preset.id === activePresetId.value)?.name ??
-    '自定义'
+  () => DEFAULT_IMAGE_PRESETS.find((preset) => preset.id === activePresetId.value)?.name ?? '自定义'
 )
 
 function imageOptionsEqual(left: ImagePresetOptions, right: ImageOptions): boolean {
@@ -137,14 +134,17 @@ function resizeValueLabel(mode: ImageResizeMode): string {
   return '目标尺寸'
 }
 
-function applyPreset(event: Event): void {
+function applyPreset(value: string | number): void {
   if (!store.settings) return
-  const id = (event.target as HTMLSelectElement).value
-  const preset = store.settings.image.presets.find((item) => item.id === id)
-  if (preset) {
+  const id = String(value)
+  const options =
+    id === 'custom'
+      ? getImagePresetOptions(DEFAULT_IMAGE_OPTIONS)
+      : DEFAULT_IMAGE_PRESETS.find((preset) => preset.id === id)?.options
+  if (options) {
     void store.updateSettings({
       image: {
-        lastOptions: { ...store.settings.image.lastOptions, ...preset.options }
+        lastOptions: { ...store.settings.image.lastOptions, ...options }
       }
     })
   }
@@ -301,30 +301,14 @@ onBeforeUnmount(() => {
         </div>
         <Teleport to="#media-titlebar-actions" :disabled="!useIntegratedTitlebar">
           <div class="video-config-actions">
-            <label class="preset-picker">
-              <span class="sr-only">图片预设</span>
-              <select :value="activePresetId" aria-label="图片预设" @change="applyPreset">
-                <option v-if="activePresetId === 'custom'" value="custom" disabled>
-                  预设：自定义参数
-                </option>
-                <option
-                  v-for="preset in store.settings.image.presets"
-                  :key="preset.id"
-                  :value="preset.id"
-                >
-                  预设：{{ preset.name }}
-                </option>
-              </select>
-            </label>
-            <Button
-              variant="secondary"
-              size="icon"
-              aria-label="打开图片设置"
-              title="图片设置"
-              @click="pageSettingsOpen = true"
-            >
-              <Settings2 class="size-4" />
-            </Button>
+            <SegmentedControl
+              class="preset-segments image-preset-segments"
+              label="图片处理方案"
+              :model-value="activePresetId"
+              :options="imagePresetOptions"
+              hide-label
+              @update:model-value="applyPreset"
+            />
             <OutputLocationControls />
             <SourceOverwriteWarning />
             <Button
@@ -540,6 +524,5 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
-    <ImageSettingsDrawer :open="pageSettingsOpen" @close="pageSettingsOpen = false" />
   </div>
 </template>

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -17,7 +17,7 @@ afterEach(() => {
 })
 
 describe('SettingsStore', () => {
-  it('provides and persists editable video presets', () => {
+  it('provides processing defaults without editable preset configuration', () => {
     const root = mkdtempSync(join(tmpdir(), 'vvtools-settings-'))
     directories.push(root)
     const store = new SettingsStore(root, join(root, 'downloads'))
@@ -52,38 +52,12 @@ describe('SettingsStore', () => {
       normalizeLoudness: false
     })
 
-    expect(store.get().video.presets.map((preset) => preset.name)).toEqual([
-      '保持原始',
-      '低质量',
-      '中质量',
-      '高质量'
-    ])
     expect(store.get().video.lastOptions.encoderMode).toBe('auto')
     expect(store.get().video.lastOptions.customFrameRate).toBe(30)
     expect(store.get().video.lastOptions.customResolutionHeight).toBe(1080)
-    expect(store.get().image.presets.map((preset) => preset.name)).toEqual([
-      '原图整理',
-      '网站图片',
-      '分享图'
-    ])
-    expect(store.get().image.presets[0].options).not.toHaveProperty('metadataMode')
 
-    const presets = store.get().video.presets
-    presets[0] = { ...presets[0], name: '快速封装' }
-    store.update({ video: { presets } })
-    const imagePresets = store.get().image.presets
-    imagePresets[0] = { ...imagePresets[0], name: '交付原图' }
-    store.update({ image: { presets: imagePresets } })
-
-    const saved = JSON.parse(readFileSync(join(root, 'settings.json'), 'utf8'))
-    expect(saved.video.presets[0].name).toBe('快速封装')
-    expect(saved.image.presets[0].name).toBe('交付原图')
-    expect(new SettingsStore(root, join(root, 'downloads')).get().video.presets[0].name).toBe(
-      '快速封装'
-    )
-    expect(new SettingsStore(root, join(root, 'downloads')).get().image.presets[0].name).toBe(
-      '交付原图'
-    )
+    expect(store.get().video).not.toHaveProperty('presets')
+    expect(store.get().image).not.toHaveProperty('presets')
   })
 
   it('persists edited processing settings', () => {
@@ -161,7 +135,7 @@ describe('SettingsStore', () => {
     })
   })
 
-  it('migrates the former copy-stream preset to keep-original semantics', () => {
+  it('migrates former copy-stream options and discards editable presets', () => {
     const root = mkdtempSync(join(tmpdir(), 'vvtools-settings-'))
     directories.push(root)
     writeFileSync(
@@ -188,14 +162,10 @@ describe('SettingsStore', () => {
       frameRate: 'custom',
       customFrameRate: 25
     })
-    expect(settings.video.presets[0]).toMatchObject({
-      id: 'keep-original',
-      name: '保持原始',
-      options: { codec: 'source', format: 'source', encoderMode: 'auto' }
-    })
+    expect(settings.video).not.toHaveProperty('presets')
   })
 
-  it('migrates the former global concurrency and built-in image presets', () => {
+  it('migrates former global concurrency and discards editable image presets', () => {
     const root = mkdtempSync(join(tmpdir(), 'vvtools-settings-'))
     directories.push(root)
     writeFileSync(
@@ -227,14 +197,7 @@ describe('SettingsStore', () => {
       mode: 'custom',
       custom: { image: 3, video: 2, audio: 3 }
     })
-    expect(settings.image.presets.map((preset) => preset.name)).toEqual([
-      '原图整理',
-      '网站图片',
-      '分享图',
-      '交付'
-    ])
-    expect(settings.image.presets[3].options).toMatchObject({ format: 'png' })
-    expect(settings.image.presets[3].options).not.toHaveProperty('preserveStructure')
+    expect(settings.image).not.toHaveProperty('presets')
   })
 
   it('resolves automatic concurrency by media type', () => {

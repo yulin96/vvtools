@@ -20,6 +20,7 @@ describe('output paths', () => {
     expect(getOutputExtension('video', '/tmp/a.mov')).toBe('.mp4')
     expect(getOutputExtension('video', '/tmp/a.mov', undefined, 'source')).toBe('.mov')
     expect(getOutputExtension('video', '/tmp/a.mov', undefined, 'mkv')).toBe('.mkv')
+    expect(getOutputExtension('video', '/tmp/a.mov', undefined, 'avi')).toBe('.avi')
     expect(getOutputExtension('image', '/tmp/a.jpeg', 'original')).toBe('.jpg')
     expect(getOutputExtension('image', '/tmp/a.png', 'webp')).toBe('.webp')
     expect(getOutputExtension('image', '/tmp/a.png', 'avif')).toBe('.avif')

@@ -34,18 +34,6 @@ export const DEFAULT_VIDEO_OPTIONS: VideoOptions = {
 
 export const DEFAULT_VIDEO_PRESETS: VideoPreset[] = [
   {
-    id: 'keep-original',
-    name: '保持原始',
-    options: {
-      ...DEFAULT_VIDEO_OPTIONS,
-      format: 'source',
-      codec: 'source',
-      resolution: 'source',
-      frameRate: 'source',
-      audioMode: 'copy'
-    }
-  },
-  {
     id: 'low-quality',
     name: '低质量',
     options: {
@@ -102,14 +90,6 @@ export function getImagePresetOptions(options: ImageOptions): ImagePresetOptions
 }
 
 export const DEFAULT_IMAGE_PRESETS: ImagePreset[] = [
-  {
-    id: 'image-original',
-    name: '原图整理',
-    options: {
-      ...getImagePresetOptions(DEFAULT_IMAGE_OPTIONS),
-      quality: 90
-    }
-  },
   {
     id: 'image-web',
     name: '网站图片',

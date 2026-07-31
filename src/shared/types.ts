@@ -3,8 +3,8 @@ export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'ca
 
 export type VideoQuality = 'high' | 'balanced' | 'small'
 export type VideoResolution = 'source' | '1080p' | '720p' | 'custom'
-export type VideoFormat = 'source' | 'mp4' | 'mov' | 'mkv'
-export type VideoCodec = 'source' | 'h264' | 'h265'
+export type VideoFormat = 'source' | 'mp4' | 'mov' | 'mkv' | 'avi'
+export type VideoCodec = 'source' | 'h264' | 'h265' | 'mpeg4'
 export type VideoRateControl = 'quality' | 'bitrate'
 export type VideoFrameRate = 'source' | '24' | '30' | '60' | 'custom'
 export type VideoAudioMode = 'aac' | 'copy' | 'none'
@@ -112,12 +112,10 @@ export interface CommonSettings {
 
 export interface ImageSettings {
   lastOptions: ImageOptions
-  presets: ImagePreset[]
 }
 
 export interface VideoSettings {
   lastOptions: VideoOptions
-  presets: VideoPreset[]
 }
 
 export interface AudioSettings {
@@ -135,11 +133,9 @@ export interface AppSettingsPatch {
   common?: Partial<CommonSettings>
   image?: {
     lastOptions?: ImageOptions
-    presets?: ImagePreset[]
   }
   video?: {
     lastOptions?: VideoOptions
-    presets?: VideoPreset[]
   }
   audio?: {
     lastOptions?: AudioOptions

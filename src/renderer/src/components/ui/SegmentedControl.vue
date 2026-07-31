@@ -27,6 +27,7 @@ const emit = defineEmits<{
 const controlId = useId()
 const bar = ref<HTMLElement | null>(null)
 const pill = ref<HTMLElement | null>(null)
+let resizeObserver: ResizeObserver | null = null
 
 function movePill(animate: boolean): void {
   const activeIndex = props.options.findIndex((option) => option.value === props.modelValue)
@@ -61,10 +62,13 @@ watch(
 
 onMounted(() => {
   requestAnimationFrame(() => movePill(false))
+  resizeObserver = new ResizeObserver(() => movePill(false))
+  if (bar.value) resizeObserver.observe(bar.value)
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
   window.removeEventListener('resize', handleResize)
 })
 </script>

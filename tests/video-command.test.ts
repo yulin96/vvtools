@@ -81,6 +81,15 @@ describe('video command', () => {
     expect(args[args.indexOf('-r') + 1]).toBe('23.976')
   })
 
+  it('supports MPEG-4 video in an AVI container', () => {
+    const args = buildVideoArgs(task({ codec: 'mpeg4', format: 'avi', quality: 'balanced' }))
+    expect(args[args.indexOf('-c:v') + 1]).toBe('mpeg4')
+    expect(args[args.indexOf('-q:v') + 1]).toBe('5')
+    expect(args).not.toContain('-crf')
+    expect(args).not.toContain('-preset')
+    expect(args).not.toContain('+faststart')
+  })
+
   it('keeps untouched source video and audio streams without transcoding', () => {
     const args = buildVideoArgs(
       task({
@@ -120,7 +129,7 @@ describe('video command', () => {
 
   it('rejects preserving an unsupported source codec when video changes are required', () => {
     expect(() => buildVideoArgs(task({ codec: 'source', resolution: '720p' }), 'vp9')).toThrow(
-      '请选择 H.264 或 H.265'
+      '请选择 H.264、H.265 或 MPEG-4'
     )
   })
 
