@@ -5,7 +5,9 @@ import type { ConcurrencySettings, TaskConcurrencyLimits, TaskKind } from '../..
 const MAXIMUM_CONCURRENCY: TaskConcurrencyLimits = {
   image: 8,
   video: 2,
-  audio: 4
+  audio: 4,
+  pdf: 2,
+  font: 1
 }
 
 export function isConcurrencySettings(value: unknown): value is ConcurrencySettings {
@@ -27,7 +29,9 @@ export function normalizeConcurrencySettings(
       custom: {
         image: legacy,
         video: Math.min(legacy, MAXIMUM_CONCURRENCY.video),
-        audio: legacy
+        audio: legacy,
+        pdf: Math.min(legacy, MAXIMUM_CONCURRENCY.pdf),
+        font: 1
       }
     }
   }
@@ -43,7 +47,9 @@ export function resolveTaskConcurrency(
   return {
     image: Math.min(8, Math.max(1, Math.ceil(processors * 0.75))),
     video: 1,
-    audio: Math.min(2, Math.max(1, Math.floor(processors / 4)))
+    audio: Math.min(2, Math.max(1, Math.floor(processors / 4))),
+    pdf: 1,
+    font: 1
   }
 }
 
@@ -54,7 +60,7 @@ export function maximumConcurrency(kind: TaskKind): number {
 function isConcurrencyLimits(value: unknown): value is TaskConcurrencyLimits {
   if (!value || typeof value !== 'object') return false
   const limits = value as Partial<TaskConcurrencyLimits>
-  return (['image', 'video', 'audio'] as const).every((kind) => {
+  return (['image', 'video', 'audio', 'pdf', 'font'] as const).every((kind) => {
     const limit = limits[kind]
     return (
       typeof limit === 'number' &&

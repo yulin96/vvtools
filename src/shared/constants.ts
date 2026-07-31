@@ -4,6 +4,8 @@ import type {
   ImageOptions,
   ImagePreset,
   ImagePresetOptions,
+  FontOptions,
+  PdfOptions,
   VideoOptions,
   VideoPreset
 } from './types'
@@ -13,7 +15,9 @@ export const DEFAULT_CONCURRENCY_SETTINGS: ConcurrencySettings = {
   custom: {
     image: 8,
     video: 1,
-    audio: 2
+    audio: 2,
+    pdf: 1,
+    font: 1
   }
 }
 
@@ -119,6 +123,21 @@ export const DEFAULT_AUDIO_OPTIONS: AudioOptions = {
   normalizeLoudness: false
 }
 
+export const DEFAULT_PDF_OPTIONS: PdfOptions = {
+  operation: 'toImage',
+  imageFormat: 'png',
+  dpi: 144,
+  imageQuality: 90
+}
+
+export const DEFAULT_FONT_OPTIONS: FontOptions = {
+  operation: 'convert',
+  outputFormat: 'woff2',
+  variableInstanceMode: 'named',
+  subsetText: '',
+  subsetTextFile: ''
+}
+
 export const VIDEO_EXTENSIONS = new Set([
   '.mp4',
   '.mov',
@@ -141,11 +160,15 @@ export const AUDIO_EXTENSIONS = new Set([
   '.opus',
   '.wma'
 ])
+export const PDF_EXTENSIONS = new Set(['.pdf'])
+export const FONT_EXTENSIONS = new Set(['.ttf', '.otf', '.woff', '.woff2', '.ttc', '.otc'])
+export const TEXT_EXTENSIONS = new Set(['.txt'])
 
 export const IPC_CHANNELS = {
   selectFiles: 'files:select',
   selectOutputDirectory: 'directory:select-output',
   selectImageDirectory: 'directory:select-images',
+  selectTextFile: 'file:select-text',
   expandImageInputs: 'images:expand-inputs',
   openOutputDirectory: 'directory:open-output',
   createTasks: 'tasks:create',

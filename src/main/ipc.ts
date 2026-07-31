@@ -7,8 +7,11 @@ import type {
   AppSettingsPatch,
   AudioOptions,
   CreateTasksRequest,
+  FontInstance,
+  FontOptions,
   ImageFormat,
   ImageOptions,
+  PdfOptions,
   RuntimeCapabilities,
   TaskKind,
   VideoOptions,
@@ -17,8 +20,11 @@ import type {
 } from '../shared/types'
 import {
   AUDIO_EXTENSIONS,
+  FONT_EXTENSIONS,
   IMAGE_EXTENSIONS,
   IPC_CHANNELS,
+  PDF_EXTENSIONS,
+  TEXT_EXTENSIONS,
   VIDEO_EXTENSIONS
 } from '../shared/constants'
 import { extractVersionReleaseNotes } from '../shared/release-notes.mjs'
@@ -38,6 +44,11 @@ const VIDEO_RATE_CONTROLS = new Set(['quality', 'bitrate'])
 const VIDEO_FRAME_RATES = new Set(['source', '24', '30', '60', 'custom'])
 const VIDEO_AUDIO_MODES = new Set(['aac', 'copy', 'none'])
 const IMAGE_FORMATS = new Set<ImageFormat>(['original', 'jpeg', 'png', 'webp', 'avif'])
+const PDF_OPERATIONS = new Set(['compress', 'toImage'])
+const PDF_IMAGE_FORMATS = new Set(['png', 'jpeg', 'webp'])
+const FONT_OPERATIONS = new Set(['convert', 'splitCollection', 'variableStatic', 'subset'])
+const FONT_FORMATS = new Set(['ttf', 'otf', 'woff', 'woff2'])
+const FONT_INSTANCE_MODES = new Set(['named', 'default'])
 
 function assertTrusted(event: IpcMainInvokeEvent, window: BrowserWindow): void {
   if (event.sender !== window.webContents) throw new Error('拒绝来自未知页面的请求')
@@ -57,14 +68,20 @@ function validateSourcePath(path: string, kind: TaskKind): void {
       ? VIDEO_EXTENSIONS
       : kind === 'audio'
         ? new Set([...AUDIO_EXTENSIONS, ...VIDEO_EXTENSIONS])
-        : IMAGE_EXTENSIONS
+        : kind === 'image'
+          ? IMAGE_EXTENSIONS
+          : kind === 'pdf'
+            ? PDF_EXTENSIONS
+            : FONT_EXTENSIONS
   if (!extensions.has(extname(path).toLowerCase())) throw new Error(`不支持的文件格式：${path}`)
 }
 
 function validateCreateRequest(value: unknown): CreateTasksRequest {
   if (!value || typeof value !== 'object') throw new Error('任务参数无效')
   const request = value as CreateTasksRequest
-  if (!['video', 'image', 'audio'].includes(request.kind)) throw new Error('任务类型无效')
+  if (!['video', 'image', 'audio', 'pdf', 'font'].includes(request.kind)) {
+    throw new Error('任务类型无效')
+  }
   if (!['source', 'custom'].includes(request.outputMode)) throw new Error('输出位置参数无效')
   if (
     request.outputMode === 'custom' &&
@@ -100,13 +117,30 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
       validateRelativeDirectory(source.relativeDirectory)
     }
     validateImageOptions(request.options, '图片任务参数无效')
-  } else {
+  } else if (request.kind === 'audio') {
     if (!Array.isArray(request.sourcePaths) || request.sourcePaths.length === 0) {
       throw new Error('请至少选择一个音频或视频文件')
     }
     if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
     request.sourcePaths.forEach((path) => validateSourcePath(path, 'audio'))
     validateAudioOptions(request.options, '音频任务参数无效')
+  } else if (request.kind === 'pdf') {
+    if (!Array.isArray(request.sourcePaths) || request.sourcePaths.length === 0) {
+      throw new Error('请至少选择一个 PDF 文件')
+    }
+    if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
+    request.sourcePaths.forEach((path) => validateSourcePath(path, 'pdf'))
+    validatePdfOptions(request.options, 'PDF 任务参数无效')
+    request.pageNumbers = sanitizeIndexes(request.pageNumbers, 1, 'PDF 页面编号无效')
+  } else {
+    if (!Array.isArray(request.sourcePaths) || request.sourcePaths.length === 0) {
+      throw new Error('请至少选择一个字体文件')
+    }
+    if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
+    request.sourcePaths.forEach((path) => validateSourcePath(path, 'font'))
+    validateFontOptions(request.options, '字体任务参数无效')
+    request.fontIndexes = sanitizeIndexes(request.fontIndexes, 0, '字体编号无效')
+    request.fontInstances = sanitizeFontInstances(request.fontInstances)
   }
   request.inputMetadata = sanitizeInputMetadata(
     request.inputMetadata,
@@ -132,7 +166,10 @@ function sanitizeOutputSuffix(value: unknown): string {
 function sanitizeOutputNameTemplate(value: unknown): string {
   if (typeof value !== 'string') throw new Error('文件名规则无效')
   const template = value.trim()
-  const literals = template.replace(/\{(?:name|suffix|preset|width|height|date)\}/gu, '')
+  const literals = template.replace(
+    /\{(?:name|suffix|preset|width|height|page|index|instance|date)\}/gu,
+    ''
+  )
   const invalidLiteral = [...literals].some(
     (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*{}'.includes(character)
   )
@@ -161,7 +198,14 @@ function sanitizeInputMetadata(
   const paths = new Set<string>()
   return value.map((item) => {
     if (!item || typeof item !== 'object') throw new Error('媒体尺寸信息无效')
-    const metadata = item as { path?: unknown; width?: unknown; height?: unknown }
+    const metadata = item as {
+      path?: unknown
+      width?: unknown
+      height?: unknown
+      pageCount?: unknown
+      fontCount?: unknown
+      fontInstances?: unknown
+    }
     if (
       typeof metadata.path !== 'string' ||
       !sourcePaths.has(metadata.path) ||
@@ -179,12 +223,60 @@ function sanitizeInputMetadata(
         throw new Error('媒体尺寸信息无效')
       }
     }
+    for (const count of [metadata.pageCount, metadata.fontCount]) {
+      if (
+        count !== undefined &&
+        (!Number.isInteger(count) || (count as number) < 1 || (count as number) > 100_000)
+      ) {
+        throw new Error('媒体数量信息无效')
+      }
+    }
     paths.add(metadata.path)
     return {
       path: metadata.path,
       width: metadata.width as number | undefined,
-      height: metadata.height as number | undefined
+      height: metadata.height as number | undefined,
+      pageCount: metadata.pageCount as number | undefined,
+      fontCount: metadata.fontCount as number | undefined,
+      fontInstances: sanitizeFontInstances(metadata.fontInstances)
     }
+  })
+}
+
+function sanitizeIndexes(value: unknown, minimum: number, message: string): number[] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.length === 0 || value.length > 100_000) {
+    throw new Error(message)
+  }
+  const indexes = value.map((item) => {
+    if (!Number.isInteger(item) || (item as number) < minimum || (item as number) > 100_000) {
+      throw new Error(message)
+    }
+    return item as number
+  })
+  return [...new Set(indexes)].sort((left, right) => left - right)
+}
+
+function sanitizeFontInstances(value: unknown): FontInstance[] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.length === 0 || value.length > 100) {
+    throw new Error('字体实例信息无效')
+  }
+  return value.map((item) => {
+    if (!isRecord(item) || typeof item.name !== 'string' || !item.name.trim()) {
+      throw new Error('字体实例信息无效')
+    }
+    if (!isRecord(item.axes) || Object.keys(item.axes).length > 32) {
+      throw new Error('字体轴信息无效')
+    }
+    const axes: Record<string, number> = {}
+    for (const [tag, axis] of Object.entries(item.axes)) {
+      if (!/^[A-Za-z0-9]{4}$/u.test(tag) || typeof axis !== 'number' || !Number.isFinite(axis)) {
+        throw new Error('字体轴信息无效')
+      }
+      axes[tag] = axis
+    }
+    return { name: item.name.trim().slice(0, 100), axes }
   })
 }
 
@@ -260,6 +352,53 @@ function validateAudioOptions(options: AudioOptions, message: string): void {
     typeof options.normalizeLoudness !== 'boolean'
   ) {
     throw new Error(message)
+  }
+}
+
+function validatePdfOptions(options: PdfOptions, message: string): void {
+  if (
+    !options ||
+    !PDF_OPERATIONS.has(options.operation) ||
+    !PDF_IMAGE_FORMATS.has(options.imageFormat) ||
+    !Number.isInteger(options.dpi) ||
+    options.dpi < 36 ||
+    options.dpi > 600 ||
+    !Number.isInteger(options.imageQuality) ||
+    options.imageQuality < 1 ||
+    options.imageQuality > 100
+  ) {
+    throw new Error(message)
+  }
+}
+
+function validateFontOptions(
+  options: FontOptions,
+  message: string,
+  requireSubsetInput = true
+): void {
+  if (
+    !options ||
+    !FONT_OPERATIONS.has(options.operation) ||
+    !FONT_FORMATS.has(options.outputFormat) ||
+    !FONT_INSTANCE_MODES.has(options.variableInstanceMode) ||
+    (options.subsetText !== undefined &&
+      (typeof options.subsetText !== 'string' || options.subsetText.length > 1_000_000)) ||
+    (options.subsetTextFile !== undefined && typeof options.subsetTextFile !== 'string')
+  ) {
+    throw new Error(message)
+  }
+  if (options.operation !== 'subset' || !requireSubsetInput) return
+  const textFile = options.subsetTextFile?.trim()
+  const text = options.subsetText?.trim()
+  if (!textFile && !text) throw new Error('字体子集化需要输入文本或文本文件')
+  if (textFile) {
+    if (!isAbsolute(textFile) || !existsSync(textFile) || !statSync(textFile).isFile()) {
+      throw new Error('字体子集文本文件无效')
+    }
+    if (!TEXT_EXTENSIONS.has(extname(textFile).toLowerCase())) {
+      throw new Error('字体子集文本文件必须是 TXT')
+    }
+    if (statSync(textFile).size > 10 * 1024 * 1024) throw new Error('字体子集文本文件过大')
   }
 }
 
@@ -355,6 +494,26 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
     result.audio = audio
   }
 
+  if (input.pdf !== undefined) {
+    if (!isRecord(input.pdf)) throw new Error('PDF 设置参数无效')
+    const pdf: NonNullable<AppSettingsPatch['pdf']> = {}
+    if (input.pdf.lastOptions !== undefined) {
+      validatePdfOptions(input.pdf.lastOptions as PdfOptions, 'PDF 参数无效')
+      pdf.lastOptions = structuredClone(input.pdf.lastOptions) as PdfOptions
+    }
+    result.pdf = pdf
+  }
+
+  if (input.font !== undefined) {
+    if (!isRecord(input.font)) throw new Error('字体设置参数无效')
+    const font: NonNullable<AppSettingsPatch['font']> = {}
+    if (input.font.lastOptions !== undefined) {
+      validateFontOptions(input.font.lastOptions as FontOptions, '字体参数无效', false)
+      font.lastOptions = structuredClone(input.font.lastOptions) as FontOptions
+    }
+    result.font = font
+  }
+
   return result
 }
 
@@ -380,7 +539,9 @@ export function registerIpc(
 
   handle(IPC_CHANNELS.selectFiles, async (event, kind: TaskKind) => {
     assertTrusted(event, window())
-    if (!['video', 'image', 'audio'].includes(kind)) throw new Error('文件类型无效')
+    if (!['video', 'image', 'audio', 'pdf', 'font'].includes(kind)) {
+      throw new Error('文件类型无效')
+    }
     const result = await dialog.showOpenDialog(window(), {
       properties: ['openFile', 'multiSelections'],
       filters:
@@ -395,9 +556,37 @@ export function registerIpc(
                   )
                 }
               ]
-            : [{ name: '图片文件', extensions: [...IMAGE_EXTENSIONS].map((item) => item.slice(1)) }]
+            : kind === 'image'
+              ? [
+                  {
+                    name: '图片文件',
+                    extensions: [...IMAGE_EXTENSIONS].map((item) => item.slice(1))
+                  }
+                ]
+              : kind === 'pdf'
+                ? [
+                    {
+                      name: 'PDF 文件',
+                      extensions: [...PDF_EXTENSIONS].map((item) => item.slice(1))
+                    }
+                  ]
+                : [
+                    {
+                      name: '字体文件',
+                      extensions: [...FONT_EXTENSIONS].map((item) => item.slice(1))
+                    }
+                  ]
     })
     return result.canceled ? [] : result.filePaths
+  })
+
+  handle(IPC_CHANNELS.selectTextFile, async (event) => {
+    assertTrusted(event, window())
+    const result = await dialog.showOpenDialog(window(), {
+      properties: ['openFile'],
+      filters: [{ name: '文本文件', extensions: [...TEXT_EXTENSIONS].map((item) => item.slice(1)) }]
+    })
+    return result.canceled ? null : (result.filePaths[0] ?? null)
   })
 
   handle(IPC_CHANNELS.selectOutputDirectory, async (event, current?: string) => {

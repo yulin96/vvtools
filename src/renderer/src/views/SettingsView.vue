@@ -12,7 +12,7 @@ import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 const store = useAppStore()
 const concurrencyModeOptions = [
   { value: 'auto', label: '自动调度', title: '根据任务类型和处理器核心数分配并发' },
-  { value: 'custom', label: '自定义', title: '分别设置图片、视频和音频并发数' }
+  { value: 'custom', label: '自定义', title: '分别设置图片、视频、音频、PDF 和字体并发数' }
 ]
 const closeBehaviorOptions = [
   { value: 'ask', label: '每次询问', title: '关闭时询问继续后台处理还是取消任务' },
@@ -22,13 +22,17 @@ const closeBehaviorOptions = [
 const concurrencyOptions: Record<TaskKind, number> = {
   image: 8,
   video: 2,
-  audio: 4
+  audio: 4,
+  pdf: 2,
+  font: 1
 }
-const concurrencyKinds = ['image', 'video', 'audio'] as const
+const concurrencyKinds = ['image', 'video', 'audio', 'pdf', 'font'] as const
 const concurrencyLabels: Record<TaskKind, string> = {
   image: '同时处理的图片数',
   video: '同时处理的视频数',
-  audio: '同时处理的音频数'
+  audio: '同时处理的音频数',
+  pdf: '同时处理的 PDF 数',
+  font: '同时处理的字体数'
 }
 
 function capabilityLabel(name: string): string {
@@ -37,7 +41,10 @@ function capabilityLabel(name: string): string {
       ffmpeg: 'FFmpeg',
       ffprobe: 'FFprobe',
       sharp: 'sharp',
-      hardwareVideo: '硬件视频编码'
+      hardwareVideo: '硬件视频编码',
+      pdfium: 'PDFium',
+      qpdf: 'qpdf',
+      fonttools: 'FontTools'
     }[name] ?? name
   )
 }
@@ -81,7 +88,10 @@ function updateOutputNameTemplate(event: Event): void {
   if (!store.settings) return
   const target = event.target as HTMLInputElement
   const template = target.value.trim()
-  const literals = template.replace(/\{(?:name|suffix|preset|width|height|date)\}/gu, '')
+  const literals = template.replace(
+    /\{(?:name|suffix|preset|width|height|page|index|instance|date)\}/gu,
+    ''
+  )
   const invalidLiteral = [...literals].some(
     (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*{}'.includes(character)
   )
@@ -114,7 +124,7 @@ function updateCompletionAction(event: Event): void {
     <template v-if="store.settings">
       <div class="settings-group-heading">
         <span>通用</span>
-        <p>这里的修改会同时影响图片、视频和音频任务。</p>
+        <p>这里的修改会同时影响图片、视频、音频、PDF 和字体任务。</p>
       </div>
 
       <section class="settings-card settings-card-stack">
@@ -138,7 +148,7 @@ function updateCompletionAction(event: Event): void {
               v-if="store.settings.common.concurrency.mode === 'auto'"
               class="settings-inline-note"
             >
-              图片会按 CPU 核心数自动分配，最高 8 个；视频固定 1 个；音频最高 2 个。
+              图片会按 CPU 核心数自动分配，最高 8 个；视频、PDF 和字体各使用 1 个；音频最高 2 个。
             </p>
           </div>
           <div
@@ -190,7 +200,8 @@ function updateCompletionAction(event: Event): void {
               @change="updateOutputNameTemplate"
             />
             <span class="text-[11px] text-muted-foreground">
-              可用：{name} {suffix} {preset} {width} {height} {date}。模板必须包含 {name}。
+              可用：{name} {suffix} {preset} {width} {height} {page} {index} {instance}
+              {date}。模板必须包含 {name}。
             </span>
           </label>
         </div>
@@ -300,7 +311,7 @@ function updateCompletionAction(event: Event): void {
             </Badge>
           </div>
           <p v-if="!store.capabilities" class="text-sm text-muted-foreground">
-            正在检测 FFmpeg、FFprobe 和 sharp…
+            正在检测 FFmpeg、FFprobe、PDFium、qpdf、FontTools 和 sharp…
           </p>
         </div>
         <Button variant="secondary" size="sm" @click="store.refreshCapabilities">

@@ -2,8 +2,10 @@ import { existsSync } from 'fs'
 import { extname, join, parse } from 'path'
 import type {
   AudioFormat,
+  FontFormat,
   ImageFormat,
   OutputConflictPolicy,
+  PdfImageFormat,
   TaskKind,
   VideoFormat
 } from '../../shared/types'
@@ -15,12 +17,21 @@ const IMAGE_EXTENSIONS: Record<Exclude<ImageFormat, 'original'>, string> = {
   avif: '.avif'
 }
 
+const FONT_EXTENSIONS: Record<FontFormat, string> = {
+  ttf: '.ttf',
+  otf: '.otf',
+  woff: '.woff',
+  woff2: '.woff2'
+}
+
 export function getOutputExtension(
   kind: TaskKind,
   sourcePath: string,
   imageFormat?: ImageFormat,
   videoFormat?: VideoFormat,
-  audioFormat?: AudioFormat
+  audioFormat?: AudioFormat,
+  pdfImageFormat?: PdfImageFormat,
+  fontFormat?: FontFormat
 ): string {
   if (kind === 'video') {
     if (!videoFormat) return '.mp4'
@@ -28,6 +39,11 @@ export function getOutputExtension(
     return `.${videoFormat}`
   }
   if (kind === 'audio') return `.${audioFormat ?? 'mp3'}`
+  if (kind === 'pdf') {
+    if (!pdfImageFormat) return '.pdf'
+    return pdfImageFormat === 'jpeg' ? '.jpg' : `.${pdfImageFormat}`
+  }
+  if (kind === 'font') return FONT_EXTENSIONS[fontFormat ?? 'ttf']
   if (imageFormat && imageFormat !== 'original') return IMAGE_EXTENSIONS[imageFormat]
   const extension = extname(sourcePath).toLowerCase()
   return extension === '.jpeg' ? '.jpg' : extension
@@ -60,6 +76,9 @@ interface ResolveOutputPathOptions {
   presetName?: string
   width?: number
   height?: number
+  page?: number
+  index?: number
+  instance?: string
   date?: Date
 }
 
@@ -111,7 +130,7 @@ export function renderOutputBaseName(
   template: string,
   context: Pick<
     ResolveOutputPathOptions,
-    'outputSuffix' | 'presetName' | 'width' | 'height' | 'date'
+    'outputSuffix' | 'presetName' | 'width' | 'height' | 'page' | 'index' | 'instance' | 'date'
   > = {}
 ): string {
   const date = context.date ?? new Date()
@@ -121,6 +140,9 @@ export function renderOutputBaseName(
     preset: context.presetName ?? '自定义',
     width: context.width ? String(context.width) : '未知',
     height: context.height ? String(context.height) : '未知',
+    page: context.page ? String(context.page).padStart(3, '0') : '未知',
+    index: context.index ? String(context.index) : '未知',
+    instance: context.instance ?? '默认',
     date: [
       date.getFullYear(),
       String(date.getMonth() + 1).padStart(2, '0'),
@@ -128,7 +150,7 @@ export function renderOutputBaseName(
     ].join('')
   }
   const rendered = template.replace(
-    /\{(name|suffix|preset|width|height|date)\}/gu,
+    /\{(name|suffix|preset|width|height|page|index|instance|date)\}/gu,
     (_, token: string) => values[token]
   )
   const safe = rendered

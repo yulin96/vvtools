@@ -1,6 +1,6 @@
 # VVTools
 
-VVTools 是一款面向公开用户的跨平台桌面媒体批处理工具，支持视频批量压缩、图片批量压缩、音频转换与提取、任务队列、取消与重试、失败日志和输出目录管理。
+VVTools 是一款面向公开用户的跨平台桌面媒体批处理工具，支持视频、图片、音频、PDF 和字体处理，以及任务队列、取消与重试、失败日志和输出目录管理。
 
 项目代码公开托管于 [GitHub](https://github.com/yulin96/vvtools)，可从
 [Releases](https://github.com/yulin96/vvtools/releases) 下载已发布版本。
@@ -11,6 +11,8 @@ VVTools 是一款面向公开用户的跨平台桌面媒体批处理工具，支
 - Tailwind CSS v4 + shadcn-vue 风格组件 + Lucide 图标
 - FFmpeg / FFprobe（视频）
 - sharp（图片）
+- PDFium / qpdf（PDF）
+- FontTools / fontkit（字体）
 
 ## 开发
 

@@ -3,10 +3,14 @@ import { mkdirSync, rmSync, statSync } from 'fs'
 import { dirname, join } from 'path'
 import { EventEmitter } from 'events'
 import type {
-  CreateTasksRequest,
   AudioOptions,
+  CreateTasksRequest,
+  FontInstance,
+  FontOptions,
   ImageOptions,
+  MediaInputMetadata,
   MediaTask,
+  PdfOptions,
   TaskConcurrencyLimits,
   TaskFailure,
   VideoOptions
@@ -21,6 +25,12 @@ export type TaskRunner = (
   signal: AbortSignal,
   onProgress: (progress: number) => void
 ) => Promise<number>
+
+interface TaskUnit {
+  pageNumber?: number
+  fontIndex?: number
+  fontInstance?: FontInstance
+}
 
 export class TaskQueue extends EventEmitter {
   private readonly tasks = new Map<string, MediaTask>()
@@ -48,6 +58,7 @@ export class TaskQueue extends EventEmitter {
     const metadata = new Map(request.inputMetadata?.map((item) => [item.path, item]))
     const created = sources.flatMap((source) => {
       const sourcePath = source.path
+      const sourceMetadata = metadata.get(sourcePath)
       const outputDirectory =
         request.outputMode === 'source'
           ? dirname(sourcePath)
@@ -56,47 +67,70 @@ export class TaskQueue extends EventEmitter {
               source.relativeDirectory
             ? join(request.outputDirectory, source.relativeDirectory)
             : request.outputDirectory
-      mkdirSync(outputDirectory, { recursive: true })
-      const extension = getOutputExtension(
-        request.kind,
-        sourcePath,
-        request.kind === 'image' ? request.options.format : undefined,
-        request.kind === 'video' ? request.options.format : undefined,
-        request.kind === 'audio' ? request.options.format : undefined
-      )
-      const dimensions = metadata.get(sourcePath)
-      const output = resolveOutputPath({
-        sourcePath,
-        outputDirectory,
-        extension,
-        reservedPaths: this.reservedPaths,
-        outputSuffix: request.outputSuffix,
-        nameTemplate: request.outputNameTemplate,
-        conflictPolicy: request.outputConflictPolicy,
-        presetName: request.presetName,
-        width: dimensions?.width,
-        height: dimensions?.height
+      const units = expandTaskUnits(request, sourceMetadata)
+      const sourceTaskIds: string[] = []
+      const sourceReservedPaths: string[] = []
+      let skippedSource = false
+      const sourceCreated = units.flatMap((unit) => {
+        mkdirSync(outputDirectory, { recursive: true })
+        const extension = getOutputExtension(
+          request.kind,
+          sourcePath,
+          request.kind === 'image' ? request.options.format : undefined,
+          request.kind === 'video' ? request.options.format : undefined,
+          request.kind === 'audio' ? request.options.format : undefined,
+          request.kind === 'pdf' && request.options.operation === 'toImage'
+            ? request.options.imageFormat
+            : undefined,
+          request.kind === 'font' ? request.options.outputFormat : undefined
+        )
+        const output = resolveOutputPath({
+          sourcePath,
+          outputDirectory,
+          extension,
+          reservedPaths: this.reservedPaths,
+          outputSuffix: request.outputSuffix,
+          nameTemplate: request.outputNameTemplate,
+          conflictPolicy: request.outputConflictPolicy,
+          presetName: request.presetName,
+          width: sourceMetadata?.width,
+          height: sourceMetadata?.height,
+          page: unit.pageNumber,
+          index: unit.fontIndex === undefined ? undefined : unit.fontIndex + 1,
+          instance: unit.fontInstance?.name
+        })
+        if (output.skipped) {
+          skippedSource = true
+          for (const taskId of sourceTaskIds) this.tasks.delete(taskId)
+          for (const path of sourceReservedPaths) this.reservedPaths.delete(path)
+          return []
+        }
+        const task: MediaTask = {
+          id: randomUUID(),
+          kind: request.kind,
+          sourcePath,
+          outputPath: output.path,
+          status: 'pending',
+          progress: 0,
+          options: structuredClone(request.options),
+          outputSuffix: request.outputSuffix,
+          outputNameTemplate: request.outputNameTemplate,
+          outputConflictPolicy: request.outputConflictPolicy,
+          presetName: request.presetName,
+          sourceWidth: sourceMetadata?.width,
+          sourceHeight: sourceMetadata?.height,
+          pageNumber: unit.pageNumber,
+          fontIndex: unit.fontIndex,
+          fontInstance: unit.fontInstance ? structuredClone(unit.fontInstance) : undefined,
+          sourceSize: statSync(sourcePath).size,
+          createdAt: new Date().toISOString()
+        }
+        this.tasks.set(task.id, task)
+        sourceTaskIds.push(task.id)
+        sourceReservedPaths.push(output.path)
+        return [structuredClone(task)]
       })
-      if (output.skipped) return []
-      const task: MediaTask = {
-        id: randomUUID(),
-        kind: request.kind,
-        sourcePath,
-        outputPath: output.path,
-        status: 'pending',
-        progress: 0,
-        options: structuredClone(request.options),
-        outputSuffix: request.outputSuffix,
-        outputNameTemplate: request.outputNameTemplate,
-        outputConflictPolicy: request.outputConflictPolicy,
-        presetName: request.presetName,
-        sourceWidth: dimensions?.width,
-        sourceHeight: dimensions?.height,
-        sourceSize: statSync(sourcePath).size,
-        createdAt: new Date().toISOString()
-      }
-      this.tasks.set(task.id, task)
-      return [structuredClone(task)]
+      return skippedSource ? [] : sourceCreated
     })
     this.changed()
     this.dispatch()
@@ -160,17 +194,60 @@ export class TaskQueue extends EventEmitter {
               ],
               options: structuredClone(original.options) as ImageOptions
             }
-          : {
-              kind: 'audio',
-              sourcePaths: [original.sourcePath],
-              outputMode: 'custom',
-              outputDirectory: dirname(original.outputPath),
-              outputSuffix: original.outputSuffix ?? '',
-              outputNameTemplate: original.outputNameTemplate,
-              outputConflictPolicy: original.outputConflictPolicy,
-              presetName: original.presetName,
-              options: structuredClone(original.options) as AudioOptions
-            }
+          : original.kind === 'audio'
+            ? {
+                kind: 'audio',
+                sourcePaths: [original.sourcePath],
+                outputMode: 'custom',
+                outputDirectory: dirname(original.outputPath),
+                outputSuffix: original.outputSuffix ?? '',
+                outputNameTemplate: original.outputNameTemplate,
+                outputConflictPolicy: original.outputConflictPolicy,
+                presetName: original.presetName,
+                options: structuredClone(original.options) as AudioOptions
+              }
+            : original.kind === 'pdf'
+              ? {
+                  kind: 'pdf',
+                  sourcePaths: [original.sourcePath],
+                  outputMode: 'custom',
+                  outputDirectory: dirname(original.outputPath),
+                  outputSuffix: original.outputSuffix ?? '',
+                  outputNameTemplate: original.outputNameTemplate,
+                  outputConflictPolicy: original.outputConflictPolicy,
+                  presetName: original.presetName,
+                  inputMetadata: [
+                    {
+                      path: original.sourcePath,
+                      width: original.sourceWidth,
+                      height: original.sourceHeight,
+                      pageCount: original.pageNumber ?? 1
+                    }
+                  ],
+                  pageNumbers:
+                    original.pageNumber === undefined ? undefined : [original.pageNumber],
+                  options: structuredClone(original.options) as PdfOptions
+                }
+              : {
+                  kind: 'font',
+                  sourcePaths: [original.sourcePath],
+                  outputMode: 'custom',
+                  outputDirectory: dirname(original.outputPath),
+                  outputSuffix: original.outputSuffix ?? '',
+                  outputNameTemplate: original.outputNameTemplate,
+                  outputConflictPolicy: original.outputConflictPolicy,
+                  presetName: original.presetName,
+                  inputMetadata: [
+                    {
+                      path: original.sourcePath,
+                      fontCount: original.fontIndex === undefined ? 1 : original.fontIndex + 1,
+                      fontInstances: original.fontInstance ? [original.fontInstance] : undefined
+                    }
+                  ],
+                  fontIndexes: original.fontIndex === undefined ? undefined : [original.fontIndex],
+                  fontInstances: original.fontInstance ? [original.fontInstance] : undefined,
+                  options: structuredClone(original.options) as FontOptions
+                }
     const task = this.create(request)[0]
     if (!task) return null
     const stored = this.tasks.get(task.id)
@@ -267,4 +344,35 @@ export class TaskQueue extends EventEmitter {
       this.reservedPaths.delete(task.outputPath)
     }
   }
+}
+
+function expandTaskUnits(
+  request: CreateTasksRequest,
+  metadata: MediaInputMetadata | undefined
+): TaskUnit[] {
+  if (request.kind === 'pdf') {
+    if (request.options.operation !== 'toImage') return [{}]
+    const pages =
+      request.pageNumbers ?? (metadata?.pageCount ? range(1, metadata.pageCount) : undefined)
+    if (!pages || pages.length === 0) throw new Error('无法确定 PDF 页面数量，请重新检查文件')
+    return pages.map((pageNumber) => ({ pageNumber }))
+  }
+  if (request.kind !== 'font') return [{}]
+  if (request.options.operation === 'splitCollection') {
+    const indexes =
+      request.fontIndexes ?? (metadata?.fontCount ? range(0, metadata.fontCount - 1) : undefined)
+    if (!indexes || indexes.length === 0) throw new Error('无法确定字体集合数量，请重新检查文件')
+    return indexes.map((fontIndex) => ({ fontIndex }))
+  }
+  if (request.options.operation === 'variableStatic') {
+    const instances = request.fontInstances ?? metadata?.fontInstances
+    if (!instances || instances.length === 0)
+      throw new Error('无法确定可变字体实例，请重新检查文件')
+    return instances.map((fontInstance) => ({ fontInstance }))
+  }
+  return [{}]
+}
+
+function range(start: number, end: number): number[] {
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => start + index)
 }

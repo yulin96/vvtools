@@ -5,7 +5,9 @@ import icon from '../../resources/icon.png?asset'
 import type { MediaTask } from '../shared/types'
 import { registerIpc } from './ipc'
 import { processAudio } from './media/audio-processor'
+import { processFont } from './media/font-processor'
 import { processImage } from './media/image-processor'
+import { processPdf } from './media/pdf-processor'
 import { processVideo } from './media/video-processor'
 import { batchSummaryText, summarizeBatch } from './services/completion'
 import { FailureLogService } from './services/failure-log'
@@ -256,7 +258,11 @@ app.whenReady().then(() => {
         ? processVideo(task, signal, onProgress, failureLogs)
         : task.kind === 'audio'
           ? processAudio(task, signal, onProgress, failureLogs)
-          : processImage(task, signal, onProgress),
+          : task.kind === 'pdf'
+            ? processPdf(task, signal, onProgress)
+            : task.kind === 'font'
+              ? processFont(task, signal, onProgress)
+              : processImage(task, signal, onProgress),
     failureLogs
   )
   queue.on('changed', handleQueueChanged)

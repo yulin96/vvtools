@@ -1,4 +1,4 @@
-export type TaskKind = 'video' | 'image' | 'audio'
+export type TaskKind = 'video' | 'image' | 'audio' | 'pdf' | 'font'
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
 export type VideoQuality = 'high' | 'balanced' | 'small'
@@ -19,12 +19,19 @@ export type OutputConflictPolicy = 'rename' | 'overwrite' | 'skip'
 export type CompletionAction = 'none' | 'openOutput'
 export type AudioFormat = 'mp3' | 'm4a' | 'wav' | 'flac'
 export type AudioChannels = 'source' | 'mono' | 'stereo'
+export type PdfOperation = 'compress' | 'toImage'
+export type PdfImageFormat = 'png' | 'jpeg' | 'webp'
+export type FontOperation = 'convert' | 'splitCollection' | 'variableStatic' | 'subset'
+export type FontFormat = 'ttf' | 'otf' | 'woff' | 'woff2'
+export type FontVariableInstanceMode = 'named' | 'default'
 export type ConcurrencyMode = 'auto' | 'custom'
 
 export interface TaskConcurrencyLimits {
   image: number
   video: number
   audio: number
+  pdf: number
+  font: number
 }
 
 export interface ConcurrencySettings {
@@ -92,6 +99,26 @@ export interface AudioOptions {
   normalizeLoudness: boolean
 }
 
+export interface PdfOptions {
+  operation: PdfOperation
+  imageFormat: PdfImageFormat
+  dpi: number
+  imageQuality: number
+}
+
+export interface FontInstance {
+  name: string
+  axes: Record<string, number>
+}
+
+export interface FontOptions {
+  operation: FontOperation
+  outputFormat: FontFormat
+  variableInstanceMode: FontVariableInstanceMode
+  subsetText?: string
+  subsetTextFile?: string
+}
+
 export interface ImageInputFile {
   path: string
   relativeDirectory: string
@@ -122,11 +149,21 @@ export interface AudioSettings {
   lastOptions: AudioOptions
 }
 
+export interface PdfSettings {
+  lastOptions: PdfOptions
+}
+
+export interface FontSettings {
+  lastOptions: FontOptions
+}
+
 export interface AppSettings {
   common: CommonSettings
   image: ImageSettings
   video: VideoSettings
   audio: AudioSettings
+  pdf: PdfSettings
+  font: FontSettings
 }
 
 export interface AppSettingsPatch {
@@ -139,6 +176,12 @@ export interface AppSettingsPatch {
   }
   audio?: {
     lastOptions?: AudioOptions
+  }
+  pdf?: {
+    lastOptions?: PdfOptions
+  }
+  font?: {
+    lastOptions?: FontOptions
   }
 }
 
@@ -163,7 +206,7 @@ export interface MediaTask {
   outputPath: string
   status: TaskStatus
   progress: number | null
-  options: VideoOptions | ImageOptions | AudioOptions
+  options: VideoOptions | ImageOptions | AudioOptions | PdfOptions | FontOptions
   sourceSize: number
   outputSize?: number
   createdAt: string
@@ -176,12 +219,16 @@ export interface MediaTask {
   presetName?: string
   sourceWidth?: number
   sourceHeight?: number
+  pageNumber?: number
+  fontIndex?: number
+  fontInstance?: FontInstance
   failure?: TaskFailure
 }
 
 export interface MediaInspection {
   sourcePath: string
   outputPath: string
+  outputPaths?: string[]
   valid: boolean
   skipped?: boolean
   sourceSize: number
@@ -195,6 +242,9 @@ export interface MediaInspection {
   audioCodec?: string
   channels?: number
   sampleRate?: number
+  pageCount?: number
+  fontCount?: number
+  fontInstances?: FontInstance[]
   error?: string
 }
 
@@ -202,6 +252,9 @@ export interface MediaInputMetadata {
   path: string
   width?: number
   height?: number
+  pageCount?: number
+  fontCount?: number
+  fontInstances?: FontInstance[]
 }
 
 export type CreateTasksRequest =
@@ -241,12 +294,42 @@ export type CreateTasksRequest =
       inputMetadata?: MediaInputMetadata[]
       options: AudioOptions
     }
+  | {
+      kind: 'pdf'
+      sourcePaths: string[]
+      outputMode: OutputMode
+      outputDirectory: string
+      outputSuffix: string
+      outputNameTemplate?: string
+      outputConflictPolicy?: OutputConflictPolicy
+      presetName?: string
+      inputMetadata?: MediaInputMetadata[]
+      pageNumbers?: number[]
+      options: PdfOptions
+    }
+  | {
+      kind: 'font'
+      sourcePaths: string[]
+      outputMode: OutputMode
+      outputDirectory: string
+      outputSuffix: string
+      outputNameTemplate?: string
+      outputConflictPolicy?: OutputConflictPolicy
+      presetName?: string
+      inputMetadata?: MediaInputMetadata[]
+      fontIndexes?: number[]
+      fontInstances?: FontInstance[]
+      options: FontOptions
+    }
 
 export interface RuntimeCapabilities {
   ffmpeg: { available: boolean; version?: string; error?: string }
   ffprobe: { available: boolean; version?: string; error?: string }
   sharp: { available: boolean; version?: string; error?: string }
   hardwareVideo: { available: boolean; encoders: string[]; version?: string; error?: string }
+  pdfium: { available: boolean; version?: string; error?: string }
+  qpdf: { available: boolean; version?: string; error?: string }
+  fonttools: { available: boolean; version?: string; error?: string }
 }
 
 export type UpdateStatus =
@@ -270,6 +353,7 @@ export interface UpdateState {
 export interface VVToolsApi {
   platform: 'darwin' | 'win32' | 'linux'
   selectFiles: (kind: TaskKind) => Promise<string[]>
+  selectTextFile: () => Promise<string | null>
   getDroppedFilePath: (file: File) => string
   selectOutputDirectory: (current?: string) => Promise<string | null>
   selectImageDirectory: () => Promise<ImageInputFile[]>

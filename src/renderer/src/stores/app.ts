@@ -31,10 +31,14 @@ export const useAppStore = defineStore('app', () => {
   const pendingImageInputs = ref<ImageInputFile[]>([])
   const pendingVideoPaths = ref<string[]>([])
   const pendingAudioPaths = ref<string[]>([])
+  const pendingPdfPaths = ref<string[]>([])
+  const pendingFontPaths = ref<string[]>([])
   const currentBatchTaskIds = ref<Record<TaskKind, string[]>>({
     image: [],
     video: [],
-    audio: []
+    audio: [],
+    pdf: [],
+    font: []
   })
   let unsubscribe: (() => void) | null = null
   let unsubscribeUpdates: (() => void) | null = null
@@ -56,6 +60,14 @@ export const useAppStore = defineStore('app', () => {
         return task ? [task] : []
       }),
       audio: currentBatchTaskIds.value.audio.flatMap((id) => {
+        const task = tasksById.get(id)
+        return task ? [task] : []
+      }),
+      pdf: currentBatchTaskIds.value.pdf.flatMap((id) => {
+        const task = tasksById.get(id)
+        return task ? [task] : []
+      }),
+      font: currentBatchTaskIds.value.font.flatMap((id) => {
         const task = tasksById.get(id)
         return task ? [task] : []
       })
@@ -94,7 +106,7 @@ export const useAppStore = defineStore('app', () => {
   })
 
   function appendCurrentBatchTasks(nextTasks: MediaTask[]): void {
-    for (const kind of ['image', 'video', 'audio'] as const) {
+    for (const kind of ['image', 'video', 'audio', 'pdf', 'font'] as const) {
       const ids = nextTasks.filter((task) => task.kind === kind).map((task) => task.id)
       if (ids.length === 0) continue
       currentBatchTaskIds.value[kind] = [...new Set([...currentBatchTaskIds.value[kind], ...ids])]
@@ -164,7 +176,10 @@ export const useAppStore = defineStore('app', () => {
       const inputMetadata = handled.map((item) => ({
         path: item.sourcePath,
         width: item.outputWidth ?? item.width,
-        height: item.outputHeight ?? item.height
+        height: item.outputHeight ?? item.height,
+        pageCount: item.pageCount,
+        fontCount: item.fontCount,
+        fontInstances: item.fontInstances
       }))
       const submission: CreateTasksRequest =
         inspectedRequest.kind === 'image'
@@ -176,7 +191,7 @@ export const useAppStore = defineStore('app', () => {
           : {
               ...inspectedRequest,
               sourcePaths: inspectedRequest.sourcePaths.filter((path) => handledPathSet.has(path)),
-              inputMetadata: inspectedRequest.kind === 'video' ? inputMetadata : undefined
+              inputMetadata
             }
 
       const createdTasks = await window.api.createTasks(serializable(submission))
@@ -314,6 +329,8 @@ export const useAppStore = defineStore('app', () => {
     pendingImageInputs,
     pendingVideoPaths,
     pendingAudioPaths,
+    pendingPdfPaths,
+    pendingFontPaths,
     currentBatchTasks,
     prepareCurrentBatch,
     activeCount,

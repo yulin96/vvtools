@@ -90,7 +90,9 @@ const batchSavings = computed(() => {
 
   return { sourceSize, outputSize, difference, percentage }
 })
-const kindLabel = computed(() => ({ image: '图片', video: '视频', audio: '音频' })[props.kind])
+const kindLabel = computed(
+  () => ({ image: '图片', video: '视频', audio: '音频', pdf: 'PDF', font: '字体' })[props.kind]
+)
 const summary = computed(() => {
   const parts: string[] = []
   if (props.pendingItems.length) parts.push(`${props.pendingItems.length} 个待开始`)
@@ -104,6 +106,9 @@ function extension(path: string): string {
 }
 
 function taskSpec(task: MediaTask): string {
+  if (task.pageNumber !== undefined) return `第 ${task.pageNumber} 页`
+  if (task.fontIndex !== undefined) return `集合字体 ${task.fontIndex + 1}`
+  if (task.fontInstance) return task.fontInstance.name
   if (task.sourceWidth && task.sourceHeight) return `${task.sourceWidth} × ${task.sourceHeight}`
   return extension(task.sourcePath)
 }

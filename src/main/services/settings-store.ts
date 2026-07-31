@@ -5,12 +5,16 @@ import type {
   AppSettingsPatch,
   AudioOptions,
   CommonSettings,
+  FontOptions,
+  PdfOptions,
   VideoOptions
 } from '../../shared/types'
 import {
   DEFAULT_AUDIO_OPTIONS,
   DEFAULT_CONCURRENCY_SETTINGS,
+  DEFAULT_FONT_OPTIONS,
   DEFAULT_IMAGE_OPTIONS,
+  DEFAULT_PDF_OPTIONS,
   DEFAULT_VIDEO_OPTIONS
 } from '../../shared/constants'
 import { normalizeConcurrencySettings } from './task-concurrency'
@@ -42,6 +46,12 @@ export class SettingsStore {
       },
       audio: {
         lastOptions: { ...DEFAULT_AUDIO_OPTIONS }
+      },
+      pdf: {
+        lastOptions: { ...DEFAULT_PDF_OPTIONS }
+      },
+      font: {
+        lastOptions: { ...DEFAULT_FONT_OPTIONS }
       }
     }
     this.settings = this.read(defaults)
@@ -116,6 +126,16 @@ export class SettingsStore {
         lastOptions: input.audio?.lastOptions
           ? { ...this.settings.audio.lastOptions, ...input.audio.lastOptions }
           : this.settings.audio.lastOptions
+      },
+      pdf: {
+        lastOptions: input.pdf?.lastOptions
+          ? { ...this.settings.pdf.lastOptions, ...input.pdf.lastOptions }
+          : this.settings.pdf.lastOptions
+      },
+      font: {
+        lastOptions: input.font?.lastOptions
+          ? { ...this.settings.font.lastOptions, ...input.font.lastOptions }
+          : this.settings.font.lastOptions
       }
     }
     this.persist()
@@ -150,6 +170,8 @@ function migrateSettings(value: unknown, defaults: AppSettings): AppSettings {
   const image = isNamespacedSettings(value.image) ? value.image : undefined
   const video = isNamespacedSettings(value.video) ? value.video : undefined
   const audio = isNamespacedSettings(value.audio) ? value.audio : undefined
+  const pdf = isNamespacedSettings(value.pdf) ? value.pdf : undefined
+  const font = isNamespacedSettings(value.font) ? value.font : undefined
 
   return {
     common: migrateCommonSettings(common, defaults.common),
@@ -169,6 +191,18 @@ function migrateSettings(value: unknown, defaults: AppSettings): AppSettings {
       lastOptions: {
         ...defaults.audio.lastOptions,
         ...(asRecord(audio?.lastOptions ?? value.audio) as Partial<AudioOptions>)
+      }
+    },
+    pdf: {
+      lastOptions: {
+        ...defaults.pdf.lastOptions,
+        ...(asRecord(pdf?.lastOptions ?? value.pdf) as Partial<PdfOptions>)
+      }
+    },
+    font: {
+      lastOptions: {
+        ...defaults.font.lastOptions,
+        ...(asRecord(font?.lastOptions ?? value.font) as Partial<FontOptions>)
       }
     }
   }

@@ -25,6 +25,12 @@ describe('output paths', () => {
     expect(getOutputExtension('image', '/tmp/a.png', 'webp')).toBe('.webp')
     expect(getOutputExtension('image', '/tmp/a.png', 'avif')).toBe('.avif')
     expect(getOutputExtension('audio', '/tmp/a.wav', undefined, undefined, 'flac')).toBe('.flac')
+    expect(getOutputExtension('pdf', '/tmp/a.pdf', undefined, undefined, undefined, 'webp')).toBe(
+      '.webp'
+    )
+    expect(
+      getOutputExtension('font', '/tmp/a.ttc', undefined, undefined, undefined, undefined, 'woff2')
+    ).toBe('.woff2')
   })
 
   it('never overwrites existing or reserved outputs', () => {
@@ -55,6 +61,13 @@ describe('output paths', () => {
         date: new Date(2026, 6, 25)
       })
     ).toBe('photo_1920x1080_网站_图片_20260725')
+    expect(
+      renderOutputBaseName('/input/document.pdf', '{name}-page-{page}-{index}-{instance}', {
+        page: 2,
+        index: 3,
+        instance: 'Regular/Bold'
+      })
+    ).toBe('document-page-002-3-Regular_Bold')
 
     const directory = mkdtempSync(join(tmpdir(), 'vvtools-output-'))
     directories.push(directory)

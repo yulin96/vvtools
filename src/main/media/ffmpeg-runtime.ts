@@ -163,8 +163,40 @@ export async function inspectSharpRuntime(): Promise<RuntimeCapabilities['sharp'
   }
 }
 
+async function inspectPdfiumRuntime(): Promise<RuntimeCapabilities['pdfium']> {
+  try {
+    const module = await import('@hyzyla/pdfium')
+    if (!module.PDFiumLibrary) throw new Error('PDFium 模块未正确加载')
+    return { available: true, version: 'bundled WASM' }
+  } catch (error) {
+    return { available: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+async function inspectQpdfRuntime(): Promise<RuntimeCapabilities['qpdf']> {
+  try {
+    const module = await import('@neslinesli93/qpdf-wasm')
+    if (!module.default) throw new Error('qpdf 模块未正确加载')
+    return { available: true, version: 'bundled WASM' }
+  } catch (error) {
+    return { available: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+async function inspectFonttoolsRuntime(): Promise<RuntimeCapabilities['fonttools']> {
+  try {
+    const module = await import('@web-alchemy/fonttools')
+    if (!module.subset || !module.instantiateVariableFont) {
+      throw new Error('FontTools 模块未正确加载')
+    }
+    return { available: true, version: 'bundled Pyodide' }
+  } catch (error) {
+    return { available: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
 export async function getRuntimeCapabilities(): Promise<RuntimeCapabilities> {
-  const [ffmpeg, ffprobe, hardwareResult, sharp] = await Promise.all([
+  const [ffmpeg, ffprobe, hardwareResult, sharp, pdfium, qpdf, fonttools] = await Promise.all([
     inspectBinary(getFfmpegPath),
     inspectBinary(getFfprobePath),
     refreshHardwareVideoEncoders()
@@ -173,7 +205,10 @@ export async function getRuntimeCapabilities(): Promise<RuntimeCapabilities> {
         encoders: [],
         error: error instanceof Error ? error.message : String(error)
       })),
-    inspectSharpRuntime()
+    inspectSharpRuntime(),
+    inspectPdfiumRuntime(),
+    inspectQpdfRuntime(),
+    inspectFonttoolsRuntime()
   ])
   const hardwareVideo = {
     available: hardwareResult.encoders.length > 0,
@@ -191,6 +226,9 @@ export async function getRuntimeCapabilities(): Promise<RuntimeCapabilities> {
     ffmpeg,
     ffprobe,
     sharp,
-    hardwareVideo
+    hardwareVideo,
+    pdfium,
+    qpdf,
+    fonttools
   }
 }

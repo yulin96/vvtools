@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   Images,
   Download,
+  FileText,
   Monitor,
   Moon,
   Music,
@@ -10,7 +11,9 @@ import {
   PanelLeftOpen,
   Settings,
   Sun,
-  Video
+  Type,
+  Video,
+  X
 } from '@lucide/vue'
 import { useAppStore } from './stores/app'
 import appIcon from '../../../resources/icon.png'
@@ -49,6 +52,8 @@ const navigation = [
   { to: '/image', label: '图片处理', icon: Images },
   { to: '/video', label: '视频处理', icon: Video },
   { to: '/audio', label: '音频处理', icon: Music },
+  { to: '/pdf', label: 'PDF 处理', icon: FileText },
+  { to: '/font', label: '字体处理', icon: Type },
   { to: '/settings', label: '设置', icon: Settings }
 ]
 

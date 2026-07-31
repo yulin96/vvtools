@@ -3,6 +3,7 @@ import { dirname, join } from 'path'
 import sharp from 'sharp'
 import type {
   CreateTasksRequest,
+  FontInstance,
   ImageOptions,
   MediaInspection,
   VideoOptions
@@ -10,6 +11,8 @@ import type {
 import { getOutputExtension, resolveOutputPath } from './output-path'
 import { getVideoResolutionBounds, probeVideo } from './video-processor'
 import { probeAudio } from './audio-processor'
+import { probeFont } from './font-processor'
+import { probePdf } from './pdf-processor'
 
 interface InspectionSource {
   path: string
@@ -61,6 +64,52 @@ export async function inspectTasks(
           sampleRate: probe.sampleRate
         }
       }
+      if (request.kind === 'pdf') {
+        const probe = await probePdf(source.path, new AbortController().signal)
+        if (request.pageNumbers?.some((page) => page > probe.pageCount)) {
+          throw new Error(`PDF 页面不存在：最多只有 ${probe.pageCount} 页`)
+        }
+        const outputScale = request.options.dpi / 72
+        return {
+          sourcePath: source.path,
+          outputPath: '',
+          valid: true,
+          sourceSize,
+          format: 'pdf',
+          width: probe.width,
+          height: probe.height,
+          outputWidth:
+            request.options.operation === 'toImage'
+              ? Math.max(1, Math.round(probe.width * outputScale))
+              : probe.width,
+          outputHeight:
+            request.options.operation === 'toImage'
+              ? Math.max(1, Math.round(probe.height * outputScale))
+              : probe.height,
+          pageCount: probe.pageCount
+        }
+      }
+      if (request.kind === 'font') {
+        const probe = await probeFont(source.path, request.options, new AbortController().signal)
+        if (request.options.operation === 'variableStatic' && probe.fontInstances.length === 0) {
+          throw new Error('字体文件不包含可变字体轴')
+        }
+        if (
+          request.options.operation === 'splitCollection' &&
+          request.fontIndexes?.some((index) => index >= probe.fontCount)
+        ) {
+          throw new Error(`字体编号不存在：最多只有 ${probe.fontCount} 个字体`)
+        }
+        return {
+          sourcePath: source.path,
+          outputPath: '',
+          valid: true,
+          sourceSize,
+          format: probe.format,
+          fontCount: probe.fontCount,
+          fontInstances: probe.fontInstances
+        }
+      }
 
       const metadata = await sharp(source.path, { failOn: 'error' }).metadata()
       if (!metadata.width || !metadata.height || !metadata.format) {
@@ -96,38 +145,85 @@ export async function inspectTasks(
 
   return inspections.map((inspection, index) => {
     const source = sources[index]
-    const output = resolveOutputPath({
-      sourcePath: source.path,
-      outputDirectory: outputDirectoryFor(request, source),
-      extension: getOutputExtension(
-        request.kind,
-        source.path,
-        request.kind === 'image' ? request.options.format : undefined,
-        request.kind === 'video' ? request.options.format : undefined,
-        request.kind === 'audio' ? request.options.format : undefined
-      ),
-      reservedPaths,
-      outputSuffix: request.outputSuffix,
-      nameTemplate: request.outputNameTemplate,
-      conflictPolicy: request.outputConflictPolicy,
-      presetName: request.presetName,
-      width: inspection.outputWidth ?? inspection.width,
-      height: inspection.outputHeight ?? inspection.height
-    })
-    if (output.skipped && inspection.valid) {
-      return {
-        ...inspection,
-        outputPath: output.path,
-        valid: false,
-        skipped: true,
-        error: '输出文件已存在，当前冲突策略为跳过'
+    if (!inspection.valid) return inspection
+    const outputPaths: string[] = []
+    const claimedPaths: string[] = []
+    const units = inspectionUnits(request, inspection)
+    const extension = getOutputExtension(
+      request.kind,
+      source.path,
+      request.kind === 'image' ? request.options.format : undefined,
+      request.kind === 'video' ? request.options.format : undefined,
+      request.kind === 'audio' ? request.options.format : undefined,
+      request.kind === 'pdf' && request.options.operation === 'toImage'
+        ? request.options.imageFormat
+        : undefined,
+      request.kind === 'font' ? request.options.outputFormat : undefined
+    )
+    for (const unit of units) {
+      const output = resolveOutputPath({
+        sourcePath: source.path,
+        outputDirectory: outputDirectoryFor(request, source),
+        extension,
+        reservedPaths,
+        outputSuffix: request.outputSuffix,
+        nameTemplate: request.outputNameTemplate,
+        conflictPolicy: request.outputConflictPolicy,
+        presetName: request.presetName,
+        width: inspection.outputWidth ?? inspection.width,
+        height: inspection.outputHeight ?? inspection.height,
+        page: unit.pageNumber,
+        index: unit.fontIndex === undefined ? undefined : unit.fontIndex + 1,
+        instance: unit.fontInstance?.name
+      })
+      outputPaths.push(output.path)
+      if (!output.skipped) claimedPaths.push(output.path)
+      if (output.skipped) {
+        for (const path of claimedPaths) reservedPaths.delete(path)
+        return {
+          ...inspection,
+          outputPath: output.path,
+          outputPaths,
+          valid: false,
+          skipped: true,
+          error: '输出文件已存在，当前冲突策略为跳过'
+        }
       }
     }
     return {
       ...inspection,
-      outputPath: output.path
+      outputPath: outputPaths[0] ?? '',
+      outputPaths
     }
   })
+}
+
+interface TaskUnit {
+  pageNumber?: number
+  fontIndex?: number
+  fontInstance?: FontInstance
+}
+
+function inspectionUnits(request: CreateTasksRequest, inspection: MediaInspection): TaskUnit[] {
+  if (request.kind === 'pdf') {
+    if (request.options.operation !== 'toImage') return [{}]
+    const pages = request.pageNumbers ?? range(1, inspection.pageCount ?? 0)
+    return pages.map((pageNumber) => ({ pageNumber }))
+  }
+  if (request.kind !== 'font') return [{}]
+  if (request.options.operation === 'splitCollection') {
+    const indexes = request.fontIndexes ?? range(0, (inspection.fontCount ?? 0) - 1)
+    return indexes.map((fontIndex) => ({ fontIndex }))
+  }
+  if (request.options.operation === 'variableStatic') {
+    const instances = request.fontInstances ?? inspection.fontInstances ?? []
+    return instances.map((fontInstance) => ({ fontInstance }))
+  }
+  return [{}]
+}
+
+function range(start: number, end: number): number[] {
+  return Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => start + index)
 }
 
 function expectedImageDimensions(

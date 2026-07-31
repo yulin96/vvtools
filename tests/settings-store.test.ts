@@ -195,7 +195,7 @@ describe('SettingsStore', () => {
     const settings = new SettingsStore(root, join(root, 'downloads')).get()
     expect(settings.common.concurrency).toEqual({
       mode: 'custom',
-      custom: { image: 3, video: 2, audio: 3 }
+      custom: { image: 3, video: 2, audio: 3, pdf: 2, font: 1 }
     })
     expect(settings.image).not.toHaveProperty('presets')
   })
@@ -204,12 +204,16 @@ describe('SettingsStore', () => {
     expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 10)).toEqual({
       image: 8,
       video: 1,
-      audio: 2
+      audio: 2,
+      pdf: 1,
+      font: 1
     })
     expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 2)).toEqual({
       image: 2,
       video: 1,
-      audio: 1
+      audio: 1,
+      pdf: 1,
+      font: 1
     })
   })
 })

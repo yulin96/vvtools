@@ -42,7 +42,7 @@ const successfulRunner: TaskRunner = async (task) => {
 }
 
 function concurrency(value: number): TaskConcurrencyLimits {
-  return { image: value, video: value, audio: value }
+  return { image: value, video: value, audio: value, pdf: value, font: value }
 }
 
 afterEach(() => {
@@ -80,7 +80,7 @@ describe('TaskQueue', () => {
 
   it('applies separate concurrency limits to each media type', async () => {
     const paths = fixture()
-    const running = { image: 0, video: 0, audio: 0 }
+    const running = { image: 0, video: 0, audio: 0, pdf: 0, font: 0 }
     const maximum = { ...running }
     const runner: TaskRunner = async (task) => {
       running[task.kind] += 1
@@ -91,7 +91,7 @@ describe('TaskQueue', () => {
       return 12
     }
     const queue = new TaskQueue(
-      { image: 2, video: 1, audio: 1 },
+      { image: 2, video: 1, audio: 1, pdf: 1, font: 1 },
       runner,
       new FailureLogService(paths.userData)
     )
@@ -368,6 +368,65 @@ describe('TaskQueue', () => {
       }
     })
     expect(task.outputPath).toBe(join(paths.output, 'source.flac'))
+  })
+
+  it('expands each requested PDF page into an independent image task', () => {
+    const paths = fixture()
+    const source = join(dirname(paths.source), 'document.pdf')
+    writeFileSync(source, '%PDF fixture')
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
+    const tasks = queue.create({
+      kind: 'pdf',
+      sourcePaths: [source],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      outputNameTemplate: '{name}-page-{page}',
+      pageNumbers: [1, 2, 3],
+      options: { operation: 'toImage', imageFormat: 'png', dpi: 144, imageQuality: 90 }
+    })
+
+    expect(tasks.map((task) => task.pageNumber)).toEqual([1, 2, 3])
+    expect(tasks.map((task) => task.outputPath)).toEqual([
+      join(paths.output, 'document-page-001.png'),
+      join(paths.output, 'document-page-002.png'),
+      join(paths.output, 'document-page-003.png')
+    ])
+  })
+
+  it('expands selected font collection entries into independent tasks', () => {
+    const paths = fixture()
+    const source = join(dirname(paths.source), 'collection.ttc')
+    writeFileSync(source, 'font collection fixture')
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
+    const tasks = queue.create({
+      kind: 'font',
+      sourcePaths: [source],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      outputNameTemplate: '{name}-font-{index}',
+      fontIndexes: [0, 2],
+      options: {
+        operation: 'splitCollection',
+        outputFormat: 'woff2',
+        variableInstanceMode: 'named'
+      }
+    })
+
+    expect(tasks.map((task) => task.fontIndex)).toEqual([0, 2])
+    expect(tasks.map((task) => task.outputPath)).toEqual([
+      join(paths.output, 'collection-font-1.woff2'),
+      join(paths.output, 'collection-font-3.woff2')
+    ])
   })
 
   it('preserves image directory structure when requested', () => {

@@ -18,3 +18,22 @@ Image processing uses sharp and its libvips dependency.
 - libvips: https://github.com/libvips/libvips
 
 The exact dependency versions used by a release are recorded in `pnpm-lock.yaml`.
+
+## PDFium and qpdf
+
+PDF page rendering and lossless PDF optimization use the bundled `@hyzyla/pdfium` and
+`@neslinesli93/qpdf-wasm` packages. Review their upstream license files and the exact versions
+recorded in `pnpm-lock.yaml` before distribution.
+
+- PDFium wrapper: https://github.com/hyzyla/pdfium
+- qpdf WASM package: https://github.com/neslinesli93/qpdf-wasm
+
+## FontTools and fontkit
+
+Font conversion, collection splitting, variable-font instancing, and subsetting use the bundled
+`@web-alchemy/fonttools` and `fontkit` packages. The FontTools Python wheels and Pyodide runtime
+are included transitively; review their licenses and the exact dependency tree before release.
+
+- FontTools wrapper: https://github.com/web-alchemy/fonttools
+- FontTools: https://github.com/fonttools/fonttools
+- fontkit: https://github.com/foliojs/fontkit

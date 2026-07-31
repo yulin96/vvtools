@@ -5,6 +5,7 @@ import type { MediaTask, UpdateState, VVToolsApi } from '../shared/types'
 const api: VVToolsApi = {
   platform: process.platform as VVToolsApi['platform'],
   selectFiles: (kind) => ipcRenderer.invoke(IPC_CHANNELS.selectFiles, kind),
+  selectTextFile: () => ipcRenderer.invoke(IPC_CHANNELS.selectTextFile),
   getDroppedFilePath: (file) => webUtils.getPathForFile(file),
   selectOutputDirectory: (current) =>
     ipcRenderer.invoke(IPC_CHANNELS.selectOutputDirectory, current),

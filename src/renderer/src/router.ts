@@ -3,8 +3,10 @@ import ImageWorkspace from './views/ImageWorkspace.vue'
 import SettingsView from './views/SettingsView.vue'
 import VideoWorkspace from './views/VideoWorkspace.vue'
 import AudioWorkspace from './views/AudioWorkspace.vue'
+import FontWorkspace from './views/FontWorkspace.vue'
+import PdfWorkspace from './views/PdfWorkspace.vue'
 
-const mediaPaths = ['/image', '/video', '/audio'] as const
+const mediaPaths = ['/image', '/video', '/audio', '/pdf', '/font'] as const
 type MediaPath = (typeof mediaPaths)[number]
 const lastMediaPathKey = 'vvtools-last-media-path'
 
@@ -23,6 +25,8 @@ export const router = createRouter({
     { path: '/', redirect: initialMediaPath() },
     { path: '/video', component: VideoWorkspace },
     { path: '/audio', component: AudioWorkspace },
+    { path: '/pdf', component: PdfWorkspace },
+    { path: '/font', component: FontWorkspace },
     { path: '/image', component: ImageWorkspace },
     { path: '/settings', component: SettingsView },
     { path: '/:pathMatch(.*)*', redirect: '/image' }
