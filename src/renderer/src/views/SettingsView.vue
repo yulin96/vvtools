@@ -26,9 +26,9 @@ const concurrencyOptions: Record<TaskKind, number> = {
 }
 const concurrencyKinds = ['image', 'video', 'audio'] as const
 const concurrencyLabels: Record<TaskKind, string> = {
-  image: '图片并发',
-  video: '视频并发',
-  audio: '音频并发'
+  image: '同时处理的图片数',
+  video: '同时处理的视频数',
+  audio: '同时处理的音频数'
 }
 
 function capabilityLabel(name: string): string {
@@ -86,7 +86,7 @@ function updateOutputNameTemplate(event: Event): void {
     (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*{}'.includes(character)
   )
   if (!template || template.length > 100 || !template.includes('{name}') || invalidLiteral) {
-    store.errorMessage = '命名模板必须包含 {name}，且只能使用受支持的变量'
+    store.errorMessage = '文件名规则必须包含 {name}，且只能使用受支持的变量'
     target.value = store.settings.common.outputNameTemplate
     return
   }
@@ -129,7 +129,7 @@ function updateCompletionAction(event: Event): void {
           <div class="settings-scheduling-row">
             <SegmentedControl
               class="w-72"
-              label="调度方式"
+              label="同时处理数量"
               :model-value="store.settings.common.concurrency.mode"
               :options="concurrencyModeOptions"
               @update:model-value="updateConcurrencyMode"
@@ -182,7 +182,7 @@ function updateCompletionAction(event: Event): void {
           <OutputSuffixField />
           <OutputConflictPolicyField />
           <label class="field-label settings-template-field">
-            <span>命名模板</span>
+            <span>文件名规则</span>
             <input
               :value="store.settings.common.outputNameTemplate"
               class="field-control font-mono"
@@ -222,7 +222,7 @@ function updateCompletionAction(event: Event): void {
             @update:model-value="store.updateSettings({ common: { completionSound: $event } })"
           />
           <label class="field-label w-52">
-            <span>全部完成后</span>
+            <span>任务全部完成后</span>
             <select
               :value="store.settings.common.completionAction"
               class="field-control"

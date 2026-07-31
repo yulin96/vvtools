@@ -21,11 +21,13 @@ export const DEFAULT_VIDEO_OPTIONS: VideoOptions = {
   encoderMode: 'auto',
   quality: 'balanced',
   resolution: 'source',
+  customResolutionHeight: 1080,
   format: 'mp4',
   codec: 'h264',
   rateControl: 'quality',
   bitrateMbps: 6,
   frameRate: 'source',
+  customFrameRate: 30,
   audioMode: 'aac',
   audioBitrateKbps: 128
 }

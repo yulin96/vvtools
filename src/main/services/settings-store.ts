@@ -153,8 +153,9 @@ export class SettingsStore {
   }
 }
 
-type LegacyVideoOptions = Omit<Partial<VideoOptions>, 'codec'> & {
+type LegacyVideoOptions = Omit<Partial<VideoOptions>, 'codec' | 'frameRate'> & {
   codec?: VideoOptions['codec'] | 'copy'
+  frameRate?: VideoOptions['frameRate'] | '25'
 }
 
 interface LegacyVideoPreset {
@@ -247,11 +248,17 @@ function migrateVideoOptions(
   keepOriginal = false
 ): VideoOptions {
   const legacyCopy = value?.codec === 'copy'
+  const legacyFrameRate = value?.frameRate === '25'
+  const frameRate: VideoOptions['frameRate'] = value?.frameRate === '25'
+    ? 'custom'
+    : (value?.frameRate ?? fallback.frameRate)
   return {
     ...fallback,
     ...value,
     format: keepOriginal || legacyCopy ? 'source' : (value?.format ?? fallback.format),
-    codec: value?.codec === 'copy' ? 'source' : (value?.codec ?? fallback.codec)
+    codec: value?.codec === 'copy' ? 'source' : (value?.codec ?? fallback.codec),
+    frameRate,
+    customFrameRate: legacyFrameRate ? 25 : (value?.customFrameRate ?? fallback.customFrameRate)
   }
 }
 

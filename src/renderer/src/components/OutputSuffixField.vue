@@ -34,10 +34,10 @@ function updateSuffix(event: Event): void {
       @change="updateSuffix"
     />
     <small v-if="suffixEnabled" class="compact-field-hint">
-      用于命名模板中的 <code>{suffix}</code>；不包含 .png 等格式扩展名。
+      用于文件名规则中的 <code>{suffix}</code>；不包含 .png 等格式扩展名。
     </small>
     <small v-else class="compact-field-hint semantic-warning">
-      当前命名模板没有 <code>{suffix}</code>，请先在设置中加入。
+      当前文件名规则没有 <code>{suffix}</code>，请先在设置中加入。
     </small>
   </label>
 </template>

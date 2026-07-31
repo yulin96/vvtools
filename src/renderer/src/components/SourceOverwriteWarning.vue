@@ -19,7 +19,7 @@ const visible = computed(
       title="如果输出路径与源文件相同，成功处理后将替换源文件"
     >
       <TriangleAlert class="size-3.5" />
-      原目录覆盖模式
+      将替换源文件
     </span>
   </Transition>
 </template>

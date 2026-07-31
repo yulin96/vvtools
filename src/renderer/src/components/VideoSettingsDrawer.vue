@@ -90,7 +90,12 @@ function presetSummary(options: VideoOptions): string {
       : `${options.bitrateMbps} Mbps`
   const codec =
     options.codec === 'source' ? '保持原编码' : options.codec === 'h265' ? 'H.265' : 'H.264'
-  const resolution = options.resolution === 'source' ? '原始分辨率' : `最高 ${options.resolution}`
+  const resolution =
+    options.resolution === 'source'
+      ? '原始分辨率'
+      : options.resolution === 'custom'
+        ? `最高 ${options.customResolutionHeight}p`
+        : `最高 ${options.resolution}`
   const encoder =
     options.encoderMode === 'auto'
       ? '自动编码'
@@ -161,7 +166,7 @@ function copiesVideo(options: VideoOptions): boolean {
 
           <div class="preset-fields page-settings-preset-fields">
             <label class="compact-field">
-              <span>格式</span>
+              <span>输出格式</span>
               <select
                 :value="preset.options.format"
                 @change="
@@ -196,7 +201,7 @@ function copiesVideo(options: VideoOptions): boolean {
               </select>
             </label>
             <label class="compact-field">
-              <span>编码设备</span>
+              <span>编码加速</span>
               <select
                 :value="preset.options.encoderMode"
                 @change="
@@ -207,13 +212,13 @@ function copiesVideo(options: VideoOptions): boolean {
                   )
                 "
               >
-                <option value="auto">自动检测</option>
+                <option value="auto">自动选择（推荐）</option>
                 <option value="software">CPU · 兼容优先</option>
                 <option value="hardware">硬件 · 速度优先</option>
               </select>
             </label>
             <label class="compact-field">
-              <span>分辨率</span>
+              <span>最大分辨率</span>
               <select
                 :value="preset.options.resolution"
                 @change="
@@ -227,10 +232,29 @@ function copiesVideo(options: VideoOptions): boolean {
                 <option value="source">保持原始</option>
                 <option value="1080p">最高 1080p</option>
                 <option value="720p">最高 720p</option>
+                <option value="custom">自定义最大高度</option>
               </select>
             </label>
+            <label v-if="preset.options.resolution === 'custom'" class="compact-field">
+              <span>自定义高度</span>
+              <div class="number-field">
+                <input
+                  :value="preset.options.customResolutionHeight"
+                  type="number"
+                  min="144"
+                  max="4320"
+                  @change="
+                    updatePresetOption(
+                      preset.id,
+                      'customResolutionHeight',
+                      Number(($event.target as HTMLInputElement).value)
+                    )
+                  "
+                /><span>px</span>
+              </div>
+            </label>
             <label class="compact-field" :class="{ 'opacity-45': copiesVideo(preset.options) }">
-              <span>压缩方式</span>
+              <span>画质控制</span>
               <select
                 :value="preset.options.rateControl"
                 :disabled="copiesVideo(preset.options)"
@@ -242,12 +266,12 @@ function copiesVideo(options: VideoOptions): boolean {
                   )
                 "
               >
-                <option value="quality">按质量</option>
-                <option value="bitrate">目标码率</option>
+                <option value="quality">按输出画质</option>
+                <option value="bitrate">指定视频码率</option>
               </select>
             </label>
             <label class="compact-field" :class="{ 'opacity-45': copiesVideo(preset.options) }">
-              <span>{{ preset.options.rateControl === 'quality' ? '质量' : '视频码率' }}</span>
+              <span>{{ preset.options.rateControl === 'quality' ? '输出画质' : '视频码率' }}</span>
               <select
                 v-if="preset.options.rateControl === 'quality'"
                 :value="preset.options.quality"
@@ -283,7 +307,7 @@ function copiesVideo(options: VideoOptions): boolean {
               </div>
             </label>
             <label class="compact-field">
-              <span>帧率</span>
+              <span>输出帧率</span>
               <select
                 :value="preset.options.frameRate"
                 @change="
@@ -296,13 +320,32 @@ function copiesVideo(options: VideoOptions): boolean {
               >
                 <option value="source">保持原始</option>
                 <option value="24">24 fps</option>
-                <option value="25">25 fps</option>
                 <option value="30">30 fps</option>
                 <option value="60">60 fps</option>
+                <option value="custom">自定义帧率</option>
               </select>
             </label>
+            <label v-if="preset.options.frameRate === 'custom'" class="compact-field">
+              <span>自定义帧率</span>
+              <div class="number-field">
+                <input
+                  :value="preset.options.customFrameRate"
+                  type="number"
+                  min="1"
+                  max="240"
+                  step="0.01"
+                  @change="
+                    updatePresetOption(
+                      preset.id,
+                      'customFrameRate',
+                      Number(($event.target as HTMLInputElement).value)
+                    )
+                  "
+                /><span>fps</span>
+              </div>
+            </label>
             <label class="compact-field">
-              <span>音频</span>
+              <span>视频中的音频</span>
               <select
                 :value="preset.options.audioMode"
                 @change="

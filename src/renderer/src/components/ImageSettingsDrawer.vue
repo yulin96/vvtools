@@ -86,6 +86,13 @@ function presetSummary(options: ImagePresetOptions): string {
           : `${options.percentage}%`
   return `${format} · ${compression} · ${resize}`
 }
+
+function resizeValueLabel(mode: ImagePresetOptions['resizeMode']): string {
+  if (mode === 'width') return '目标宽度'
+  if (mode === 'height') return '目标高度'
+  if (mode === 'percentage') return '缩放比例'
+  return '目标尺寸'
+}
 </script>
 
 <template>
@@ -100,7 +107,7 @@ function presetSummary(options: ImagePresetOptions): string {
         <div class="page-settings-section-heading">
           <div>
             <h3>图片预设</h3>
-            <p>预设只保存压缩、质量、尺寸和输出格式。</p>
+            <p>预设保存压缩目标、输出画质、图片尺寸和输出格式。</p>
           </div>
           <Button
             variant="secondary"
@@ -143,7 +150,7 @@ function presetSummary(options: ImagePresetOptions): string {
 
             <div class="preset-fields page-settings-preset-fields">
               <label class="compact-field">
-                <span>压缩模式</span>
+                <span>压缩目标</span>
                 <select
                   :value="preset.options.compressionMode"
                   @change="
@@ -155,13 +162,13 @@ function presetSummary(options: ImagePresetOptions): string {
                     )
                   "
                 >
-                  <option value="quality">按图片质量</option>
-                  <option value="targetSize">按目标大小</option>
+                  <option value="quality">按输出画质</option>
+                  <option value="targetSize">按文件大小</option>
                 </select>
               </label>
               <label class="compact-field">
                 <span>{{
-                  preset.options.compressionMode === 'quality' ? '图片质量' : '目标大小'
+                  preset.options.compressionMode === 'quality' ? '输出画质' : '单张大小上限'
                 }}</span>
                 <div class="number-field">
                   <input
@@ -196,7 +203,7 @@ function presetSummary(options: ImagePresetOptions): string {
                 </div>
               </label>
               <label class="compact-field">
-                <span>调整方式</span>
+                <span>图片尺寸</span>
                 <select
                   :value="preset.options.resizeMode"
                   @change="
@@ -210,11 +217,11 @@ function presetSummary(options: ImagePresetOptions): string {
                   <option value="source">保持原始尺寸</option>
                   <option value="width">指定宽度</option>
                   <option value="height">指定高度</option>
-                  <option value="percentage">按百分比</option>
+                  <option value="percentage">按比例缩放</option>
                 </select>
               </label>
               <label class="compact-field">
-                <span>尺寸参数</span>
+                <span>{{ resizeValueLabel(preset.options.resizeMode) }}</span>
                 <div class="number-field">
                   <input
                     v-if="preset.options.resizeMode === 'width'"

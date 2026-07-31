@@ -42,14 +42,14 @@ const pendingInputs = computed<ImageInputFile[]>({
   set: (value) => (store.pendingImageInputs = value)
 })
 const compressionModeOptions = [
-  { value: 'quality', label: '质量' },
-  { value: 'targetSize', label: '目标大小' }
+  { value: 'quality', label: '按画质' },
+  { value: 'targetSize', label: '按文件大小' }
 ]
 const resizeModeOptions = [
-  { value: 'source', label: '原始' },
-  { value: 'width', label: '宽度' },
-  { value: 'height', label: '高度' },
-  { value: 'percentage', label: '百分比' }
+  { value: 'source', label: '原尺寸', title: '保持原始尺寸', ariaLabel: '保持原始尺寸' },
+  { value: 'width', label: '宽度', title: '指定宽度', ariaLabel: '指定宽度' },
+  { value: 'height', label: '高度', title: '指定高度', ariaLabel: '指定高度' },
+  { value: 'percentage', label: '缩放', title: '按比例缩放', ariaLabel: '按比例缩放' }
 ]
 const imageFormatOptions = [
   { value: 'original', label: '原格式' },
@@ -57,6 +57,26 @@ const imageFormatOptions = [
   { value: 'png', label: 'PNG' },
   { value: 'webp', label: 'WebP' },
   { value: 'avif', label: 'AVIF' }
+]
+const metadataModeOptions = [
+  {
+    value: 'colorProfile',
+    label: '保留色彩',
+    title: '仅保留色彩配置',
+    ariaLabel: '仅保留色彩配置'
+  },
+  {
+    value: 'strip',
+    label: '全部移除',
+    title: '移除所有附加信息，文件可能更小',
+    ariaLabel: '移除所有附加信息，文件可能更小'
+  },
+  {
+    value: 'all',
+    label: '全部保留',
+    title: '尽量保留所有附加信息',
+    ariaLabel: '尽量保留所有附加信息'
+  }
 ]
 const imageTasks = computed(() => store.currentBatchTasks.image)
 const pendingTableItems = computed(() =>
@@ -108,6 +128,13 @@ function imageOptionsEqual(left: ImagePresetOptions, right: ImageOptions): boole
     left.percentage === right.percentage &&
     left.format === right.format
   )
+}
+
+function resizeValueLabel(mode: ImageResizeMode): string {
+  if (mode === 'width') return '目标宽度'
+  if (mode === 'height') return '目标高度'
+  if (mode === 'percentage') return '缩放比例'
+  return '目标尺寸'
 }
 
 function applyPreset(event: Event): void {
@@ -256,7 +283,7 @@ onBeforeUnmount(() => {
       <div class="video-config-heading">
         <div class="config-heading-main">
           <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">图片参数</span>
+          <span class="shrink-0 text-sm font-semibold">图片处理设置</span>
           <Button
             class="config-expand-toggle"
             variant="ghost"
@@ -265,7 +292,7 @@ onBeforeUnmount(() => {
             aria-controls="image-advanced-settings"
             @click="configExpanded = !configExpanded"
           >
-            {{ configExpanded ? '收起参数' : '更多参数' }}
+            {{ configExpanded ? '收起设置' : '更多设置' }}
             <AnimatedChevron :expanded="configExpanded" />
           </Button>
           <span class="config-summary truncate text-xs text-muted-foreground">
@@ -319,9 +346,9 @@ onBeforeUnmount(() => {
       <div class="image-config-primary">
         <fieldset class="config-group">
           <legend class="sr-only">压缩</legend>
-          <div class="config-group-fields">
+          <div class="config-group-fields config-group-fields-switch-input">
             <SegmentedControl
-              label="压缩模式"
+              label="压缩目标"
               :model-value="store.settings.image.lastOptions.compressionMode"
               :options="compressionModeOptions"
               @update:model-value="updateImage({ compressionMode: $event as ImageCompressionMode })"
@@ -329,8 +356,8 @@ onBeforeUnmount(() => {
             <label class="compact-field">
               <span>{{
                 store.settings.image.lastOptions.compressionMode === 'quality'
-                  ? '图片质量'
-                  : '目标大小'
+                  ? '输出画质'
+                  : '单张大小上限'
               }}</span>
               <div class="number-field">
                 <input
@@ -363,9 +390,10 @@ onBeforeUnmount(() => {
 
         <fieldset class="config-group">
           <legend class="sr-only">尺寸</legend>
-          <div class="config-group-fields">
+          <div class="config-group-fields config-group-fields-switch-input">
             <SegmentedControl
-              label="调整方式"
+              class="image-resize-segments"
+              label="图片尺寸"
               :model-value="store.settings.image.lastOptions.resizeMode"
               :options="resizeModeOptions"
               @update:model-value="updateImage({ resizeMode: $event as ImageResizeMode })"
@@ -374,7 +402,7 @@ onBeforeUnmount(() => {
               class="compact-field"
               :class="{ 'opacity-45': store.settings.image.lastOptions.resizeMode === 'source' }"
             >
-              <span>尺寸参数</span>
+              <span>{{ resizeValueLabel(store.settings.image.lastOptions.resizeMode) }}</span>
               <div class="number-field">
                 <input
                   v-if="store.settings.image.lastOptions.resizeMode === 'width'"
@@ -437,37 +465,29 @@ onBeforeUnmount(() => {
         :open="configExpanded"
         class="video-config-expanded"
       >
-        <fieldset class="config-group">
+        <fieldset class="config-group advanced-settings-list image-advanced-settings-list">
           <legend class="sr-only">处理偏好</legend>
           <div class="config-group-fields">
-            <label class="compact-field">
-              <span>元数据</span>
-              <select
-                :value="store.settings.image.lastOptions.metadataMode"
-                @change="
-                  updateImage({
-                    metadataMode: ($event.target as HTMLSelectElement)
-                      .value as ImageOptions['metadataMode']
-                  })
-                "
-              >
-                <option value="colorProfile">保留色彩配置</option>
-                <option value="strip">全部移除</option>
-                <option value="all">尽可能全部保留</option>
-              </select>
-            </label>
+            <SegmentedControl
+              label="附加信息（元数据）"
+              :model-value="store.settings.image.lastOptions.metadataMode"
+              :options="metadataModeOptions"
+              @update:model-value="
+                updateImage({ metadataMode: $event as ImageOptions['metadataMode'] })
+              "
+            />
             <ToggleSwitch
-              label="目录结构"
+              label="文件夹层级"
               :model-value="store.settings.image.lastOptions.preserveStructure"
-              enabled-text="保留层级"
-              disabled-text="合并输出"
+              enabled-text="保留原文件夹"
+              disabled-text="全部放在一起"
               @update:model-value="updateImage({ preserveStructure: $event })"
             />
             <ToggleSwitch
-              label="较小图片"
+              label="小图是否放大"
               :model-value="store.settings.image.lastOptions.allowEnlargement"
-              enabled-text="允许放大"
-              disabled-text="不放大"
+              enabled-text="放大到目标尺寸"
+              disabled-text="保持原尺寸"
               @update:model-value="updateImage({ allowEnlargement: $event })"
             />
           </div>

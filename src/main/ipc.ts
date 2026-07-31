@@ -34,11 +34,11 @@ import { isConcurrencySettings, resolveTaskConcurrency } from './services/task-c
 import { UpdateService } from './services/update-service'
 
 const VIDEO_QUALITIES = new Set<VideoQuality>(['high', 'balanced', 'small'])
-const VIDEO_RESOLUTIONS = new Set<VideoResolution>(['source', '1080p', '720p'])
+const VIDEO_RESOLUTIONS = new Set<VideoResolution>(['source', '1080p', '720p', 'custom'])
 const VIDEO_FORMATS = new Set(['source', 'mp4', 'mov', 'mkv'])
 const VIDEO_CODECS = new Set(['source', 'h264', 'h265'])
 const VIDEO_RATE_CONTROLS = new Set(['quality', 'bitrate'])
-const VIDEO_FRAME_RATES = new Set(['source', '24', '25', '30', '60'])
+const VIDEO_FRAME_RATES = new Set(['source', '24', '30', '60', 'custom'])
 const VIDEO_AUDIO_MODES = new Set(['aac', 'copy', 'none'])
 const IMAGE_FORMATS = new Set<ImageFormat>(['original', 'jpeg', 'png', 'webp', 'avif'])
 
@@ -133,14 +133,14 @@ function sanitizeOutputSuffix(value: unknown): string {
 }
 
 function sanitizeOutputNameTemplate(value: unknown): string {
-  if (typeof value !== 'string') throw new Error('输出命名模板无效')
+  if (typeof value !== 'string') throw new Error('文件名规则无效')
   const template = value.trim()
   const literals = template.replace(/\{(?:name|suffix|preset|width|height|date)\}/gu, '')
   const invalidLiteral = [...literals].some(
     (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*{}'.includes(character)
   )
   if (!template || template.length > 100 || !template.includes('{name}') || invalidLiteral) {
-    throw new Error('输出命名模板必须包含 {name}，长度不能超过 100，且只能使用受支持的变量')
+    throw new Error('文件名规则必须包含 {name}，长度不能超过 100，且只能使用受支持的变量')
   }
   return template
 }
@@ -205,6 +205,9 @@ function validateVideoOptions(options: VideoOptions, message: string): void {
     !['auto', 'software', 'hardware'].includes(options.encoderMode) ||
     !VIDEO_QUALITIES.has(options.quality) ||
     !VIDEO_RESOLUTIONS.has(options.resolution) ||
+    !Number.isInteger(options.customResolutionHeight) ||
+    options.customResolutionHeight < 144 ||
+    options.customResolutionHeight > 4320 ||
     !VIDEO_FORMATS.has(options.format) ||
     !VIDEO_CODECS.has(options.codec) ||
     !VIDEO_RATE_CONTROLS.has(options.rateControl) ||
@@ -212,6 +215,9 @@ function validateVideoOptions(options: VideoOptions, message: string): void {
     options.bitrateMbps < 0.5 ||
     options.bitrateMbps > 100 ||
     !VIDEO_FRAME_RATES.has(options.frameRate) ||
+    !Number.isFinite(options.customFrameRate) ||
+    options.customFrameRate < 1 ||
+    options.customFrameRate > 240 ||
     !VIDEO_AUDIO_MODES.has(options.audioMode) ||
     ![96, 128, 192, 256].includes(options.audioBitrateKbps)
   ) {

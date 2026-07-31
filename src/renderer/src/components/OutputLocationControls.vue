@@ -7,8 +7,8 @@ import SegmentedControl from './ui/SegmentedControl.vue'
 
 const store = useAppStore()
 const outputModeOptions = [
-  { value: 'source', label: '原目录' },
-  { value: 'custom', label: '指定目录' }
+  { value: 'source', label: '原文件旁' },
+  { value: 'custom', label: '指定文件夹' }
 ]
 async function updateOutputMode(value: string | number): Promise<void> {
   if (!store.settings) return
@@ -55,8 +55,8 @@ async function chooseOutput(): Promise<void> {
       v-if="store.settings.common.outputMode === 'custom'"
       variant="secondary"
       size="icon"
-      :title="`选择输出目录：${store.settings.common.outputDirectory}`"
-      aria-label="选择输出目录"
+      :title="`选择输出文件夹：${store.settings.common.outputDirectory}`"
+      aria-label="选择输出文件夹"
       @click="chooseOutput"
     >
       <FolderCog class="size-4" />
@@ -65,8 +65,8 @@ async function chooseOutput(): Promise<void> {
       v-if="store.settings.common.outputMode === 'custom'"
       variant="secondary"
       size="icon"
-      title="打开输出目录"
-      aria-label="打开输出目录"
+      title="打开输出文件夹"
+      aria-label="打开输出文件夹"
       @click="store.openOutputDirectory()"
     >
       <FolderOpen class="size-4" />

@@ -67,6 +67,20 @@ describe('video command', () => {
     expect(args).not.toContain('+faststart')
   })
 
+  it('supports custom frame rate and maximum resolution', () => {
+    const args = buildVideoArgs(
+      task({
+        resolution: 'custom',
+        customResolutionHeight: 1440,
+        frameRate: 'custom',
+        customFrameRate: 23.976
+      })
+    )
+    expect(args[args.indexOf('-vf') + 1]).toContain('min(2560\\,iw)')
+    expect(args[args.indexOf('-vf') + 1]).toContain('min(1440\\,ih)')
+    expect(args[args.indexOf('-r') + 1]).toBe('23.976')
+  })
+
   it('keeps untouched source video and audio streams without transcoding', () => {
     const args = buildVideoArgs(
       task({

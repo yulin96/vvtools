@@ -27,11 +27,11 @@ export function buildVideoArgs(
   const copyVideo =
     options.codec === 'source' && options.resolution === 'source' && options.frameRate === 'source'
 
-  if (!copyVideo && options.resolution !== 'source') {
-    const bounds = options.resolution === '1080p' ? [1920, 1080] : [1280, 720]
+  const resolutionBounds = getVideoResolutionBounds(options)
+  if (!copyVideo && resolutionBounds) {
     args.push(
       '-vf',
-      `scale=w='min(${bounds[0]}\\,iw)':h='min(${bounds[1]}\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2`
+      `scale=w='min(${resolutionBounds[0]}\\,iw)':h='min(${resolutionBounds[1]}\\,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2`
     )
   }
 
@@ -59,7 +59,12 @@ export function buildVideoArgs(
     addEncoderPerformanceArgs(args, encoder)
     args.push('-pix_fmt', 'yuv420p')
 
-    if (options.frameRate !== 'source') args.push('-r', options.frameRate)
+    if (options.frameRate !== 'source') {
+      args.push(
+        '-r',
+        String(options.frameRate === 'custom' ? options.customFrameRate : options.frameRate)
+      )
+    }
   }
 
   if (options.audioMode === 'none') {
@@ -78,6 +83,17 @@ export function buildVideoArgs(
 
   args.push('-progress', 'pipe:1', '-nostats', task.outputPath)
   return args
+}
+
+export function getVideoResolutionBounds(options: VideoOptions): [number, number] | undefined {
+  if (options.resolution === 'source') return undefined
+  const height =
+    options.resolution === 'custom'
+      ? options.customResolutionHeight
+      : options.resolution === '1080p'
+        ? 1080
+        : 720
+  return [Math.round((height * 16) / 9), height]
 }
 
 function resolveSoftwareVideoEncoder(

@@ -59,6 +59,8 @@ describe('SettingsStore', () => {
       '高质量'
     ])
     expect(store.get().video.lastOptions.encoderMode).toBe('auto')
+    expect(store.get().video.lastOptions.customFrameRate).toBe(30)
+    expect(store.get().video.lastOptions.customResolutionHeight).toBe(1080)
     expect(store.get().image.presets.map((preset) => preset.name)).toEqual([
       '原图整理',
       '网站图片',
@@ -166,7 +168,7 @@ describe('SettingsStore', () => {
       join(root, 'settings.json'),
       JSON.stringify({
         videoOutputMode: 'source',
-        video: { ...DEFAULT_VIDEO_OPTIONS, codec: 'copy' },
+        video: { ...DEFAULT_VIDEO_OPTIONS, codec: 'copy', frameRate: '25' },
         videoPresets: [
           {
             id: 'copy-stream',
@@ -182,7 +184,9 @@ describe('SettingsStore', () => {
     expect(settings.video.lastOptions).toMatchObject({
       codec: 'source',
       format: 'source',
-      encoderMode: 'auto'
+      encoderMode: 'auto',
+      frameRate: 'custom',
+      customFrameRate: 25
     })
     expect(settings.video.presets[0]).toMatchObject({
       id: 'keep-original',

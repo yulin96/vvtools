@@ -2,11 +2,11 @@ export type TaskKind = 'video' | 'image' | 'audio'
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
 
 export type VideoQuality = 'high' | 'balanced' | 'small'
-export type VideoResolution = 'source' | '1080p' | '720p'
+export type VideoResolution = 'source' | '1080p' | '720p' | 'custom'
 export type VideoFormat = 'source' | 'mp4' | 'mov' | 'mkv'
 export type VideoCodec = 'source' | 'h264' | 'h265'
 export type VideoRateControl = 'quality' | 'bitrate'
-export type VideoFrameRate = 'source' | '24' | '25' | '30' | '60'
+export type VideoFrameRate = 'source' | '24' | '30' | '60' | 'custom'
 export type VideoAudioMode = 'aac' | 'copy' | 'none'
 export type VideoEncoderMode = 'auto' | 'software' | 'hardware'
 export type ImageFormat = 'original' | 'jpeg' | 'png' | 'webp' | 'avif'
@@ -36,11 +36,13 @@ export interface VideoOptions {
   encoderMode: VideoEncoderMode
   quality: VideoQuality
   resolution: VideoResolution
+  customResolutionHeight: number
   format: VideoFormat
   codec: VideoCodec
   rateControl: VideoRateControl
   bitrateMbps: number
   frameRate: VideoFrameRate
+  customFrameRate: number
   audioMode: VideoAudioMode
   audioBitrateKbps: number
 }

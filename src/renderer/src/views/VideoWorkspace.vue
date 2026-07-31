@@ -64,11 +64,19 @@ const encoderModeOptions = [
 const resolutionOptions = [
   { value: 'source', label: '原始' },
   { value: '1080p', label: '1080p', title: '最高 1080p', ariaLabel: '最高 1080p' },
-  { value: '720p', label: '720p', title: '最高 720p', ariaLabel: '最高 720p' }
+  { value: '720p', label: '720p', title: '最高 720p', ariaLabel: '最高 720p' },
+  { value: 'custom', label: '自定义', title: '自定义最大高度', ariaLabel: '自定义最大高度' }
+]
+const frameRateOptions = [
+  { value: 'source', label: '原始', title: '保持原始帧率', ariaLabel: '保持原始帧率' },
+  { value: '24', label: '24', title: '24 fps', ariaLabel: '24 fps' },
+  { value: '30', label: '30', title: '30 fps', ariaLabel: '30 fps' },
+  { value: '60', label: '60', title: '60 fps', ariaLabel: '60 fps' },
+  { value: 'custom', label: '自定义', title: '自定义输出帧率', ariaLabel: '自定义输出帧率' }
 ]
 const rateControlOptions = [
-  { value: 'quality', label: '质量' },
-  { value: 'bitrate', label: '码率' }
+  { value: 'quality', label: '按画质' },
+  { value: 'bitrate', label: '指定码率' }
 ]
 const qualityOptions = [
   { value: 'high', label: '高质量' },
@@ -119,11 +127,13 @@ function optionsEqual(left: VideoOptions, right: VideoOptions): boolean {
     left.quality === right.quality &&
     left.encoderMode === right.encoderMode &&
     left.resolution === right.resolution &&
+    left.customResolutionHeight === right.customResolutionHeight &&
     left.format === right.format &&
     left.codec === right.codec &&
     left.rateControl === right.rateControl &&
     left.bitrateMbps === right.bitrateMbps &&
     left.frameRate === right.frameRate &&
+    left.customFrameRate === right.customFrameRate &&
     left.audioMode === right.audioMode &&
     left.audioBitrateKbps === right.audioBitrateKbps
   )
@@ -234,7 +244,7 @@ onBeforeUnmount(() => {
       <div class="video-config-heading">
         <div class="config-heading-main">
           <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">视频参数</span>
+          <span class="shrink-0 text-sm font-semibold">视频转换设置</span>
           <Button
             class="config-expand-toggle"
             variant="ghost"
@@ -243,7 +253,7 @@ onBeforeUnmount(() => {
             aria-controls="video-advanced-settings"
             @click="configExpanded = !configExpanded"
           >
-            {{ configExpanded ? '收起参数' : '更多参数' }}
+            {{ configExpanded ? '收起设置' : '更多设置' }}
             <AnimatedChevron :expanded="configExpanded" />
           </Button>
           <span class="config-summary truncate text-xs text-muted-foreground">
@@ -299,7 +309,7 @@ onBeforeUnmount(() => {
           <legend class="sr-only">格式与编码</legend>
           <div class="config-group-fields">
             <SegmentedControl
-              label="格式"
+              label="输出格式"
               :model-value="store.settings.video.lastOptions.format"
               :options="videoFormatOptions"
               @update:model-value="updateVideo({ format: $event as VideoFormat })"
@@ -311,7 +321,7 @@ onBeforeUnmount(() => {
               @update:model-value="updateVideo({ codec: $event as VideoCodec })"
             />
             <SegmentedControl
-              label="编码设备"
+              label="编码加速"
               :model-value="store.settings.video.lastOptions.encoderMode"
               :options="encoderModeOptions"
               @update:model-value="updateVideo({ encoderMode: $event as VideoEncoderMode })"
@@ -321,38 +331,83 @@ onBeforeUnmount(() => {
 
         <fieldset class="config-group">
           <legend class="sr-only">画面</legend>
-          <div class="config-group-fields">
-            <label class="compact-field">
-              <span>帧率</span>
-              <select
-                :value="store.settings.video.lastOptions.frameRate"
-                @change="
-                  updateVideo({
-                    frameRate: ($event.target as HTMLSelectElement).value as VideoFrameRate
-                  })
-                "
-              >
-                <option value="source">保持原始</option>
-                <option value="24">24 fps</option>
-                <option value="25">25 fps</option>
-                <option value="30">30 fps</option>
-                <option value="60">60 fps</option>
-              </select>
+          <div class="config-group-fields config-group-fields-switch-input">
+            <SegmentedControl
+              class="video-frame-rate-segments"
+              label="输出帧率"
+              :model-value="store.settings.video.lastOptions.frameRate"
+              :options="frameRateOptions"
+              @update:model-value="updateVideo({ frameRate: $event as VideoFrameRate })"
+            />
+            <label
+              class="compact-field"
+              :class="{ 'opacity-45': store.settings.video.lastOptions.frameRate !== 'custom' }"
+            >
+              <span>自定义帧率</span>
+              <div class="number-field">
+                <input
+                  :value="
+                    store.settings.video.lastOptions.frameRate === 'custom'
+                      ? store.settings.video.lastOptions.customFrameRate
+                      : '无需设置'
+                  "
+                  :disabled="store.settings.video.lastOptions.frameRate !== 'custom'"
+                  type="number"
+                  min="1"
+                  max="240"
+                  step="0.01"
+                  @change="
+                    updateVideo({
+                      customFrameRate: Number(($event.target as HTMLInputElement).value)
+                    })
+                  "
+                /><span v-if="store.settings.video.lastOptions.frameRate === 'custom'">fps</span>
+              </div>
             </label>
             <SegmentedControl
-              label="分辨率"
+              label="最大分辨率"
               :model-value="store.settings.video.lastOptions.resolution"
               :options="resolutionOptions"
               @update:model-value="updateVideo({ resolution: $event as VideoResolution })"
             />
+            <label
+              class="compact-field"
+              :class="{ 'opacity-45': store.settings.video.lastOptions.resolution !== 'custom' }"
+            >
+              <span>自定义高度</span>
+              <div class="number-field">
+                <input
+                  :value="
+                    store.settings.video.lastOptions.resolution === 'custom'
+                      ? store.settings.video.lastOptions.customResolutionHeight
+                      : '无需设置'
+                  "
+                  :disabled="store.settings.video.lastOptions.resolution !== 'custom'"
+                  type="number"
+                  min="144"
+                  max="4320"
+                  @change="
+                    updateVideo({
+                      customResolutionHeight: Number(($event.target as HTMLInputElement).value)
+                    })
+                  "
+                /><span v-if="store.settings.video.lastOptions.resolution === 'custom'">px</span>
+              </div>
+            </label>
           </div>
         </fieldset>
 
         <fieldset class="config-group">
           <legend class="sr-only">压缩</legend>
-          <div class="config-group-fields">
+          <div
+            class="config-group-fields"
+            :class="{
+              'config-group-fields-switch-input':
+                store.settings.video.lastOptions.rateControl === 'bitrate'
+            }"
+          >
             <SegmentedControl
-              label="压缩方式"
+              label="画质控制"
               :model-value="store.settings.video.lastOptions.rateControl"
               :options="rateControlOptions"
               :disabled="copiesSourceVideo"
@@ -362,7 +417,7 @@ onBeforeUnmount(() => {
             <div :class="{ 'opacity-45': copiesSourceVideo }">
               <SegmentedControl
                 v-if="store.settings.video.lastOptions.rateControl === 'quality'"
-                label="质量"
+                label="输出画质"
                 :model-value="store.settings.video.lastOptions.quality"
                 :options="qualityOptions"
                 :disabled="copiesSourceVideo"
@@ -396,11 +451,11 @@ onBeforeUnmount(() => {
         :open="configExpanded"
         class="video-config-expanded"
       >
-        <fieldset class="config-group">
+        <fieldset class="config-group advanced-settings-list video-advanced-settings-list">
           <legend class="sr-only">音频</legend>
           <div class="config-group-fields">
             <label class="compact-field">
-              <span>处理方式</span>
+              <span>视频中的音频</span>
               <select
                 :value="store.settings.video.lastOptions.audioMode"
                 @change="

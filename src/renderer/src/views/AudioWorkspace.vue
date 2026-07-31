@@ -31,7 +31,7 @@ const audioFormatOptions = [
   { value: 'flac', label: 'FLAC' }
 ]
 const channelOptions = [
-  { value: 'source', label: '原始' },
+  { value: 'source', label: '不改变' },
   { value: 'mono', label: '单声道' },
   { value: 'stereo', label: '立体声' }
 ]
@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
       <div class="video-config-heading">
         <div class="config-heading-main">
           <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">音频参数</span>
+          <span class="shrink-0 text-sm font-semibold">音频输出设置</span>
           <span class="config-summary truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ bitrateLabel }}
           </span>
@@ -231,13 +231,13 @@ onBeforeUnmount(() => {
           <legend class="sr-only">声道与响度</legend>
           <div class="config-group-fields">
             <SegmentedControl
-              label="声道"
+              label="输出声道"
               :model-value="store.settings.audio.lastOptions.channels"
               :options="channelOptions"
               @update:model-value="updateAudio({ channels: $event as AudioChannels })"
             />
             <ToggleSwitch
-              label="响度标准化"
+              label="统一音量"
               :model-value="store.settings.audio.lastOptions.normalizeLoudness"
               enabled-text="已开启"
               disabled-text="已关闭"

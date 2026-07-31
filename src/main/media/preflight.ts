@@ -8,7 +8,7 @@ import type {
   VideoOptions
 } from '../../shared/types'
 import { getOutputExtension, resolveOutputPath } from './output-path'
-import { probeVideo } from './video-processor'
+import { getVideoResolutionBounds, probeVideo } from './video-processor'
 import { probeAudio } from './audio-processor'
 
 interface InspectionSource {
@@ -160,8 +160,8 @@ function expectedVideoDimensions(
   width?: number,
   height?: number
 ): { width?: number; height?: number } {
-  if (!width || !height || options.resolution === 'source') return { width, height }
-  const bounds = options.resolution === '1080p' ? [1920, 1080] : [1280, 720]
+  const bounds = getVideoResolutionBounds(options)
+  if (!width || !height || !bounds) return { width, height }
   const scale = Math.min(1, bounds[0] / width, bounds[1] / height)
   return {
     width: Math.max(2, Math.floor((width * scale) / 2) * 2),
