@@ -153,9 +153,10 @@ async function compressPdf(
       } catch (error) {
         throw new Error(error instanceof Error ? error.message : String(error))
       }
-      if (exitCode !== 0) throw new Error(`qpdf 退出码 ${exitCode}`)
+      if (!isQpdfSuccessExitCode(exitCode)) throw new Error(`qpdf 退出码 ${exitCode}`)
       if (signal.aborted) throw new TaskCancelledError()
       const output = fileSystem.readFile(virtualOutputPath)
+      if (output.length === 0) throw new Error('qpdf 未生成有效的 PDF 输出')
       await writeFile(outputPath, Buffer.from(output))
       onProgress(95)
     } finally {
@@ -163,6 +164,11 @@ async function compressPdf(
       fileSystem.unlink?.(virtualOutputPath)
     }
   })
+}
+
+export function isQpdfSuccessExitCode(exitCode: number): boolean {
+  // qpdf uses 3 when processing succeeds after recovering from input warnings.
+  return exitCode === 0 || exitCode === 3
 }
 
 async function getQpdfModule(): Promise<QpdfInstance> {
