@@ -2,6 +2,7 @@ import { createRequire } from 'module'
 import { readFile, writeFile } from 'fs/promises'
 import { statSync } from 'fs'
 import { PDFiumLibrary } from '@hyzyla/pdfium'
+import { PDFDocument } from 'pdf-lib'
 import sharp from 'sharp'
 import type { QpdfInstance } from '@neslinesli93/qpdf-wasm'
 import type { MediaTask, PdfOptions } from '../../shared/types'
@@ -41,16 +42,24 @@ export async function processPdf(
 ): Promise<number> {
   if (signal.aborted) throw new TaskCancelledError()
   const options = task.options as PdfOptions
-  const command = createTaskCommand('pdfium/qpdf-wasm', [
+  const command = createTaskCommand('pdfium/pdf-lib/qpdf-wasm', [
     task.sourcePath,
     options.operation,
-    options.operation === 'toImage' ? `${options.imageFormat}@${options.dpi}dpi` : 'lossless',
+    options.operation === 'toImage'
+      ? `${options.imageFormat}@${options.dpi}dpi`
+      : options.compressionMode === 'lossy'
+        ? `lossy@${options.compressionDpi}dpi/q${options.compressionQuality}`
+        : 'lossless',
     task.outputPath
   ])
 
   try {
     if (options.operation === 'compress') {
-      await compressPdf(task.sourcePath, task.outputPath, signal, onProgress)
+      if (options.compressionMode === 'lossy') {
+        await compressPdfLossy(task.sourcePath, task.outputPath, options, signal, onProgress)
+      } else {
+        await compressPdfLossless(task.sourcePath, task.outputPath, signal, onProgress)
+      }
     } else {
       await renderPdfPage(task, options, signal, onProgress)
     }
@@ -125,7 +134,7 @@ function swapBlueRedChannels(data: Uint8Array): Buffer {
   return rgba
 }
 
-async function compressPdf(
+async function compressPdfLossless(
   sourcePath: string,
   outputPath: string,
   signal: AbortSignal,
@@ -164,6 +173,57 @@ async function compressPdf(
       fileSystem.unlink?.(virtualOutputPath)
     }
   })
+}
+
+async function compressPdfLossy(
+  sourcePath: string,
+  outputPath: string,
+  options: PdfOptions,
+  signal: AbortSignal,
+  onProgress: (progress: number) => void
+): Promise<void> {
+  if (signal.aborted) throw new TaskCancelledError()
+  const library = await pdfiumLibraryPromise
+  const sourceDocument = await library.loadDocument(await readFile(sourcePath))
+  try {
+    const pageCount = sourceDocument.getPageCount()
+    if (pageCount < 1) throw new Error('PDF 中没有可处理的页面')
+    const outputDocument = await PDFDocument.create()
+    onProgress(5)
+    for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+      if (signal.aborted) throw new TaskCancelledError()
+      const sourcePage = sourceDocument.getPage(pageIndex)
+      const size = sourcePage.getOriginalSize()
+      const render = await sourcePage.render({
+        scale: options.compressionDpi / 72,
+        colorSpace: 'BGRA',
+        render: async ({ data, width, height }) => {
+          const rgba = swapBlueRedChannels(data)
+          return sharp(rgba, { raw: { width, height, channels: 4 } })
+            .flatten({ background: '#ffffff' })
+            .jpeg({ quality: options.compressionQuality, mozjpeg: true })
+            .toBuffer()
+        }
+      })
+      if (signal.aborted) throw new TaskCancelledError()
+      const image = await outputDocument.embedJpg(render.data)
+      const outputPage = outputDocument.addPage([size.originalWidth, size.originalHeight])
+      outputPage.drawImage(image, {
+        x: 0,
+        y: 0,
+        width: size.originalWidth,
+        height: size.originalHeight
+      })
+      onProgress(5 + Math.round(((pageIndex + 1) / pageCount) * 85))
+    }
+    const output = await outputDocument.save({ addDefaultPage: false, useObjectStreams: true })
+    if (signal.aborted) throw new TaskCancelledError()
+    if (output.length === 0) throw new Error('PDF 有损压缩未生成有效输出')
+    await writeFile(outputPath, output)
+    onProgress(95)
+  } finally {
+    sourceDocument.destroy()
+  }
 }
 
 export function isQpdfSuccessExitCode(exitCode: number): boolean {

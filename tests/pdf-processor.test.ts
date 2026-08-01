@@ -25,7 +25,7 @@ describe('PDF processor', () => {
     directories.push(root)
     const sourcePath = join(root, 'broken-xref.pdf')
     const outputPath = join(root, 'compressed.pdf')
-    await writeFile(sourcePath, createPdfWithBrokenXref())
+    await writeFile(sourcePath, createTestPdf(true))
     const task: MediaTask = {
       id: 'pdf-warning',
       kind: 'pdf',
@@ -46,9 +46,42 @@ describe('PDF processor', () => {
       height: 100
     })
   })
+
+  it('rebuilds every page as JPEG for lossy compression', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-pdf-lossy-'))
+    directories.push(root)
+    const sourcePath = join(root, 'source.pdf')
+    const outputPath = join(root, 'compressed.pdf')
+    await writeFile(sourcePath, createTestPdf(false))
+    const task: MediaTask = {
+      id: 'pdf-lossy',
+      kind: 'pdf',
+      sourcePath,
+      outputPath,
+      status: 'processing',
+      progress: 0,
+      options: {
+        ...DEFAULT_PDF_OPTIONS,
+        operation: 'compress',
+        compressionMode: 'lossy',
+        compressionDpi: 72,
+        compressionQuality: 60
+      },
+      sourceSize: 1,
+      createdAt: new Date(0).toISOString()
+    }
+
+    expect(await processPdf(task, new AbortController().signal)).toBeGreaterThan(0)
+    expect((await readFile(outputPath)).subarray(0, 5).toString()).toBe('%PDF-')
+    await expect(probePdf(outputPath, new AbortController().signal)).resolves.toMatchObject({
+      pageCount: 1,
+      width: 100,
+      height: 100
+    })
+  })
 })
 
-function createPdfWithBrokenXref(): Buffer {
+function createTestPdf(breakMetadataXref: boolean): Buffer {
   const chunks = ['%PDF-1.4\n']
   const offsets: number[] = []
   const objects = [
@@ -65,7 +98,7 @@ function createPdfWithBrokenXref(): Buffer {
   const xrefOffset = Buffer.byteLength(chunks.join(''))
   chunks.push('xref\n0 6\n0000000000 65535 f \n')
   for (const [index, offset] of offsets.entries()) {
-    const xrefEntry = index === 4 ? 0 : offset
+    const xrefEntry = breakMetadataXref && index === 4 ? 0 : offset
     chunks.push(`${xrefEntry.toString().padStart(10, '0')} 00000 n \n`)
   }
   chunks.push(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`)

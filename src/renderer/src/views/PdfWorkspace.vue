@@ -3,8 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { FileText, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
+  PdfCompressionMode,
   PdfImageFormat,
-  PdfOperation,
   PdfOptions
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
@@ -25,9 +25,12 @@ const pendingPaths = computed<string[]>({
 })
 const pdfTasks = computed(() => store.currentBatchTasks.pdf)
 const pendingTableItems = computed(() => pendingPaths.value.map((path) => ({ path })))
+type PdfWorkspaceMode = 'toImage' | PdfCompressionMode
+
 const operationOptions = [
-  { value: 'toImage', label: '逐页转图片' },
-  { value: 'compress', label: '无损压缩' }
+  { value: 'toImage', label: '转图片' },
+  { value: 'lossless', label: '无损压缩' },
+  { value: 'lossy', label: '有损压缩' }
 ]
 const imageFormatOptions = [
   { value: 'png', label: 'PNG' },
@@ -39,9 +42,13 @@ const supportedExtensions = new Set(['pdf'])
 const formatLabel = computed(() => {
   const options = store.settings?.pdf.lastOptions
   if (!options) return ''
-  return options.operation === 'compress'
-    ? '无损压缩'
-    : `PDF → ${options.imageFormat.toUpperCase()}`
+  if (options.operation === 'toImage') return `PDF → ${options.imageFormat.toUpperCase()}`
+  return options.compressionMode === 'lossy' ? '有损压缩' : '无损压缩'
+})
+const workspaceMode = computed<PdfWorkspaceMode>(() => {
+  const options = store.settings?.pdf.lastOptions
+  if (!options || options.operation === 'toImage') return 'toImage'
+  return options.compressionMode
 })
 
 function updatePdf(patch: Partial<PdfOptions>): void {
@@ -49,6 +56,14 @@ function updatePdf(patch: Partial<PdfOptions>): void {
   void store.updateSettings({
     pdf: { lastOptions: { ...store.settings.pdf.lastOptions, ...patch } }
   })
+}
+
+function setWorkspaceMode(value: PdfWorkspaceMode): void {
+  if (value === 'toImage') {
+    updatePdf({ operation: 'toImage' })
+    return
+  }
+  updatePdf({ operation: 'compress', compressionMode: value })
 }
 
 function stageFiles(paths: string[]): void {
@@ -95,7 +110,12 @@ async function startProcessing(): Promise<void> {
         ? withPageVariable(settings.common.outputNameTemplate)
         : settings.common.outputNameTemplate,
     outputConflictPolicy: settings.common.outputConflictPolicy,
-    presetName: options.operation === 'compress' ? 'PDF 无损压缩' : 'PDF 转图片',
+    presetName:
+      options.operation === 'toImage'
+        ? 'PDF 转图片'
+        : options.compressionMode === 'lossy'
+          ? 'PDF 有损压缩'
+          : 'PDF 无损压缩',
     options
   }
   starting.value = true
@@ -158,6 +178,14 @@ onBeforeUnmount(() => {
             formatLabel
           }}</span>
         </div>
+        <SegmentedControl
+          class="preset-segments pdf-operation-segments"
+          label="PDF 处理方式"
+          :model-value="workspaceMode"
+          :options="operationOptions"
+          hide-label
+          @update:model-value="setWorkspaceMode($event as PdfWorkspaceMode)"
+        />
         <Teleport to="#media-titlebar-actions" :disabled="!useIntegratedTitlebar">
           <div class="video-config-actions">
             <OutputLocationControls />
@@ -178,18 +206,14 @@ onBeforeUnmount(() => {
         </Teleport>
       </div>
 
-      <div class="image-config-primary">
+      <div
+        v-if="store.settings.pdf.lastOptions.operation === 'toImage'"
+        class="image-config-primary pdf-config-primary"
+      >
         <fieldset class="config-group">
-          <legend class="sr-only">PDF 操作</legend>
+          <legend class="sr-only">图片格式</legend>
           <div class="config-group-fields">
             <SegmentedControl
-              label="处理方式"
-              :model-value="store.settings.pdf.lastOptions.operation"
-              :options="operationOptions"
-              @update:model-value="updatePdf({ operation: $event as PdfOperation })"
-            />
-            <SegmentedControl
-              v-if="store.settings.pdf.lastOptions.operation === 'toImage'"
               label="图片格式"
               :model-value="store.settings.pdf.lastOptions.imageFormat"
               :options="imageFormatOptions"
@@ -198,10 +222,7 @@ onBeforeUnmount(() => {
           </div>
         </fieldset>
 
-        <fieldset
-          v-if="store.settings.pdf.lastOptions.operation === 'toImage'"
-          class="config-group"
-        >
+        <fieldset class="config-group">
           <legend class="sr-only">图片质量</legend>
           <div class="config-group-fields">
             <label class="compact-field">
@@ -237,6 +258,50 @@ onBeforeUnmount(() => {
           </div>
         </fieldset>
       </div>
+
+      <div
+        v-else-if="store.settings.pdf.lastOptions.compressionMode === 'lossy'"
+        class="image-config-primary pdf-lossy-config"
+      >
+        <fieldset class="config-group">
+          <legend class="sr-only">有损压缩参数</legend>
+          <div class="config-group-fields">
+            <label class="compact-field">
+              <span>页面分辨率</span>
+              <select
+                :value="store.settings.pdf.lastOptions.compressionDpi"
+                @change="
+                  updatePdf({
+                    compressionDpi: Number(($event.target as HTMLSelectElement).value)
+                  })
+                "
+              >
+                <option :value="96">96 DPI</option>
+                <option :value="144">144 DPI</option>
+                <option :value="200">200 DPI</option>
+                <option :value="300">300 DPI</option>
+              </select>
+            </label>
+            <label class="compact-field">
+              <span>图片质量</span>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                :value="store.settings.pdf.lastOptions.compressionQuality"
+                @change="
+                  updatePdf({
+                    compressionQuality: Number(($event.target as HTMLInputElement).value)
+                  })
+                "
+              />
+            </label>
+          </div>
+          <p class="pdf-lossy-note">
+            页面将重建为 JPEG 图片，可显著缩小图片型 PDF，但文字将无法选择，矢量内容也会被栅格化。
+          </p>
+        </fieldset>
+      </div>
     </section>
 
     <div class="video-workspace-content">
@@ -266,7 +331,7 @@ onBeforeUnmount(() => {
         </div>
         <p class="text-lg font-semibold">{{ dragging ? '松开即可添加 PDF' : '拖入 PDF 文件' }}</p>
         <p class="mt-1 text-sm text-muted-foreground">
-          支持 PDF 无损压缩，以及逐页导出为 PNG、JPEG 或 WebP。
+          支持 PDF 无损与有损压缩，以及逐页导出为 PNG、JPEG 或 WebP。
         </p>
         <Button class="mt-5" @click="chooseFiles">选择 PDF 文件</Button>
       </div>

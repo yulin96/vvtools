@@ -1208,6 +1208,14 @@ input {
   width: 224px;
 }
 
+.pdf-operation-segments {
+  width: 284px;
+}
+
+.font-operation-segments {
+  width: 400px;
+}
+
 .conflict-policy-segments {
   width: 100%;
 }
@@ -1264,6 +1272,23 @@ input {
 .video-config-primary,
 .image-config-primary {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pdf-config-primary,
+.font-config-primary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pdf-lossy-config {
+  grid-template-columns: minmax(0, 640px);
+}
+
+.pdf-lossy-note {
+  max-width: 68ch;
+  margin-top: 10px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .video-config-expanded {
@@ -1989,6 +2014,14 @@ html[data-theme='dark'] .bg-slate-950 {
   .video-config-heading,
   .video-config-actions {
     gap: 6px;
+  }
+
+  .pdf-operation-segments {
+    width: 252px;
+  }
+
+  .font-operation-segments {
+    width: 340px;
   }
 }
 

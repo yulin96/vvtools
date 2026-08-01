@@ -20,6 +20,7 @@ export type CompletionAction = 'none' | 'openOutput'
 export type AudioFormat = 'mp3' | 'm4a' | 'wav' | 'flac'
 export type AudioChannels = 'source' | 'mono' | 'stereo'
 export type PdfOperation = 'compress' | 'toImage'
+export type PdfCompressionMode = 'lossless' | 'lossy'
 export type PdfImageFormat = 'png' | 'jpeg' | 'webp'
 export type FontOperation = 'convert' | 'splitCollection' | 'variableStatic' | 'subset'
 export type FontFormat = 'ttf' | 'otf' | 'woff' | 'woff2'
@@ -101,6 +102,9 @@ export interface AudioOptions {
 
 export interface PdfOptions {
   operation: PdfOperation
+  compressionMode: PdfCompressionMode
+  compressionDpi: number
+  compressionQuality: number
   imageFormat: PdfImageFormat
   dpi: number
   imageQuality: number

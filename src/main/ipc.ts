@@ -45,6 +45,7 @@ const VIDEO_FRAME_RATES = new Set(['source', '24', '30', '60', 'custom'])
 const VIDEO_AUDIO_MODES = new Set(['aac', 'copy', 'none'])
 const IMAGE_FORMATS = new Set<ImageFormat>(['original', 'jpeg', 'png', 'webp', 'avif'])
 const PDF_OPERATIONS = new Set(['compress', 'toImage'])
+const PDF_COMPRESSION_MODES = new Set(['lossless', 'lossy'])
 const PDF_IMAGE_FORMATS = new Set(['png', 'jpeg', 'webp'])
 const FONT_OPERATIONS = new Set(['convert', 'splitCollection', 'variableStatic', 'subset'])
 const FONT_FORMATS = new Set(['ttf', 'otf', 'woff', 'woff2'])
@@ -359,6 +360,13 @@ function validatePdfOptions(options: PdfOptions, message: string): void {
   if (
     !options ||
     !PDF_OPERATIONS.has(options.operation) ||
+    !PDF_COMPRESSION_MODES.has(options.compressionMode) ||
+    !Number.isInteger(options.compressionDpi) ||
+    options.compressionDpi < 36 ||
+    options.compressionDpi > 600 ||
+    !Number.isInteger(options.compressionQuality) ||
+    options.compressionQuality < 1 ||
+    options.compressionQuality > 100 ||
     !PDF_IMAGE_FORMATS.has(options.imageFormat) ||
     !Number.isInteger(options.dpi) ||
     options.dpi < 36 ||

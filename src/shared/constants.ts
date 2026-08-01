@@ -125,6 +125,9 @@ export const DEFAULT_AUDIO_OPTIONS: AudioOptions = {
 
 export const DEFAULT_PDF_OPTIONS: PdfOptions = {
   operation: 'toImage',
+  compressionMode: 'lossless',
+  compressionDpi: 144,
+  compressionQuality: 80,
   imageFormat: 'png',
   dpi: 144,
   imageQuality: 90

@@ -51,6 +51,12 @@ describe('SettingsStore', () => {
       channels: 'source',
       normalizeLoudness: false
     })
+    expect(store.get().pdf.lastOptions).toMatchObject({
+      operation: 'toImage',
+      compressionMode: 'lossless',
+      compressionDpi: 144,
+      compressionQuality: 80
+    })
 
     expect(store.get().video.lastOptions.encoderMode).toBe('auto')
     expect(store.get().video.lastOptions.customFrameRate).toBe(30)

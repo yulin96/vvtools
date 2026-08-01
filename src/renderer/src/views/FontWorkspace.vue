@@ -30,7 +30,7 @@ const modeOptions = [
   { value: 'convert', label: '字体转换' },
   { value: 'splitCollection', label: '字体拆分' },
   { value: 'variableStatic', label: '可变字体' },
-  { value: 'subset', label: '字体子集化' }
+  { value: 'subset', label: '字体压缩' }
 ]
 const formatOptions = [
   { value: 'ttf', label: 'TTF' },
@@ -121,7 +121,7 @@ async function startProcessing(): Promise<void> {
           ? withVariable(settings.common.outputNameTemplate, '{instance}')
           : settings.common.outputNameTemplate,
     outputConflictPolicy: settings.common.outputConflictPolicy,
-    presetName: '字体处理',
+    presetName: modeOptions.find((item) => item.value === selectedOperation)?.label ?? '字体处理',
     options
   }
   starting.value = true
@@ -185,7 +185,14 @@ onBeforeUnmount(() => {
           </div>
         </summary>
         <div class="video-config-heading font-options-heading">
-          <div />
+          <SegmentedControl
+            class="preset-segments font-operation-segments"
+            label="字体处理方式"
+            :model-value="operation"
+            :options="modeOptions"
+            hide-label
+            @update:model-value="setMode($event as FontOperation)"
+          />
           <Teleport to="#media-titlebar-actions" :disabled="!useIntegratedTitlebar">
             <div class="video-config-actions">
               <OutputLocationControls />
@@ -206,17 +213,7 @@ onBeforeUnmount(() => {
           </Teleport>
         </div>
 
-        <div class="image-config-primary">
-          <fieldset class="config-group">
-            <legend class="sr-only">字体处理方式</legend>
-            <SegmentedControl
-              label="处理方式"
-              :model-value="operation"
-              :options="modeOptions"
-              @update:model-value="setMode($event as FontOperation)"
-            />
-          </fieldset>
-
+        <div class="image-config-primary font-config-primary">
           <fieldset class="config-group">
             <legend class="sr-only">输出格式</legend>
             <div class="config-group-fields">
