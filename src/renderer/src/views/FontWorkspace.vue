@@ -224,7 +224,6 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="workflow-mode-row">
-        <span class="workflow-mode-label">处理方式</span>
         <SegmentedControl
           class="workflow-mode-control font-operation-segments"
           label="字体处理方式"
