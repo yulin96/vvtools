@@ -1185,9 +1185,7 @@ input {
   height: 28px;
   border-radius: 6px;
   background: color-mix(in srgb, var(--primary) 18%, var(--background));
-  box-shadow:
-    inset 0 -2px 0 var(--primary),
-    0 1px 3px color-mix(in srgb, var(--primary) 14%, transparent);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--primary) 14%, transparent);
 }
 
 .workflow-mode-control .segmented-control-option,
