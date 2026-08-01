@@ -1,11 +1,10 @@
 import { createRequire } from 'module'
-import { readFile, writeFile } from 'fs/promises'
-import { statSync } from 'fs'
+import { readFile } from 'fs/promises'
 import { extname } from 'path'
-import { instantiateVariableFont, subset } from '@web-alchemy/fonttools'
 import type { FontFormat, FontInstance, FontOptions, MediaTask } from '../../shared/types'
 import { MediaProcessError, TaskCancelledError } from './errors'
 import { createTaskCommand } from './ffmpeg-runtime'
+import { runFontProcess } from './font-process'
 
 const require = createRequire(import.meta.url)
 
@@ -76,25 +75,28 @@ export async function processFont(
   ])
 
   try {
-    const input = await readFile(task.sourcePath)
     onProgress(10)
-    let output: Uint8Array
+    let outputSize: number
     if (options.operation === 'variableStatic') {
       const axes = task.fontInstance?.axes ?? {}
       const staticAxes = Object.fromEntries(
-        Object.entries(axes).map(([tag, value]) => [tag, [value, value]])
+        Object.entries(axes).map(([tag, value]) => [tag, [value, value] as [number, number]])
       )
-      const instantiated = await instantiateVariableFont(input, staticAxes)
-      if (signal.aborted) throw new TaskCancelledError()
-      output = await convertFont(instantiated, options.outputFormat, signal)
+      outputSize = await runFontProcess(
+        {
+          sourcePath: task.sourcePath,
+          outputPath: task.outputPath,
+          staticAxes,
+          subsetOptions: createConvertOptions(options.outputFormat)
+        },
+        signal
+      )
     } else {
-      output = await subsetFont(input, options, task.fontIndex, signal)
+      outputSize = await processSubsetFont(task, options, signal)
     }
     if (signal.aborted) throw new TaskCancelledError()
-    if (!output.byteLength) throw new Error('字体处理器没有生成有效输出')
-    await writeFile(task.outputPath, Buffer.from(output))
     onProgress(100)
-    return statSync(task.outputPath).size
+    return outputSize
   } catch (error) {
     if (error instanceof TaskCancelledError || error instanceof MediaProcessError) throw error
     throw new MediaProcessError('字体处理失败，请确认字体文件未损坏或参数有效', {
@@ -104,15 +106,15 @@ export async function processFont(
   }
 }
 
-async function subsetFont(
-  input: Uint8Array,
+async function processSubsetFont(
+  task: MediaTask,
   options: FontOptions,
-  fontIndex: number | undefined,
   signal: AbortSignal
-): Promise<Uint8Array> {
+): Promise<number> {
   if (signal.aborted) throw new TaskCancelledError()
   const subsetOptions: Record<string, unknown> = {
     'layout-features': '*',
+    'drop-tables+': 'meta',
     flavor: fontFlavor(options.outputFormat)
   }
   if (options.operation === 'subset') {
@@ -125,24 +127,27 @@ async function subsetFont(
     subsetOptions['*'] = true
   }
   if (signal.aborted) throw new TaskCancelledError()
-  if (fontIndex !== undefined) subsetOptions['font-number'] = fontIndex
+  if (task.fontIndex !== undefined) subsetOptions['font-number'] = task.fontIndex
   if (!subsetOptions.flavor) delete subsetOptions.flavor
-  return subset(input, subsetOptions)
+  return runFontProcess(
+    {
+      sourcePath: task.sourcePath,
+      outputPath: task.outputPath,
+      subsetOptions
+    },
+    signal
+  )
 }
 
-async function convertFont(
-  input: Uint8Array,
-  outputFormat: FontFormat,
-  signal: AbortSignal
-): Promise<Uint8Array> {
-  if (signal.aborted) throw new TaskCancelledError()
+function createConvertOptions(outputFormat: FontFormat): Record<string, unknown> {
   const options: Record<string, unknown> = {
     '*': true,
     'layout-features': '*',
+    'drop-tables+': 'meta',
     flavor: fontFlavor(outputFormat)
   }
   if (!options.flavor) delete options.flavor
-  return subset(input, options)
+  return options
 }
 
 function getFontInstances(font: FontLike): FontInstance[] {
