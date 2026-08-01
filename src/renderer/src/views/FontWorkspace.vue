@@ -225,7 +225,7 @@ onBeforeUnmount(() => {
 
       <div class="workflow-mode-row">
         <SegmentedControl
-          class="workflow-mode-control font-operation-segments"
+          class="font-operation-segments"
           label="字体处理方式"
           :model-value="operation"
           :options="modeOptions"

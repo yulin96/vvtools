@@ -215,7 +215,7 @@ onBeforeUnmount(() => {
 
       <div class="workflow-mode-row">
         <SegmentedControl
-          class="workflow-mode-control pdf-operation-segments"
+          class="pdf-operation-segments"
           label="PDF 处理方式"
           :model-value="workspaceMode"
           :options="operationOptions"
