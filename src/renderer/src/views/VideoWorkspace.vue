@@ -25,7 +25,6 @@ import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 
 const store = useAppStore()
-const useIntegratedTitlebar = ['darwin', 'win32'].includes(window.api.platform)
 const configExpanded = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
@@ -288,32 +287,30 @@ onBeforeUnmount(() => {
             {{ formatLabel }} · {{ codecLabel }} · {{ qualityLabel }}
           </span>
         </div>
-        <Teleport to="#media-titlebar-actions" :disabled="!useIntegratedTitlebar">
-          <div class="video-config-actions">
-            <SegmentedControl
-              class="preset-segments video-preset-segments"
-              label="视频处理方案"
-              :model-value="activePresetId"
-              :options="videoPresetOptions"
-              hide-label
-              @update:model-value="applyPreset"
-            />
-            <OutputLocationControls />
-            <SourceOverwriteWarning />
-            <Button
-              size="sm"
-              :disabled="pendingPaths.length === 0 || starting"
-              @click="startProcessing"
-            >
-              <Play class="size-4" />
-              {{
-                starting
-                  ? '正在开始…'
-                  : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
-              }}
-            </Button>
-          </div>
-        </Teleport>
+        <div class="video-config-actions">
+          <SegmentedControl
+            class="preset-segments video-preset-segments"
+            label="视频处理方案"
+            :model-value="activePresetId"
+            :options="videoPresetOptions"
+            hide-label
+            @update:model-value="applyPreset"
+          />
+          <OutputLocationControls />
+          <SourceOverwriteWarning />
+          <Button
+            size="sm"
+            :disabled="pendingPaths.length === 0 || starting"
+            @click="startProcessing"
+          >
+            <Play class="size-4" />
+            {{
+              starting
+                ? '正在开始…'
+                : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+            }}
+          </Button>
+        </div>
       </div>
 
       <div class="video-config-primary">

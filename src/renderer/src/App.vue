@@ -111,7 +111,6 @@ onBeforeUnmount(() => {
           </span>
         </button>
       </div>
-      <div id="media-titlebar-actions" class="app-titlebar-actions app-titlebar-actions-end" />
     </header>
     <aside class="app-sidebar" :class="{ 'app-sidebar-collapsed': sidebarCollapsed }">
       <div class="sidebar-brand">

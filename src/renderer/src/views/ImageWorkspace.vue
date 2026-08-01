@@ -28,7 +28,6 @@ import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 
 const store = useAppStore()
-const useIntegratedTitlebar = ['darwin', 'win32'].includes(window.api.platform)
 const configExpanded = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
@@ -299,32 +298,30 @@ onBeforeUnmount(() => {
             {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
           </span>
         </div>
-        <Teleport to="#media-titlebar-actions" :disabled="!useIntegratedTitlebar">
-          <div class="video-config-actions">
-            <SegmentedControl
-              class="preset-segments image-preset-segments"
-              label="图片处理方案"
-              :model-value="activePresetId"
-              :options="imagePresetOptions"
-              hide-label
-              @update:model-value="applyPreset"
-            />
-            <OutputLocationControls />
-            <SourceOverwriteWarning />
-            <Button
-              size="sm"
-              :disabled="pendingInputs.length === 0 || starting"
-              @click="startProcessing"
-            >
-              <Play class="size-4" />
-              {{
-                starting
-                  ? '正在开始…'
-                  : `开始处理${pendingInputs.length ? ` (${pendingInputs.length})` : ''}`
-              }}
-            </Button>
-          </div>
-        </Teleport>
+        <div class="video-config-actions">
+          <SegmentedControl
+            class="preset-segments image-preset-segments"
+            label="图片处理方案"
+            :model-value="activePresetId"
+            :options="imagePresetOptions"
+            hide-label
+            @update:model-value="applyPreset"
+          />
+          <OutputLocationControls />
+          <SourceOverwriteWarning />
+          <Button
+            size="sm"
+            :disabled="pendingInputs.length === 0 || starting"
+            @click="startProcessing"
+          >
+            <Play class="size-4" />
+            {{
+              starting
+                ? '正在开始…'
+                : `开始处理${pendingInputs.length ? ` (${pendingInputs.length})` : ''}`
+            }}
+          </Button>
+        </div>
       </div>
 
       <div class="image-config-primary">

@@ -16,7 +16,6 @@ import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 
 const store = useAppStore()
-const useIntegratedTitlebar = ['darwin', 'win32'].includes(window.api.platform)
 const dragging = ref(false)
 const starting = ref(false)
 const pendingPaths = computed<string[]>({
@@ -49,6 +48,30 @@ const summary = computed(() => {
   const options = store.settings?.font.lastOptions
   if (!options) return ''
   return `${options.outputFormat.toUpperCase()} · ${modeOptions.find((item) => item.value === options.operation)?.label ?? ''}`
+})
+const emptyStateCopy = computed(() => {
+  if (operation.value === 'splitCollection') {
+    return {
+      title: '拖入需要拆分的字体集合',
+      description: '将 TTC 或 OTC 集合中的每个字体分别输出为独立文件。'
+    }
+  }
+  if (operation.value === 'variableStatic') {
+    return {
+      title: '拖入需要静态化的可变字体',
+      description: '按命名实例或默认实例，将可变字体导出为普通静态字体。'
+    }
+  }
+  if (operation.value === 'subset') {
+    return {
+      title: '拖入需要压缩的字体',
+      description: '仅保留输入文本或 TXT 文件包含的字符，减少字体文件体积。'
+    }
+  }
+  return {
+    title: '拖入需要转换格式的字体',
+    description: '在 TTF、OTF、WOFF 和 WOFF2 之间转换字体格式。'
+  }
 })
 
 function updateFont(patch: Partial<FontOptions>): void {
@@ -176,93 +199,91 @@ onBeforeUnmount(() => {
   <div class="video-drop-workspace" :class="{ 'video-drop-workspace-active': dragging }">
     <DropFollowEffect :active="dragging" />
     <section v-if="store.settings" class="video-config-panel" aria-label="字体处理设置">
-      <details open class="font-options-disclosure">
-        <summary class="font-options-summary">
-          <div class="config-heading-main">
-            <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-            <span class="shrink-0 text-sm font-semibold">字体处理</span>
-            <span class="config-summary truncate text-xs text-muted-foreground">{{ summary }}</span>
-          </div>
-        </summary>
-        <div class="video-config-heading font-options-heading">
-          <SegmentedControl
-            class="preset-segments font-operation-segments"
-            label="字体处理方式"
-            :model-value="operation"
-            :options="modeOptions"
-            hide-label
-            @update:model-value="setMode($event as FontOperation)"
-          />
-          <Teleport to="#media-titlebar-actions" :disabled="!useIntegratedTitlebar">
-            <div class="video-config-actions">
-              <OutputLocationControls />
-              <SourceOverwriteWarning />
-              <Button
-                size="sm"
-                :disabled="pendingPaths.length === 0 || starting"
-                @click="startProcessing"
-              >
-                <Play class="size-4" />
-                {{
-                  starting
-                    ? '正在开始…'
-                    : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
-                }}
-              </Button>
-            </div>
-          </Teleport>
+      <div class="video-config-heading">
+        <div class="config-heading-main">
+          <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
+          <span class="shrink-0 text-sm font-semibold">字体处理</span>
+          <span class="config-summary truncate text-xs text-muted-foreground">{{ summary }}</span>
         </div>
+        <div class="video-config-actions">
+          <OutputLocationControls />
+          <SourceOverwriteWarning />
+          <Button
+            size="sm"
+            :disabled="pendingPaths.length === 0 || starting"
+            @click="startProcessing"
+          >
+            <Play class="size-4" />
+            {{
+              starting
+                ? '正在开始…'
+                : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+            }}
+          </Button>
+        </div>
+      </div>
 
-        <div class="image-config-primary font-config-primary">
-          <fieldset class="config-group">
-            <legend class="sr-only">输出格式</legend>
-            <div class="config-group-fields">
-              <SegmentedControl
-                label="输出格式"
-                :model-value="store.settings.font.lastOptions.outputFormat"
-                :options="formatOptions"
-                @update:model-value="updateFont({ outputFormat: $event as FontFormat })"
-              />
-              <SegmentedControl
-                v-if="operation === 'variableStatic'"
-                label="实例"
-                :model-value="store.settings.font.lastOptions.variableInstanceMode"
-                :options="variableModeOptions"
-                @update:model-value="
-                  updateFont({ variableInstanceMode: $event as 'named' | 'default' })
+      <div class="workflow-mode-row">
+        <span class="workflow-mode-label">处理方式</span>
+        <SegmentedControl
+          class="workflow-mode-control font-operation-segments"
+          label="字体处理方式"
+          :model-value="operation"
+          :options="modeOptions"
+          hide-label
+          @update:model-value="setMode($event as FontOperation)"
+        />
+      </div>
+
+      <div class="image-config-primary font-config-primary">
+        <fieldset class="config-group">
+          <legend class="sr-only">输出格式</legend>
+          <div class="config-group-fields">
+            <SegmentedControl
+              label="输出格式"
+              :model-value="store.settings.font.lastOptions.outputFormat"
+              :options="formatOptions"
+              @update:model-value="updateFont({ outputFormat: $event as FontFormat })"
+            />
+            <SegmentedControl
+              v-if="operation === 'variableStatic'"
+              label="实例"
+              :model-value="store.settings.font.lastOptions.variableInstanceMode"
+              :options="variableModeOptions"
+              @update:model-value="
+                updateFont({ variableInstanceMode: $event as 'named' | 'default' })
+              "
+            />
+          </div>
+        </fieldset>
+
+        <fieldset v-if="operation === 'subset'" class="config-group">
+          <legend class="sr-only">字体子集文本</legend>
+          <div class="font-subset-fields">
+            <label class="font-subset-textarea">
+              <span>保留字符</span>
+              <textarea
+                :value="store.settings.font.lastOptions.subsetText"
+                rows="2"
+                placeholder="直接输入字符，或选择 TXT 文本文件"
+                @change="
+                  updateFont({
+                    subsetText: ($event.target as HTMLTextAreaElement).value,
+                    subsetTextFile: ''
+                  })
                 "
               />
-            </div>
-          </fieldset>
-
-          <fieldset v-if="operation === 'subset'" class="config-group">
-            <legend class="sr-only">字体子集文本</legend>
-            <div class="font-subset-fields">
-              <label class="font-subset-textarea">
-                <span>保留字符</span>
-                <textarea
-                  :value="store.settings.font.lastOptions.subsetText"
-                  rows="2"
-                  placeholder="直接输入字符，或选择 TXT 文本文件"
-                  @change="
-                    updateFont({
-                      subsetText: ($event.target as HTMLTextAreaElement).value,
-                      subsetTextFile: ''
-                    })
-                  "
-                />
-              </label>
-              <Button variant="secondary" size="sm" @click="chooseTextFile">选择 TXT 文件</Button>
-              <span
-                v-if="store.settings.font.lastOptions.subsetTextFile"
-                class="truncate text-xs text-muted-foreground"
-              >
-                {{ store.settings.font.lastOptions.subsetTextFile }}
-              </span>
-            </div>
-          </fieldset>
-        </div>
-      </details>
+            </label>
+            <Button variant="secondary" size="sm" @click="chooseTextFile">选择 TXT 文件</Button>
+            <span
+              v-if="store.settings.font.lastOptions.subsetTextFile"
+              class="truncate text-xs text-muted-foreground"
+            >
+              {{ store.settings.font.lastOptions.subsetTextFile }}
+            </span>
+          </div>
+        </fieldset>
+      </div>
     </section>
 
     <div class="video-workspace-content">
@@ -290,10 +311,10 @@ onBeforeUnmount(() => {
           <UploadCloud v-if="dragging" class="size-8" />
           <FileType v-else class="size-8" />
         </div>
-        <p class="text-lg font-semibold">{{ dragging ? '松开即可添加字体' : '拖入字体文件' }}</p>
-        <p class="mt-1 text-sm text-muted-foreground">
-          支持 TTF、OTF、WOFF、WOFF2，以及 TTC/OTC 字体集合拆分。
+        <p class="text-lg font-semibold">
+          {{ dragging ? '松开即可添加字体' : emptyStateCopy.title }}
         </p>
+        <p class="mt-1 text-sm text-muted-foreground">{{ emptyStateCopy.description }}</p>
         <Button class="mt-5" @click="chooseFiles">选择字体文件</Button>
       </div>
     </div>

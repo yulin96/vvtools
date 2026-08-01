@@ -2,12 +2,11 @@
 import { TriangleAlert } from '@lucide/vue'
 import { computed } from 'vue'
 import { useAppStore } from '../stores/app'
+import { shouldShowSourceOverwriteWarning } from '../lib/output-warning'
 
 const store = useAppStore()
-const visible = computed(
-  () =>
-    store.settings?.common.outputMode === 'source' &&
-    store.settings.common.outputConflictPolicy === 'overwrite'
+const visible = computed(() =>
+  store.settings ? shouldShowSourceOverwriteWarning(store.settings.common) : false
 )
 </script>
 

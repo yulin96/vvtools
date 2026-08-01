@@ -16,7 +16,6 @@ import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 
 const store = useAppStore()
-const useIntegratedTitlebar = ['darwin', 'win32'].includes(window.api.platform)
 const dragging = ref(false)
 const starting = ref(false)
 const pendingPaths = computed<string[]>({
@@ -49,6 +48,24 @@ const workspaceMode = computed<PdfWorkspaceMode>(() => {
   const options = store.settings?.pdf.lastOptions
   if (!options || options.operation === 'toImage') return 'toImage'
   return options.compressionMode
+})
+const emptyStateCopy = computed(() => {
+  if (workspaceMode.value === 'toImage') {
+    return {
+      title: '拖入需要逐页转图片的 PDF',
+      description: '每个页面都会独立导出，可选择 PNG、JPEG 或 WebP。'
+    }
+  }
+  if (workspaceMode.value === 'lossy') {
+    return {
+      title: '拖入需要缩小体积的 PDF',
+      description: '页面将重建为 JPEG 图片，适合图片型 PDF；文字选择和矢量内容不会保留。'
+    }
+  }
+  return {
+    title: '拖入需要无损压缩的 PDF',
+    description: '重新整理 PDF 内部结构，不降低页面清晰度，也不改变文字和矢量内容。'
+  }
 })
 
 function updatePdf(patch: Partial<PdfOptions>): void {
@@ -178,32 +195,34 @@ onBeforeUnmount(() => {
             formatLabel
           }}</span>
         </div>
+        <div class="video-config-actions">
+          <OutputLocationControls />
+          <SourceOverwriteWarning />
+          <Button
+            size="sm"
+            :disabled="pendingPaths.length === 0 || starting"
+            @click="startProcessing"
+          >
+            <Play class="size-4" />
+            {{
+              starting
+                ? '正在开始…'
+                : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+            }}
+          </Button>
+        </div>
+      </div>
+
+      <div class="workflow-mode-row">
+        <span class="workflow-mode-label">处理方式</span>
         <SegmentedControl
-          class="preset-segments pdf-operation-segments"
+          class="workflow-mode-control pdf-operation-segments"
           label="PDF 处理方式"
           :model-value="workspaceMode"
           :options="operationOptions"
           hide-label
           @update:model-value="setWorkspaceMode($event as PdfWorkspaceMode)"
         />
-        <Teleport to="#media-titlebar-actions" :disabled="!useIntegratedTitlebar">
-          <div class="video-config-actions">
-            <OutputLocationControls />
-            <SourceOverwriteWarning />
-            <Button
-              size="sm"
-              :disabled="pendingPaths.length === 0 || starting"
-              @click="startProcessing"
-            >
-              <Play class="size-4" />
-              {{
-                starting
-                  ? '正在开始…'
-                  : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
-              }}
-            </Button>
-          </div>
-        </Teleport>
       </div>
 
       <div
@@ -329,10 +348,10 @@ onBeforeUnmount(() => {
           <UploadCloud v-if="dragging" class="size-8" />
           <FileText v-else class="size-8" />
         </div>
-        <p class="text-lg font-semibold">{{ dragging ? '松开即可添加 PDF' : '拖入 PDF 文件' }}</p>
-        <p class="mt-1 text-sm text-muted-foreground">
-          支持 PDF 无损与有损压缩，以及逐页导出为 PNG、JPEG 或 WebP。
+        <p class="text-lg font-semibold">
+          {{ dragging ? '松开即可添加 PDF' : emptyStateCopy.title }}
         </p>
+        <p class="mt-1 text-sm text-muted-foreground">{{ emptyStateCopy.description }}</p>
         <Button class="mt-5" @click="chooseFiles">选择 PDF 文件</Button>
       </div>
     </div>
