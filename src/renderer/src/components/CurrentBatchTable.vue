@@ -14,7 +14,7 @@ import {
   X,
   XCircle
 } from '@lucide/vue'
-import type { MediaTask, TaskKind, TaskStatus } from '../../../shared/types'
+import type { FontOptions, MediaTask, TaskKind, TaskStatus } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import { fileName, formatBytes } from '../lib/utils'
 import Badge from './ui/Badge.vue'
@@ -23,8 +23,10 @@ import Modal from './ui/Modal.vue'
 import Progress from './ui/Progress.vue'
 
 export interface PendingBatchItem {
+  id?: string
   path: string
   label?: string
+  spec?: string
 }
 
 const props = defineProps<{
@@ -34,7 +36,7 @@ const props = defineProps<{
 }>()
 
 defineEmits<{
-  removePending: [path: string]
+  removePending: [idOrPath: string]
 }>()
 
 const store = useAppStore()
@@ -106,9 +108,13 @@ function extension(path: string): string {
 }
 
 function taskSpec(task: MediaTask): string {
+  if (task.kind === 'font') {
+    const format = (task.options as FontOptions).outputFormat.toUpperCase()
+    if (task.fontIndex !== undefined) return `${format} · 集合字体 ${task.fontIndex + 1}`
+    if (task.fontInstance) return `${format} · ${task.fontInstance.name}`
+    return format
+  }
   if (task.pageNumber !== undefined) return `第 ${task.pageNumber} 页`
-  if (task.fontIndex !== undefined) return `集合字体 ${task.fontIndex + 1}`
-  if (task.fontInstance) return task.fontInstance.name
   if (task.sourceWidth && task.sourceHeight) return `${task.sourceWidth} × ${task.sourceHeight}`
   return extension(task.sourcePath)
 }
@@ -164,20 +170,20 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
     </header>
 
     <div class="batch-task-table-wrap">
-      <table class="batch-task-table">
+      <table class="batch-task-table" :class="{ 'batch-task-table-font': kind === 'font' }">
         <thead>
           <tr>
             <th class="batch-col-name">名称</th>
             <th class="batch-col-size">转换前 → 转换后</th>
             <th class="batch-col-savings">节省</th>
-            <th class="batch-col-spec">规格</th>
+            <th class="batch-col-spec">{{ kind === 'font' ? '转换类型' : '规格' }}</th>
             <th class="batch-col-progress">进度</th>
             <th class="batch-col-status">状态</th>
             <th class="batch-col-actions"><span class="sr-only">操作</span></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in pendingItems" :key="`pending:${item.path}`">
+          <tr v-for="item in pendingItems" :key="`pending:${item.id ?? item.path}`">
             <td class="batch-col-name">
               <div class="batch-file-cell">
                 <Circle class="batch-status-icon text-muted-foreground" />
@@ -191,7 +197,11 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
             </td>
             <td class="batch-col-size text-muted-foreground">—</td>
             <td class="batch-col-savings text-muted-foreground">—</td>
-            <td class="batch-col-spec">{{ extension(item.path) }}</td>
+            <td class="batch-col-spec">
+              <slot name="pending-spec" :item="item">
+                {{ item.spec || extension(item.path) }}
+              </slot>
+            </td>
             <td class="batch-col-progress">
               <div class="batch-progress-cell">
                 <Progress :value="0" />
@@ -206,8 +216,8 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
                 variant="ghost"
                 size="icon"
                 title="移除"
-                :aria-label="`移除 ${item.label || fileName(item.path)}`"
-                @click="$emit('removePending', item.path)"
+                :aria-label="`移除 ${item.label || fileName(item.path)}${item.spec ? `（${item.spec}）` : ''}`"
+                @click="$emit('removePending', item.id ?? item.path)"
               >
                 <X class="size-4" />
               </Button>

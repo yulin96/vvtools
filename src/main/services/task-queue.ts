@@ -5,6 +5,7 @@ import { EventEmitter } from 'events'
 import type {
   AudioOptions,
   CreateTasksRequest,
+  FontFormat,
   FontInstance,
   FontOptions,
   ImageOptions,
@@ -32,6 +33,12 @@ interface TaskUnit {
   fontInstance?: FontInstance
 }
 
+interface TaskSource {
+  path: string
+  relativeDirectory: string
+  fontOutputFormat?: FontFormat
+}
+
 export class TaskQueue extends EventEmitter {
   private readonly tasks = new Map<string, MediaTask>()
   private readonly running = new Map<string, AbortController>()
@@ -51,10 +58,16 @@ export class TaskQueue extends EventEmitter {
 
   create(request: CreateTasksRequest): MediaTask[] {
     this.discardSettledBatch(request.kind)
-    const sources =
+    const sources: TaskSource[] =
       request.kind === 'image'
         ? request.sources
-        : request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
+        : request.kind === 'font'
+          ? request.sources.map((source) => ({
+              path: source.path,
+              relativeDirectory: '',
+              fontOutputFormat: source.outputFormat
+            }))
+          : request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
     const metadata = new Map(request.inputMetadata?.map((item) => [item.path, item]))
     const created = sources.flatMap((source) => {
       const sourcePath = source.path
@@ -82,7 +95,9 @@ export class TaskQueue extends EventEmitter {
           request.kind === 'pdf' && request.options.operation === 'toImage'
             ? request.options.imageFormat
             : undefined,
-          request.kind === 'font' ? request.options.outputFormat : undefined
+          request.kind === 'font'
+            ? (source.fontOutputFormat ?? request.options.outputFormat)
+            : undefined
         )
         const output = resolveOutputPath({
           sourcePath,
@@ -112,7 +127,13 @@ export class TaskQueue extends EventEmitter {
           outputPath: output.path,
           status: 'pending',
           progress: 0,
-          options: structuredClone(request.options),
+          options:
+            request.kind === 'font'
+              ? {
+                  ...structuredClone(request.options),
+                  outputFormat: source.fontOutputFormat ?? request.options.outputFormat
+                }
+              : structuredClone(request.options),
           outputSuffix: request.outputSuffix,
           outputNameTemplate: request.outputNameTemplate,
           outputConflictPolicy: request.outputConflictPolicy,
@@ -230,7 +251,12 @@ export class TaskQueue extends EventEmitter {
                 }
               : {
                   kind: 'font',
-                  sourcePaths: [original.sourcePath],
+                  sources: [
+                    {
+                      path: original.sourcePath,
+                      outputFormat: (original.options as FontOptions).outputFormat
+                    }
+                  ],
                   outputMode: 'custom',
                   outputDirectory: dirname(original.outputPath),
                   outputSuffix: original.outputSuffix ?? '',

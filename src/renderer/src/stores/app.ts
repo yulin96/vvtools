@@ -4,6 +4,7 @@ import type {
   AppSettings,
   AppSettingsPatch,
   CreateTasksRequest,
+  FontFormat,
   ImageInputFile,
   MediaTask,
   RuntimeCapabilities,
@@ -13,6 +14,12 @@ import type {
 
 interface TaskSubmissionResult {
   handledPaths: string[]
+}
+
+export interface PendingFontItem {
+  id: string
+  path: string
+  outputFormat: FontFormat
 }
 
 function serializable<T>(value: T): T {
@@ -32,7 +39,7 @@ export const useAppStore = defineStore('app', () => {
   const pendingVideoPaths = ref<string[]>([])
   const pendingAudioPaths = ref<string[]>([])
   const pendingPdfPaths = ref<string[]>([])
-  const pendingFontPaths = ref<string[]>([])
+  const pendingFontItems = ref<PendingFontItem[]>([])
   const currentBatchTaskIds = ref<Record<TaskKind, string[]>>({
     image: [],
     video: [],
@@ -173,14 +180,21 @@ export const useAppStore = defineStore('app', () => {
 
       const handledPaths = handled.map((item) => item.sourcePath)
       const handledPathSet = new Set(handledPaths)
-      const inputMetadata = handled.map((item) => ({
-        path: item.sourcePath,
-        width: item.outputWidth ?? item.width,
-        height: item.outputHeight ?? item.height,
-        pageCount: item.pageCount,
-        fontCount: item.fontCount,
-        fontInstances: item.fontInstances
-      }))
+      const inputMetadata = [
+        ...new Map(
+          handled.map((item) => [
+            item.sourcePath,
+            {
+              path: item.sourcePath,
+              width: item.outputWidth ?? item.width,
+              height: item.outputHeight ?? item.height,
+              pageCount: item.pageCount,
+              fontCount: item.fontCount,
+              fontInstances: item.fontInstances?.length ? item.fontInstances : undefined
+            }
+          ])
+        ).values()
+      ]
       const submission: CreateTasksRequest =
         inspectedRequest.kind === 'image'
           ? {
@@ -188,11 +202,21 @@ export const useAppStore = defineStore('app', () => {
               sources: inspectedRequest.sources.filter((source) => handledPathSet.has(source.path)),
               inputMetadata
             }
-          : {
-              ...inspectedRequest,
-              sourcePaths: inspectedRequest.sourcePaths.filter((path) => handledPathSet.has(path)),
-              inputMetadata
-            }
+          : inspectedRequest.kind === 'font'
+            ? {
+                ...inspectedRequest,
+                sources: inspectedRequest.sources.filter((source) =>
+                  handledPathSet.has(source.path)
+                ),
+                inputMetadata
+              }
+            : {
+                ...inspectedRequest,
+                sourcePaths: inspectedRequest.sourcePaths.filter((path) =>
+                  handledPathSet.has(path)
+                ),
+                inputMetadata
+              }
 
       const createdTasks = await window.api.createTasks(serializable(submission))
       const createdIds = new Set(createdTasks.map((task) => task.id))
@@ -330,7 +354,7 @@ export const useAppStore = defineStore('app', () => {
     pendingVideoPaths,
     pendingAudioPaths,
     pendingPdfPaths,
-    pendingFontPaths,
+    pendingFontItems,
     currentBatchTasks,
     prepareCurrentBatch,
     activeCount,

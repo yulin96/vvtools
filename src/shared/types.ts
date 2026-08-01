@@ -128,6 +128,11 @@ export interface ImageInputFile {
   relativeDirectory: string
 }
 
+export interface FontInputFile {
+  path: string
+  outputFormat: FontFormat
+}
+
 export interface CommonSettings {
   concurrency: ConcurrencySettings
   closeBehavior: CloseBehavior
@@ -313,7 +318,7 @@ export type CreateTasksRequest =
     }
   | {
       kind: 'font'
-      sourcePaths: string[]
+      sources: FontInputFile[]
       outputMode: OutputMode
       outputDirectory: string
       outputSuffix: string

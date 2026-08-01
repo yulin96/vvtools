@@ -409,7 +409,7 @@ describe('TaskQueue', () => {
     )
     const tasks = queue.create({
       kind: 'font',
-      sourcePaths: [source],
+      sources: [{ path: source, outputFormat: 'woff2' }],
       outputMode: 'custom',
       outputDirectory: paths.output,
       outputSuffix: '',
@@ -426,6 +426,41 @@ describe('TaskQueue', () => {
     expect(tasks.map((task) => task.outputPath)).toEqual([
       join(paths.output, 'collection-font-1.woff2'),
       join(paths.output, 'collection-font-3.woff2')
+    ])
+  })
+
+  it('creates independent font tasks for per-file output formats', () => {
+    const paths = fixture()
+    const source = join(dirname(paths.source), 'font.ttf')
+    writeFileSync(source, 'font fixture')
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
+    const tasks = queue.create({
+      kind: 'font',
+      sources: [
+        { path: source, outputFormat: 'woff' },
+        { path: source, outputFormat: 'woff2' }
+      ],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: {
+        operation: 'convert',
+        outputFormat: 'woff2',
+        variableInstanceMode: 'named'
+      }
+    })
+
+    expect(tasks.map((task) => task.outputPath)).toEqual([
+      join(paths.output, 'font.woff'),
+      join(paths.output, 'font.woff2')
+    ])
+    expect(tasks.map((task) => (task.options as { outputFormat: string }).outputFormat)).toEqual([
+      'woff',
+      'woff2'
     ])
   })
 

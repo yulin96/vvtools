@@ -7,7 +7,6 @@ import type {
   AppSettingsPatch,
   AudioOptions,
   CreateTasksRequest,
-  FontInstance,
   FontOptions,
   ImageFormat,
   ImageOptions,
@@ -29,6 +28,7 @@ import {
 } from '../shared/constants'
 import { extractVersionReleaseNotes } from '../shared/release-notes.mjs'
 import { getRuntimeCapabilities } from './media/ffmpeg-runtime'
+import { sanitizeFontInstances } from './media/font-metadata'
 import { collectImageInputs } from './media/image-inputs'
 import { inspectTasks } from './media/preflight'
 import { SettingsStore } from './services/settings-store'
@@ -134,21 +134,25 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
     validatePdfOptions(request.options, 'PDF 任务参数无效')
     request.pageNumbers = sanitizeIndexes(request.pageNumbers, 1, 'PDF 页面编号无效')
   } else {
-    if (!Array.isArray(request.sourcePaths) || request.sourcePaths.length === 0) {
+    if (!Array.isArray(request.sources) || request.sources.length === 0) {
       throw new Error('请至少选择一个字体文件')
     }
-    if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
-    request.sourcePaths.forEach((path) => validateSourcePath(path, 'font'))
+    if (request.sources.length > 500) throw new Error('单次最多添加 500 个文件')
+    request.sources.forEach((source) => {
+      if (!source || typeof source !== 'object' || !FONT_FORMATS.has(source.outputFormat)) {
+        throw new Error('字体来源参数无效')
+      }
+      validateSourcePath(source.path, 'font')
+    })
     validateFontOptions(request.options, '字体任务参数无效')
     request.fontIndexes = sanitizeIndexes(request.fontIndexes, 0, '字体编号无效')
     request.fontInstances = sanitizeFontInstances(request.fontInstances)
   }
-  request.inputMetadata = sanitizeInputMetadata(
-    request.inputMetadata,
-    new Set(
-      request.kind === 'image' ? request.sources.map((source) => source.path) : request.sourcePaths
-    )
-  )
+  const sourcePaths =
+    request.kind === 'image' || request.kind === 'font'
+      ? request.sources.map((source) => source.path)
+      : request.sourcePaths
+  request.inputMetadata = sanitizeInputMetadata(request.inputMetadata, new Set(sourcePaths))
   return structuredClone(request)
 }
 
@@ -256,29 +260,6 @@ function sanitizeIndexes(value: unknown, minimum: number, message: string): numb
     return item as number
   })
   return [...new Set(indexes)].sort((left, right) => left - right)
-}
-
-function sanitizeFontInstances(value: unknown): FontInstance[] | undefined {
-  if (value === undefined) return undefined
-  if (!Array.isArray(value) || value.length === 0 || value.length > 100) {
-    throw new Error('字体实例信息无效')
-  }
-  return value.map((item) => {
-    if (!isRecord(item) || typeof item.name !== 'string' || !item.name.trim()) {
-      throw new Error('字体实例信息无效')
-    }
-    if (!isRecord(item.axes) || Object.keys(item.axes).length > 32) {
-      throw new Error('字体轴信息无效')
-    }
-    const axes: Record<string, number> = {}
-    for (const [tag, axis] of Object.entries(item.axes)) {
-      if (!/^[A-Za-z0-9]{4}$/u.test(tag) || typeof axis !== 'number' || !Number.isFinite(axis)) {
-        throw new Error('字体轴信息无效')
-      }
-      axes[tag] = axis
-    }
-    return { name: item.name.trim().slice(0, 100), axes }
-  })
 }
 
 function validateRelativeDirectory(value: string): void {

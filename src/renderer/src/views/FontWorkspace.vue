@@ -7,7 +7,7 @@ import type {
   FontOperation,
   FontOptions
 } from '../../../shared/types'
-import { useAppStore } from '../stores/app'
+import { useAppStore, type PendingFontItem } from '../stores/app'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
@@ -18,12 +18,18 @@ import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 const store = useAppStore()
 const dragging = ref(false)
 const starting = ref(false)
-const pendingPaths = computed<string[]>({
-  get: () => store.pendingFontPaths,
-  set: (value) => (store.pendingFontPaths = value)
+const pendingItems = computed<PendingFontItem[]>({
+  get: () => store.pendingFontItems,
+  set: (value) => (store.pendingFontItems = value)
 })
 const fontTasks = computed(() => store.currentBatchTasks.font)
-const pendingTableItems = computed(() => pendingPaths.value.map((path) => ({ path })))
+const pendingTableItems = computed(() =>
+  pendingItems.value.map((item) => ({
+    id: item.id,
+    path: item.path,
+    spec: item.outputFormat.toUpperCase()
+  }))
+)
 const mode = ref<FontOperation>('convert')
 const modeOptions = [
   { value: 'convert', label: '字体转换' },
@@ -94,13 +100,26 @@ function stageFiles(paths: string[]): void {
     store.errorMessage = '没有可导入的字体文件'
     return
   }
-  if (pendingPaths.value.length === 0) store.prepareCurrentBatch('font')
-  const combined = [...new Set([...pendingPaths.value, ...supported])]
-  if (combined.length > 500) {
+  if (pendingItems.value.length === 0) store.prepareCurrentBatch('font')
+  if (pendingItems.value.length + supported.length > 500) {
     store.errorMessage = '单次最多添加 500 个文件'
     return
   }
-  pendingPaths.value = combined
+  const outputFormat = store.settings?.font.lastOptions.outputFormat ?? 'woff2'
+  pendingItems.value = [
+    ...pendingItems.value,
+    ...supported.map((path) => ({ id: crypto.randomUUID(), path, outputFormat }))
+  ]
+}
+
+function updatePendingFormat(id: string, outputFormat: FontFormat): void {
+  pendingItems.value = pendingItems.value.map((item) =>
+    item.id === id ? { ...item, outputFormat } : item
+  )
+}
+
+function removePending(id: string): void {
+  pendingItems.value = pendingItems.value.filter((item) => item.id !== id)
 }
 
 async function chooseFiles(): Promise<void> {
@@ -127,13 +146,13 @@ function withVariable(template: string, variable: '{index}' | '{instance}'): str
 }
 
 async function startProcessing(): Promise<void> {
-  if (!store.settings || pendingPaths.value.length === 0 || starting.value) return
+  if (!store.settings || pendingItems.value.length === 0 || starting.value) return
   const settings = store.settings
   const selectedOperation = operation.value
   const options = { ...settings.font.lastOptions, operation: selectedOperation }
   const request: CreateTasksRequest = {
     kind: 'font',
-    sourcePaths: [...pendingPaths.value],
+    sources: pendingItems.value.map(({ path, outputFormat }) => ({ path, outputFormat })),
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
     outputSuffix: settings.common.outputSuffix,
@@ -152,7 +171,7 @@ async function startProcessing(): Promise<void> {
     const result = await store.submitTasks(request)
     if (!result) return
     const handledPaths = new Set(result.handledPaths)
-    pendingPaths.value = pendingPaths.value.filter((path) => !handledPaths.has(path))
+    pendingItems.value = pendingItems.value.filter((item) => !handledPaths.has(item.path))
   } finally {
     starting.value = false
   }
@@ -210,14 +229,14 @@ onBeforeUnmount(() => {
           <SourceOverwriteWarning />
           <Button
             size="sm"
-            :disabled="pendingPaths.length === 0 || starting"
+            :disabled="pendingItems.length === 0 || starting"
             @click="startProcessing"
           >
             <Play class="size-4" />
             {{
               starting
                 ? '正在开始…'
-                : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+                : `开始处理${pendingItems.length ? ` (${pendingItems.length})` : ''}`
             }}
           </Button>
         </div>
@@ -287,18 +306,35 @@ onBeforeUnmount(() => {
 
     <div class="video-workspace-content">
       <CurrentBatchTable
-        v-if="pendingPaths.length || fontTasks.length"
+        v-if="pendingItems.length || fontTasks.length"
         kind="font"
         :pending-items="pendingTableItems"
         :tasks="fontTasks"
-        @remove-pending="pendingPaths = pendingPaths.filter((item) => item !== $event)"
+        @remove-pending="removePending"
       >
+        <template #pending-spec="{ item }">
+          <select
+            class="pending-font-format-select"
+            :value="(item.spec || 'WOFF2').toLowerCase()"
+            :aria-label="`${item.label || item.path} 的转换类型（当前 ${item.spec}）`"
+            @change="
+              updatePendingFormat(
+                item.id || item.path,
+                ($event.target as HTMLSelectElement).value as FontFormat
+              )
+            "
+          >
+            <option v-for="format in formatOptions" :key="format.value" :value="format.value">
+              {{ format.label }}
+            </option>
+          </select>
+        </template>
         <template #actions>
           <div class="flex items-center gap-1">
             <Button variant="secondary" size="sm" @click="chooseFiles">
               <Plus class="size-3.5" />添加字体
             </Button>
-            <Button v-if="pendingPaths.length" variant="ghost" size="sm" @click="pendingPaths = []">
+            <Button v-if="pendingItems.length" variant="ghost" size="sm" @click="pendingItems = []">
               清空待处理
             </Button>
           </div>

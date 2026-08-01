@@ -3,6 +3,7 @@ import { dirname, join } from 'path'
 import sharp from 'sharp'
 import type {
   CreateTasksRequest,
+  FontFormat,
   FontInstance,
   ImageOptions,
   MediaInspection,
@@ -17,6 +18,7 @@ import { probePdf } from './pdf-processor'
 interface InspectionSource {
   path: string
   relativeDirectory: string
+  fontOutputFormat?: FontFormat
 }
 
 export async function inspectTasks(
@@ -26,7 +28,13 @@ export async function inspectTasks(
   const sources: InspectionSource[] =
     request.kind === 'image'
       ? request.sources
-      : request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
+      : request.kind === 'font'
+        ? request.sources.map((source) => ({
+            path: source.path,
+            relativeDirectory: '',
+            fontOutputFormat: source.outputFormat
+          }))
+        : request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
   const reservedPaths = new Set(existingReservedPaths)
 
   const inspections = await mapWithConcurrency(sources, 4, async (source) => {
@@ -158,7 +166,9 @@ export async function inspectTasks(
       request.kind === 'pdf' && request.options.operation === 'toImage'
         ? request.options.imageFormat
         : undefined,
-      request.kind === 'font' ? request.options.outputFormat : undefined
+      request.kind === 'font'
+        ? (source.fontOutputFormat ?? request.options.outputFormat)
+        : undefined
     )
     for (const unit of units) {
       const output = resolveOutputPath({
