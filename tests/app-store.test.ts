@@ -157,4 +157,29 @@ describe('app store task submission', () => {
     })
     expect(store.currentBatchTasks.font).toHaveLength(2)
   })
+
+  it('removes Electron IPC details from errors shown to users', async () => {
+    const api = {
+      inspectTasks: vi.fn(async () => {
+        throw new Error(
+          "Error invoking remote method 'tasks:inspect': Error: 请输入需要保留的字符，或选择 TXT 文本文件"
+        )
+      })
+    } as unknown as VVToolsApi
+    vi.stubGlobal('window', { api })
+    setActivePinia(createPinia())
+
+    const store = useAppStore()
+    const result = await store.submitTasks({
+      kind: 'font',
+      sources: [{ path: '/tmp/source.ttf', outputFormat: 'woff2' }],
+      outputMode: 'custom',
+      outputDirectory: '/tmp',
+      outputSuffix: '',
+      options: { ...DEFAULT_FONT_OPTIONS, operation: 'subset' }
+    })
+
+    expect(result).toBeNull()
+    expect(store.errorMessage).toBe('请输入需要保留的字符，或选择 TXT 文本文件')
+  })
 })

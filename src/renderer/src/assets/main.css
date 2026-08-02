@@ -1060,8 +1060,13 @@ input {
 
 .font-subset-fields {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 10px;
+}
+
+.font-subset-input {
+  min-width: 0;
+  flex: 1;
 }
 
 .font-subset-textarea {
@@ -1092,6 +1097,26 @@ input {
 .font-subset-textarea textarea:focus {
   border-color: var(--accessible-cyan);
   box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.font-subset-textarea textarea[aria-invalid='true'] {
+  border-color: var(--destructive);
+}
+
+.font-subset-error {
+  margin-top: 5px;
+  color: var(--destructive);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.font-subset-file-picker {
+  display: flex;
+  min-width: 0;
+  max-width: 46%;
+  align-items: center;
+  gap: 10px;
+  padding-top: 23px;
 }
 
 .video-config-actions {

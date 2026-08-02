@@ -379,7 +379,7 @@ function validateFontOptions(
   if (options.operation !== 'subset' || !requireSubsetInput) return
   const textFile = options.subsetTextFile?.trim()
   const text = options.subsetText?.trim()
-  if (!textFile && !text) throw new Error('字体子集化需要输入文本或文本文件')
+  if (!textFile && !text) throw new Error('请输入需要保留的字符，或选择 TXT 文本文件')
   if (textFile) {
     if (!isAbsolute(textFile) || !existsSync(textFile) || !statSync(textFile).isFile()) {
       throw new Error('字体子集文本文件无效')

@@ -26,6 +26,11 @@ function serializable<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+function friendlyErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error)
+  return message.replace(/^Error invoking remote method '[^']+': Error: /u, '')
+}
+
 export const useAppStore = defineStore('app', () => {
   const tasks = ref<MediaTask[]>([])
   const settings = ref<AppSettings | null>(null)
@@ -336,7 +341,7 @@ export const useAppStore = defineStore('app', () => {
   }
 
   function reportError(error: unknown): void {
-    errorMessage.value = error instanceof Error ? error.message : String(error)
+    errorMessage.value = friendlyErrorMessage(error)
   }
 
   return {

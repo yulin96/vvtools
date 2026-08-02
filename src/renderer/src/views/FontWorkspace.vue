@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { FileType, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
@@ -18,6 +18,10 @@ import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 const store = useAppStore()
 const dragging = ref(false)
 const starting = ref(false)
+const subsetTextarea = ref<HTMLTextAreaElement | null>(null)
+const subsetValidationMessage = ref('')
+const subsetTextDraft = ref('')
+const subsetTextFileDraft = ref('')
 const pendingItems = computed<PendingFontItem[]>({
   get: () => store.pendingFontItems,
   set: (value) => (store.pendingFontItems = value)
@@ -50,6 +54,16 @@ const variableModeOptions = [
 const supportedExtensions = new Set(['ttf', 'otf', 'woff', 'woff2', 'ttc', 'otc'])
 
 const operation = computed(() => store.settings?.font.lastOptions.operation ?? mode.value)
+watch(
+  () => store.settings?.font.lastOptions.subsetText,
+  (value) => (subsetTextDraft.value = value ?? ''),
+  { immediate: true }
+)
+watch(
+  () => store.settings?.font.lastOptions.subsetTextFile,
+  (value) => (subsetTextFileDraft.value = value ?? ''),
+  { immediate: true }
+)
 const summary = computed(() => {
   const options = store.settings?.font.lastOptions
   if (!options) return ''
@@ -82,6 +96,13 @@ const emptyStateCopy = computed(() => {
 
 function updateFont(patch: Partial<FontOptions>): void {
   if (!store.settings) return
+  if (
+    patch.operation !== undefined ||
+    (typeof patch.subsetText === 'string' && patch.subsetText.trim()) ||
+    (typeof patch.subsetTextFile === 'string' && patch.subsetTextFile.trim())
+  ) {
+    subsetValidationMessage.value = ''
+  }
   void store.updateSettings({
     font: { lastOptions: { ...store.settings.font.lastOptions, ...patch } }
   })
@@ -133,10 +154,25 @@ async function chooseFiles(): Promise<void> {
 async function chooseTextFile(): Promise<void> {
   try {
     const path = await window.api.selectTextFile()
-    if (path) updateFont({ subsetTextFile: path, subsetText: '' })
+    if (path) {
+      subsetTextDraft.value = ''
+      subsetTextFileDraft.value = path
+      subsetValidationMessage.value = ''
+      updateFont({ subsetTextFile: path, subsetText: '' })
+    }
   } catch (error) {
     store.errorMessage = error instanceof Error ? error.message : String(error)
   }
+}
+
+function updateSubsetTextDraft(value: string): void {
+  subsetTextDraft.value = value
+  if (value) subsetTextFileDraft.value = ''
+  subsetValidationMessage.value = ''
+}
+
+function saveSubsetText(): void {
+  updateFont({ subsetText: subsetTextDraft.value, subsetTextFile: '' })
 }
 
 function withVariable(template: string, variable: '{index}' | '{instance}'): string {
@@ -149,7 +185,21 @@ async function startProcessing(): Promise<void> {
   if (!store.settings || pendingItems.value.length === 0 || starting.value) return
   const settings = store.settings
   const selectedOperation = operation.value
-  const options = { ...settings.font.lastOptions, operation: selectedOperation }
+  const subsetText = subsetTextDraft.value
+  const subsetTextFile = subsetText.trim() ? '' : subsetTextFileDraft.value
+  const options = {
+    ...settings.font.lastOptions,
+    operation: selectedOperation,
+    subsetText,
+    subsetTextFile
+  }
+  if (selectedOperation === 'subset' && !subsetText.trim() && !subsetTextFile.trim()) {
+    subsetValidationMessage.value = '请输入需要保留的字符，或选择 TXT 文本文件'
+    store.errorMessage = ''
+    subsetTextarea.value?.focus()
+    return
+  }
+  subsetValidationMessage.value = ''
   const request: CreateTasksRequest = {
     kind: 'font',
     sources: pendingItems.value.map(({ path, outputFormat }) => ({ path, outputFormat })),
@@ -278,27 +328,35 @@ onBeforeUnmount(() => {
         <fieldset v-if="operation === 'subset'" class="config-group">
           <legend class="sr-only">字体子集文本</legend>
           <div class="font-subset-fields">
-            <label class="font-subset-textarea">
-              <span>保留字符</span>
-              <textarea
-                :value="store.settings.font.lastOptions.subsetText"
-                rows="2"
-                placeholder="直接输入字符，或选择 TXT 文本文件"
-                @change="
-                  updateFont({
-                    subsetText: ($event.target as HTMLTextAreaElement).value,
-                    subsetTextFile: ''
-                  })
-                "
-              />
-            </label>
-            <Button variant="secondary" size="sm" @click="chooseTextFile">选择 TXT 文件</Button>
-            <span
-              v-if="store.settings.font.lastOptions.subsetTextFile"
-              class="truncate text-xs text-muted-foreground"
-            >
-              {{ store.settings.font.lastOptions.subsetTextFile }}
-            </span>
+            <div class="font-subset-input">
+              <label class="font-subset-textarea">
+                <span>保留字符</span>
+                <textarea
+                  ref="subsetTextarea"
+                  :value="subsetTextDraft"
+                  rows="2"
+                  placeholder="直接输入字符，或选择 TXT 文本文件"
+                  :aria-invalid="Boolean(subsetValidationMessage)"
+                  :aria-describedby="subsetValidationMessage ? 'font-subset-error' : undefined"
+                  @input="updateSubsetTextDraft(($event.target as HTMLTextAreaElement).value)"
+                  @change="saveSubsetText"
+                />
+              </label>
+              <p
+                v-if="subsetValidationMessage"
+                id="font-subset-error"
+                class="font-subset-error"
+                role="alert"
+              >
+                {{ subsetValidationMessage }}
+              </p>
+            </div>
+            <div class="font-subset-file-picker">
+              <Button variant="secondary" size="sm" @click="chooseTextFile"> 选择 TXT 文件 </Button>
+              <span v-if="subsetTextFileDraft" class="truncate text-xs text-muted-foreground">
+                {{ subsetTextFileDraft }}
+              </span>
+            </div>
           </div>
         </fieldset>
       </div>
