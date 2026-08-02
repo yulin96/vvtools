@@ -155,7 +155,10 @@ export class TaskQueue extends EventEmitter {
     })
     this.changed()
     this.dispatch()
-    return created
+    return created.flatMap((createdTask) => {
+      const latest = this.tasks.get(createdTask.id)
+      return latest ? [structuredClone(latest)] : []
+    })
   }
 
   cancel(taskId: string): boolean {

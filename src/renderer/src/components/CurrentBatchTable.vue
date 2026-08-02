@@ -16,6 +16,7 @@ import {
 } from '@lucide/vue'
 import type { FontOptions, MediaTask, TaskKind, TaskStatus } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
+import { taskProgressText, taskProgressValue } from '../lib/task-progress'
 import { fileName, formatBytes } from '../lib/utils'
 import Badge from './ui/Badge.vue'
 import Button from './ui/Button.vue'
@@ -117,12 +118,6 @@ function taskSpec(task: MediaTask): string {
   if (task.pageNumber !== undefined) return `第 ${task.pageNumber} 页`
   if (task.sourceWidth && task.sourceHeight) return `${task.sourceWidth} × ${task.sourceHeight}`
   return extension(task.sourcePath)
-}
-
-function taskProgress(task: MediaTask): number | null {
-  if (task.status === 'completed') return 100
-  if (task.status === 'pending') return 0
-  return task.progress
 }
 
 function taskSavings(task: MediaTask): { difference: number; percentage: number } | null {
@@ -276,12 +271,8 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
             <td class="batch-col-spec">{{ taskSpec(task) }}</td>
             <td class="batch-col-progress">
               <div class="batch-progress-cell">
-                <Progress :value="taskProgress(task)" />
-                <span>
-                  {{
-                    taskProgress(task) === null ? '—' : `${Math.round(taskProgress(task) || 0)}%`
-                  }}
-                </span>
+                <Progress :value="taskProgressValue(task)" />
+                <span>{{ taskProgressText(task) }}</span>
               </div>
               <p v-if="task.failure" class="batch-failure-message" :title="task.failure.message">
                 {{ task.failure.message }}

@@ -13,7 +13,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { FailureLogService } from '../src/main/services/failure-log'
 import { TaskQueue, type TaskRunner } from '../src/main/services/task-queue'
 import { MediaProcessError, TaskCancelledError } from '../src/main/media/errors'
-import { DEFAULT_IMAGE_OPTIONS, DEFAULT_VIDEO_OPTIONS } from '../src/shared/constants'
+import {
+  DEFAULT_FONT_OPTIONS,
+  DEFAULT_IMAGE_OPTIONS,
+  DEFAULT_VIDEO_OPTIONS
+} from '../src/shared/constants'
 import type { TaskConcurrencyLimits } from '../src/shared/types'
 
 const directories: string[] = []
@@ -50,6 +54,32 @@ afterEach(() => {
 })
 
 describe('TaskQueue', () => {
+  it('returns the latest state after immediately dispatching a task', async () => {
+    const paths = fixture()
+    let release!: () => void
+    const blocker = new Promise<void>((resolve) => (release = resolve))
+    const runner: TaskRunner = async (task, _signal, onProgress) => {
+      onProgress(10)
+      await blocker
+      writeFileSync(task.outputPath, 'processed')
+      return 9
+    }
+    const queue = new TaskQueue(concurrency(1), runner, new FailureLogService(paths.userData))
+
+    const [created] = queue.create({
+      kind: 'font',
+      sources: [{ path: paths.source, outputFormat: 'woff2' }],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_FONT_OPTIONS, operation: 'convert' }
+    })
+
+    expect(created).toMatchObject({ status: 'processing', progress: 10 })
+    release()
+    await waitFor(() => queue.list()[0]?.status === 'completed')
+  })
+
   it('respects concurrency and continues dispatching', async () => {
     const paths = fixture()
     let running = 0
