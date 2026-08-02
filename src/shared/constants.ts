@@ -137,6 +137,10 @@ export const DEFAULT_FONT_OPTIONS: FontOptions = {
   operation: 'convert',
   outputFormat: 'woff2',
   variableInstanceMode: 'named',
+  subsetMode: 'chinese',
+  subsetChineseLevel: '3500',
+  subsetIncludeLatin: true,
+  subsetExtraText: '',
   subsetText: '',
   subsetTextFile: ''
 }

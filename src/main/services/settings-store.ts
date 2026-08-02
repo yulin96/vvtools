@@ -200,12 +200,23 @@ function migrateSettings(value: unknown, defaults: AppSettings): AppSettings {
       }
     },
     font: {
-      lastOptions: {
-        ...defaults.font.lastOptions,
-        ...(asRecord(font?.lastOptions ?? value.font) as Partial<FontOptions>)
-      }
+      lastOptions: migrateFontOptions(
+        asRecord(font?.lastOptions ?? value.font) as Partial<FontOptions>,
+        defaults.font.lastOptions
+      )
     }
   }
+}
+
+function migrateFontOptions(value: Partial<FontOptions>, fallback: FontOptions): FontOptions {
+  const migrated = { ...fallback, ...value }
+  if (
+    value.subsetMode === undefined &&
+    (value.subsetText?.trim() || value.subsetTextFile?.trim())
+  ) {
+    migrated.subsetMode = 'custom'
+  }
+  return migrated
 }
 
 function migrateCommonSettings(

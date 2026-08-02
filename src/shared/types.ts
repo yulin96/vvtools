@@ -25,6 +25,8 @@ export type PdfImageFormat = 'png' | 'jpeg' | 'webp'
 export type FontOperation = 'convert' | 'splitCollection' | 'variableStatic' | 'subset'
 export type FontFormat = 'ttf' | 'otf' | 'woff' | 'woff2'
 export type FontVariableInstanceMode = 'named' | 'default'
+export type FontSubsetMode = 'latin' | 'chinese' | 'custom'
+export type FontSubsetChineseLevel = '3500' | '6500' | '8105'
 export type ConcurrencyMode = 'auto' | 'custom'
 
 export interface TaskConcurrencyLimits {
@@ -119,6 +121,10 @@ export interface FontOptions {
   operation: FontOperation
   outputFormat: FontFormat
   variableInstanceMode: FontVariableInstanceMode
+  subsetMode: FontSubsetMode
+  subsetChineseLevel: FontSubsetChineseLevel
+  subsetIncludeLatin: boolean
+  subsetExtraText?: string
   subsetText?: string
   subsetTextFile?: string
 }

@@ -50,6 +50,8 @@ const PDF_IMAGE_FORMATS = new Set(['png', 'jpeg', 'webp'])
 const FONT_OPERATIONS = new Set(['convert', 'splitCollection', 'variableStatic', 'subset'])
 const FONT_FORMATS = new Set(['ttf', 'otf', 'woff', 'woff2'])
 const FONT_INSTANCE_MODES = new Set(['named', 'default'])
+const FONT_SUBSET_MODES = new Set(['latin', 'chinese', 'custom'])
+const FONT_SUBSET_CHINESE_LEVELS = new Set(['3500', '6500', '8105'])
 
 function assertTrusted(event: IpcMainInvokeEvent, window: BrowserWindow): void {
   if (event.sender !== window.webContents) throw new Error('拒绝来自未知页面的请求')
@@ -370,6 +372,12 @@ function validateFontOptions(
     !FONT_OPERATIONS.has(options.operation) ||
     !FONT_FORMATS.has(options.outputFormat) ||
     !FONT_INSTANCE_MODES.has(options.variableInstanceMode) ||
+    !FONT_SUBSET_MODES.has(options.subsetMode) ||
+    !FONT_SUBSET_CHINESE_LEVELS.has(options.subsetChineseLevel) ||
+    typeof options.subsetIncludeLatin !== 'boolean' ||
+    (options.subsetExtraText !== undefined &&
+      (typeof options.subsetExtraText !== 'string' ||
+        options.subsetExtraText.length > 1_000_000)) ||
     (options.subsetText !== undefined &&
       (typeof options.subsetText !== 'string' || options.subsetText.length > 1_000_000)) ||
     (options.subsetTextFile !== undefined && typeof options.subsetTextFile !== 'string')
@@ -377,6 +385,7 @@ function validateFontOptions(
     throw new Error(message)
   }
   if (options.operation !== 'subset' || !requireSubsetInput) return
+  if (options.subsetMode !== 'custom') return
   const textFile = options.subsetTextFile?.trim()
   const text = options.subsetText?.trim()
   if (!textFile && !text) throw new Error('请输入需要保留的字符，或选择 TXT 文本文件')

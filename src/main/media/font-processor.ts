@@ -2,6 +2,12 @@ import { createRequire } from 'module'
 import { readFile } from 'fs/promises'
 import { extname } from 'path'
 import type { FontFormat, FontInstance, FontOptions, MediaTask } from '../../shared/types'
+import {
+  FONT_SUBSET_CHINESE_PRESETS,
+  FONT_SUBSET_CHINESE_PUNCTUATION,
+  FONT_SUBSET_LATIN_BASIC,
+  uniqueCharacters
+} from '../../shared/font-subset-presets'
 import { MediaProcessError, TaskCancelledError } from './errors'
 import { createTaskCommand } from './ffmpeg-runtime'
 import { runFontProcess } from './font-process'
@@ -118,11 +124,7 @@ async function processSubsetFont(
     flavor: fontFlavor(options.outputFormat)
   }
   if (options.operation === 'subset') {
-    if (options.subsetTextFile) {
-      subsetOptions.text = await readFile(options.subsetTextFile, 'utf8')
-    } else if (options.subsetText) {
-      subsetOptions.text = options.subsetText
-    }
+    subsetOptions.text = await resolveFontSubsetText(options)
   } else {
     subsetOptions['*'] = true
   }
@@ -137,6 +139,25 @@ async function processSubsetFont(
     },
     signal
   )
+}
+
+export async function resolveFontSubsetText(options: FontOptions): Promise<string> {
+  if (options.subsetMode === 'latin') {
+    return uniqueCharacters(FONT_SUBSET_LATIN_BASIC, options.subsetExtraText)
+  }
+  if (options.subsetMode === 'chinese') {
+    return uniqueCharacters(
+      FONT_SUBSET_LATIN_BASIC,
+      FONT_SUBSET_CHINESE_PUNCTUATION,
+      FONT_SUBSET_CHINESE_PRESETS[options.subsetChineseLevel],
+      options.subsetExtraText
+    )
+  }
+
+  const customText = options.subsetTextFile
+    ? await readFile(options.subsetTextFile, 'utf8')
+    : options.subsetText
+  return uniqueCharacters(options.subsetIncludeLatin ? FONT_SUBSET_LATIN_BASIC : '', customText)
 }
 
 function createConvertOptions(outputFormat: FontFormat): Record<string, unknown> {

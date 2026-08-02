@@ -206,6 +206,32 @@ describe('SettingsStore', () => {
     expect(settings.image).not.toHaveProperty('presets')
   })
 
+  it('keeps existing font subset text as a custom character source', () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-settings-'))
+    directories.push(root)
+    writeFileSync(
+      join(root, 'settings.json'),
+      JSON.stringify({
+        font: {
+          lastOptions: {
+            operation: 'subset',
+            outputFormat: 'woff2',
+            variableInstanceMode: 'named',
+            subsetText: '原有字符',
+            subsetTextFile: ''
+          }
+        }
+      })
+    )
+
+    expect(new SettingsStore(root, join(root, 'downloads')).get().font.lastOptions).toMatchObject({
+      subsetMode: 'custom',
+      subsetText: '原有字符',
+      subsetIncludeLatin: true,
+      subsetChineseLevel: '3500'
+    })
+  })
+
   it('resolves automatic concurrency by media type', () => {
     expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 10)).toEqual({
       image: 8,

@@ -5,9 +5,18 @@ import type {
   CreateTasksRequest,
   FontFormat,
   FontOperation,
-  FontOptions
+  FontOptions,
+  FontSubsetChineseLevel,
+  FontSubsetMode
 } from '../../../shared/types'
+import {
+  FONT_SUBSET_CHINESE_PRESETS,
+  FONT_SUBSET_CHINESE_PUNCTUATION,
+  FONT_SUBSET_LATIN_BASIC,
+  uniqueCharacters
+} from '../../../shared/font-subset-presets'
 import { useAppStore, type PendingFontItem } from '../stores/app'
+import { fileName } from '../lib/utils'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
@@ -22,6 +31,7 @@ const subsetTextarea = ref<HTMLTextAreaElement | null>(null)
 const subsetValidationMessage = ref('')
 const subsetTextDraft = ref('')
 const subsetTextFileDraft = ref('')
+const subsetExtraTextDraft = ref('')
 const pendingItems = computed<PendingFontItem[]>({
   get: () => store.pendingFontItems,
   set: (value) => (store.pendingFontItems = value)
@@ -51,6 +61,16 @@ const variableModeOptions = [
   { value: 'named', label: '命名实例' },
   { value: 'default', label: '默认实例' }
 ]
+const subsetModeOptions = [
+  { value: 'latin', label: '西文基础' },
+  { value: 'chinese', label: '中文 + 西文' },
+  { value: 'custom', label: '自定义' }
+]
+const subsetChineseLevelOptions = [
+  { value: '3500', label: '常用 3500' },
+  { value: '6500', label: '通用 6500' },
+  { value: '8105', label: '完整 8105' }
+]
 const supportedExtensions = new Set(['ttf', 'otf', 'woff', 'woff2', 'ttc', 'otc'])
 
 const operation = computed(() => store.settings?.font.lastOptions.operation ?? mode.value)
@@ -64,9 +84,60 @@ watch(
   (value) => (subsetTextFileDraft.value = value ?? ''),
   { immediate: true }
 )
+watch(
+  () => store.settings?.font.lastOptions.subsetExtraText,
+  (value) => (subsetExtraTextDraft.value = value ?? ''),
+  { immediate: true }
+)
+const subsetMode = computed(
+  () => store.settings?.font.lastOptions.subsetMode ?? ('chinese' as FontSubsetMode)
+)
+const subsetChineseLevel = computed(
+  () => store.settings?.font.lastOptions.subsetChineseLevel ?? ('3500' as FontSubsetChineseLevel)
+)
+const subsetPresetText = computed(() => {
+  if (subsetMode.value === 'latin') {
+    return uniqueCharacters(FONT_SUBSET_LATIN_BASIC, subsetExtraTextDraft.value)
+  }
+  if (subsetMode.value === 'chinese') {
+    return uniqueCharacters(
+      FONT_SUBSET_LATIN_BASIC,
+      FONT_SUBSET_CHINESE_PUNCTUATION,
+      FONT_SUBSET_CHINESE_PRESETS[subsetChineseLevel.value],
+      subsetExtraTextDraft.value
+    )
+  }
+  return uniqueCharacters(
+    store.settings?.font.lastOptions.subsetIncludeLatin ? FONT_SUBSET_LATIN_BASIC : '',
+    subsetTextDraft.value
+  )
+})
+const subsetScopeDescription = computed(() => {
+  if (subsetMode.value === 'latin') {
+    return `英文大小写、数字和常用符号 · 预计保留 ${[...subsetPresetText.value].length} 个字符`
+  }
+  if (subsetMode.value === 'chinese') {
+    return `规范汉字 ${subsetChineseLevel.value} + 西文与常用标点 · 预计保留 ${[...subsetPresetText.value].length} 个字符`
+  }
+  if (subsetTextFileDraft.value) {
+    return `使用 ${fileName(subsetTextFileDraft.value)}${store.settings?.font.lastOptions.subsetIncludeLatin ? '，同时保留西文基础' : ''}`
+  }
+  return subsetTextDraft.value
+    ? `预计保留 ${[...subsetPresetText.value].length} 个字符`
+    : '输入实际会使用的文字，或选择 TXT 文本文件'
+})
 const summary = computed(() => {
   const options = store.settings?.font.lastOptions
   if (!options) return ''
+  if (options.operation === 'subset') {
+    const scope =
+      options.subsetMode === 'latin'
+        ? '西文基础'
+        : options.subsetMode === 'chinese'
+          ? `中文 ${options.subsetChineseLevel} + 西文`
+          : '自定义字符'
+    return `${options.outputFormat.toUpperCase()} · ${scope}`
+  }
   return `${options.outputFormat.toUpperCase()} · ${modeOptions.find((item) => item.value === options.operation)?.label ?? ''}`
 })
 const emptyStateCopy = computed(() => {
@@ -85,7 +156,7 @@ const emptyStateCopy = computed(() => {
   if (operation.value === 'subset') {
     return {
       title: '拖入需要压缩的字体',
-      description: '仅保留输入文本或 TXT 文件包含的字符，减少字体文件体积。'
+      description: '使用预设字符范围，或按输入文本与 TXT 文件生成字体子集。'
     }
   }
   return {
@@ -98,6 +169,7 @@ function updateFont(patch: Partial<FontOptions>): void {
   if (!store.settings) return
   if (
     patch.operation !== undefined ||
+    patch.subsetMode !== undefined ||
     (typeof patch.subsetText === 'string' && patch.subsetText.trim()) ||
     (typeof patch.subsetTextFile === 'string' && patch.subsetTextFile.trim())
   ) {
@@ -158,7 +230,7 @@ async function chooseTextFile(): Promise<void> {
       subsetTextDraft.value = ''
       subsetTextFileDraft.value = path
       subsetValidationMessage.value = ''
-      updateFont({ subsetTextFile: path, subsetText: '' })
+      updateFont({ subsetMode: 'custom', subsetTextFile: path, subsetText: '' })
     }
   } catch (error) {
     store.errorMessage = error instanceof Error ? error.message : String(error)
@@ -173,6 +245,19 @@ function updateSubsetTextDraft(value: string): void {
 
 function saveSubsetText(): void {
   updateFont({ subsetText: subsetTextDraft.value, subsetTextFile: '' })
+}
+
+function updateSubsetExtraTextDraft(value: string): void {
+  subsetExtraTextDraft.value = value
+}
+
+function saveSubsetExtraText(): void {
+  updateFont({ subsetExtraText: subsetExtraTextDraft.value })
+}
+
+function clearTextFile(): void {
+  subsetTextFileDraft.value = ''
+  updateFont({ subsetTextFile: '' })
 }
 
 function withVariable(template: string, variable: '{index}' | '{instance}'): string {
@@ -190,10 +275,16 @@ async function startProcessing(): Promise<void> {
   const options = {
     ...settings.font.lastOptions,
     operation: selectedOperation,
+    subsetExtraText: subsetExtraTextDraft.value,
     subsetText,
     subsetTextFile
   }
-  if (selectedOperation === 'subset' && !subsetText.trim() && !subsetTextFile.trim()) {
+  if (
+    selectedOperation === 'subset' &&
+    options.subsetMode === 'custom' &&
+    !subsetText.trim() &&
+    !subsetTextFile.trim()
+  ) {
     subsetValidationMessage.value = '请输入需要保留的字符，或选择 TXT 文本文件'
     store.errorMessage = ''
     subsetTextarea.value?.focus()
@@ -327,15 +418,46 @@ onBeforeUnmount(() => {
 
         <fieldset v-if="operation === 'subset'" class="config-group">
           <legend class="sr-only">字体子集文本</legend>
-          <div class="font-subset-fields">
-            <div class="font-subset-input">
+          <div class="font-subset-config">
+            <SegmentedControl
+              class="font-subset-mode-control"
+              label="字符范围"
+              :model-value="subsetMode"
+              :options="subsetModeOptions"
+              @update:model-value="updateFont({ subsetMode: $event as FontSubsetMode })"
+            />
+
+            <SegmentedControl
+              v-if="subsetMode === 'chinese'"
+              class="font-subset-level-control"
+              label="中文范围"
+              :model-value="subsetChineseLevel"
+              :options="subsetChineseLevelOptions"
+              @update:model-value="
+                updateFont({ subsetChineseLevel: $event as FontSubsetChineseLevel })
+              "
+            />
+
+            <p class="font-subset-summary">{{ subsetScopeDescription }}</p>
+
+            <label v-if="subsetMode !== 'custom'" class="font-subset-extra-field">
+              <span>补充字符（可选）</span>
+              <input
+                :value="subsetExtraTextDraft"
+                placeholder="品牌名、生僻字或特殊符号"
+                @input="updateSubsetExtraTextDraft(($event.target as HTMLInputElement).value)"
+                @change="saveSubsetExtraText"
+              />
+            </label>
+
+            <div v-else class="font-subset-custom-fields">
               <label class="font-subset-textarea">
-                <span>保留字符</span>
+                <span>自定义字符</span>
                 <textarea
                   ref="subsetTextarea"
                   :value="subsetTextDraft"
                   rows="2"
-                  placeholder="直接输入字符，或选择 TXT 文本文件"
+                  placeholder="输入实际会使用的文字，或选择 TXT 文本文件"
                   :aria-invalid="Boolean(subsetValidationMessage)"
                   :aria-describedby="subsetValidationMessage ? 'font-subset-error' : undefined"
                   @input="updateSubsetTextDraft(($event.target as HTMLTextAreaElement).value)"
@@ -350,12 +472,29 @@ onBeforeUnmount(() => {
               >
                 {{ subsetValidationMessage }}
               </p>
-            </div>
-            <div class="font-subset-file-picker">
-              <Button variant="secondary" size="sm" @click="chooseTextFile"> 选择 TXT 文件 </Button>
-              <span v-if="subsetTextFileDraft" class="truncate text-xs text-muted-foreground">
-                {{ subsetTextFileDraft }}
-              </span>
+              <div class="font-subset-file-picker">
+                <Button variant="secondary" size="sm" @click="chooseTextFile">
+                  {{ subsetTextFileDraft ? '更换 TXT 文件' : '选择 TXT 文件' }}
+                </Button>
+                <span v-if="subsetTextFileDraft" class="truncate text-xs text-muted-foreground">
+                  {{ fileName(subsetTextFileDraft) }}
+                </span>
+                <Button v-if="subsetTextFileDraft" variant="ghost" size="sm" @click="clearTextFile">
+                  清除
+                </Button>
+              </div>
+              <label class="font-subset-latin-checkbox">
+                <input
+                  type="checkbox"
+                  :checked="store.settings.font.lastOptions.subsetIncludeLatin"
+                  @change="
+                    updateFont({
+                      subsetIncludeLatin: ($event.target as HTMLInputElement).checked
+                    })
+                  "
+                />
+                <span>同时保留西文基础</span>
+              </label>
             </div>
           </div>
         </fieldset>

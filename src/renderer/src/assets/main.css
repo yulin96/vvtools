@@ -1058,15 +1058,49 @@ input {
   padding: 8px 8px 8px 16px;
 }
 
-.font-subset-fields {
-  display: flex;
-  align-items: flex-start;
+.font-subset-config,
+.font-subset-custom-fields {
+  display: grid;
+  min-width: 0;
   gap: 10px;
 }
 
-.font-subset-input {
+.font-subset-mode-control,
+.font-subset-level-control {
   min-width: 0;
-  flex: 1;
+}
+
+.font-subset-summary {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.font-subset-extra-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.font-subset-extra-field input {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--background);
+  padding: 0 10px;
+  color: var(--foreground);
+  font: inherit;
+  font-weight: 400;
+  outline: none;
+}
+
+.font-subset-extra-field input:focus {
+  border-color: var(--accessible-cyan);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .font-subset-textarea {
@@ -1113,10 +1147,24 @@ input {
 .font-subset-file-picker {
   display: flex;
   min-width: 0;
-  max-width: 46%;
   align-items: center;
-  gap: 10px;
-  padding-top: 23px;
+  gap: 8px;
+}
+
+.font-subset-latin-checkbox {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.font-subset-latin-checkbox input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
 }
 
 .video-config-actions {
