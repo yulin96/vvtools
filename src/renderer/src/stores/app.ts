@@ -4,6 +4,7 @@ import type {
   AppSettings,
   AppSettingsPatch,
   CreateTasksRequest,
+  FontConversionSubsetPreset,
   FontFormat,
   ImageInputFile,
   MediaTask,
@@ -20,6 +21,7 @@ export interface PendingFontItem {
   id: string
   path: string
   outputFormat: FontFormat
+  subsetPreset?: FontConversionSubsetPreset
 }
 
 function serializable<T>(value: T): T {

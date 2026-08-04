@@ -26,6 +26,7 @@ export type FontFormat = 'ttf' | 'otf' | 'woff' | 'woff2'
 export type FontVariableInstanceMode = 'named' | 'default'
 export type FontSubsetMode = 'latin' | 'chinese' | 'custom'
 export type FontSubsetChineseLevel = '3500' | '6500' | '8105'
+export type FontConversionSubsetPreset = 'none' | 'latin' | FontSubsetChineseLevel
 export type ConcurrencyMode = 'auto' | 'custom'
 
 export interface TaskConcurrencyLimits {
@@ -148,6 +149,7 @@ export interface ImageSourceMetadata {
 export interface FontInputFile {
   path: string
   outputFormat: FontFormat
+  subsetPreset?: FontConversionSubsetPreset
 }
 
 export interface CommonSettings {

@@ -28,6 +28,7 @@ export interface PendingBatchItem {
   path: string
   label?: string
   spec?: string
+  compression?: string
   sourceSize?: number
   metadataLoading?: boolean
   metadataError?: string
@@ -127,6 +128,15 @@ function taskSpec(task: MediaTask): string {
   return extension(task.sourcePath)
 }
 
+function taskFontCompression(task: MediaTask): string {
+  if (task.kind !== 'font') return '—'
+  const options = task.options as FontOptions
+  if (options.operation !== 'subset') return '不压缩'
+  if (options.subsetMode === 'latin') return '西文基础'
+  if (options.subsetMode === 'chinese') return `中文 ${options.subsetChineseLevel}`
+  return '自定义'
+}
+
 function taskSavings(task: MediaTask): { difference: number; percentage: number } | null {
   if (task.outputSize === undefined) return null
 
@@ -178,7 +188,8 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
             <th class="batch-col-name">名称</th>
             <th class="batch-col-size">转换前 → 转换后</th>
             <th class="batch-col-savings">节省</th>
-            <th class="batch-col-spec">{{ kind === 'font' ? '转换类型' : '规格' }}</th>
+            <th class="batch-col-spec">{{ kind === 'font' ? '输出格式' : '规格' }}</th>
+            <th v-if="kind === 'font'" class="batch-col-font-compression">压缩</th>
             <th class="batch-col-progress">进度</th>
             <th class="batch-col-status">状态</th>
             <th class="batch-col-actions"><span class="sr-only">操作</span></th>
@@ -208,6 +219,11 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
             <td class="batch-col-spec">
               <slot name="pending-spec" :item="item">
                 {{ item.metadataLoading ? '读取中…' : item.spec || extension(item.path) }}
+              </slot>
+            </td>
+            <td v-if="kind === 'font'" class="batch-col-font-compression">
+              <slot name="pending-font-compression" :item="item">
+                {{ item.compression || '—' }}
               </slot>
             </td>
             <td class="batch-col-progress">
@@ -290,6 +306,9 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
               <span v-else class="text-muted-foreground">—</span>
             </td>
             <td class="batch-col-spec">{{ taskSpec(task) }}</td>
+            <td v-if="kind === 'font'" class="batch-col-font-compression">
+              {{ taskFontCompression(task) }}
+            </td>
             <td class="batch-col-progress">
               <div class="batch-progress-cell">
                 <Progress :value="taskProgressValue(task)" />

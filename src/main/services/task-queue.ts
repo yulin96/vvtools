@@ -6,6 +6,7 @@ import type {
   AudioOptions,
   CreateTasksRequest,
   FontFormat,
+  FontConversionSubsetPreset,
   FontInstance,
   FontOptions,
   ImageOptions,
@@ -38,6 +39,7 @@ interface TaskSource {
   path: string
   relativeDirectory: string
   fontOutputFormat?: FontFormat
+  fontSubsetPreset?: FontConversionSubsetPreset
 }
 
 export class TaskQueue extends EventEmitter {
@@ -67,7 +69,8 @@ export class TaskQueue extends EventEmitter {
           ? request.sources.map((source) => ({
               path: source.path,
               relativeDirectory: '',
-              fontOutputFormat: source.outputFormat
+              fontOutputFormat: source.outputFormat,
+              fontSubsetPreset: source.subsetPreset
             }))
           : request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
     const metadata = new Map(request.inputMetadata?.map((item) => [item.path, item]))
@@ -131,10 +134,7 @@ export class TaskQueue extends EventEmitter {
           progress: 0,
           options:
             request.kind === 'font'
-              ? {
-                  ...structuredClone(request.options),
-                  outputFormat: source.fontOutputFormat ?? request.options.outputFormat
-                }
+              ? fontOptionsForSource(request.options, source)
               : structuredClone(request.options),
           outputSuffix: request.outputSuffix,
           outputNameTemplate: request.outputNameTemplate,
@@ -424,4 +424,23 @@ function expandTaskUnits(
 
 function range(start: number, end: number): number[] {
   return Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => start + index)
+}
+
+function fontOptionsForSource(options: FontOptions, source: TaskSource): FontOptions {
+  const result = {
+    ...structuredClone(options),
+    outputFormat: source.fontOutputFormat ?? options.outputFormat
+  }
+  const preset = source.fontSubsetPreset
+  if (!preset || preset === 'none' || options.operation !== 'convert') return result
+  return {
+    ...result,
+    operation: 'subset',
+    subsetMode: preset === 'latin' ? 'latin' : 'chinese',
+    subsetChineseLevel: preset === 'latin' ? result.subsetChineseLevel : preset,
+    subsetIncludeLatin: true,
+    subsetExtraText: '',
+    subsetText: '',
+    subsetTextFile: ''
+  }
 }

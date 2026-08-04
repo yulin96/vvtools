@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { FileType, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
+  FontConversionSubsetPreset,
   FontFormat,
   FontOperation,
   FontOptions,
@@ -41,7 +42,9 @@ const pendingTableItems = computed(() =>
   pendingItems.value.map((item) => ({
     id: item.id,
     path: item.path,
-    spec: item.outputFormat.toUpperCase()
+    spec: item.outputFormat.toUpperCase(),
+    compression:
+      operation.value === 'convert' ? subsetPresetLabel(item.subsetPreset ?? 'none') : '—'
   }))
 )
 const mode = ref<FontOperation>('convert')
@@ -71,6 +74,13 @@ const subsetChineseLevelOptions = [
   { value: '6500', label: '通用 6500' },
   { value: '8105', label: '完整 8105' }
 ]
+const conversionSubsetOptions = [
+  { value: 'none', label: '不压缩' },
+  { value: 'latin', label: '西文基础' },
+  { value: '3500', label: '中文 3500' },
+  { value: '6500', label: '中文 6500' },
+  { value: '8105', label: '中文 8105' }
+] satisfies Array<{ value: FontConversionSubsetPreset; label: string }>
 const supportedExtensions = new Set(['ttf', 'otf', 'woff', 'woff2', 'ttc', 'otc'])
 
 const operation = computed(() => store.settings?.font.lastOptions.operation ?? mode.value)
@@ -201,7 +211,12 @@ function stageFiles(paths: string[]): void {
   const outputFormat = store.settings?.font.lastOptions.outputFormat ?? 'woff2'
   pendingItems.value = [
     ...pendingItems.value,
-    ...supported.map((path) => ({ id: crypto.randomUUID(), path, outputFormat }))
+    ...supported.map((path) => ({
+      id: crypto.randomUUID(),
+      path,
+      outputFormat,
+      subsetPreset: 'none' as const
+    }))
   ]
 }
 
@@ -209,6 +224,16 @@ function updatePendingFormat(id: string, outputFormat: FontFormat): void {
   pendingItems.value = pendingItems.value.map((item) =>
     item.id === id ? { ...item, outputFormat } : item
   )
+}
+
+function updatePendingSubset(id: string, subsetPreset: FontConversionSubsetPreset): void {
+  pendingItems.value = pendingItems.value.map((item) =>
+    item.id === id ? { ...item, subsetPreset } : item
+  )
+}
+
+function subsetPresetLabel(value: FontConversionSubsetPreset): string {
+  return conversionSubsetOptions.find((option) => option.value === value)?.label ?? '不压缩'
 }
 
 function removePending(id: string): void {
@@ -293,7 +318,11 @@ async function startProcessing(): Promise<void> {
   subsetValidationMessage.value = ''
   const request: CreateTasksRequest = {
     kind: 'font',
-    sources: pendingItems.value.map(({ path, outputFormat }) => ({ path, outputFormat })),
+    sources: pendingItems.value.map(({ path, outputFormat, subsetPreset }) => ({
+      path,
+      outputFormat,
+      subsetPreset: selectedOperation === 'convert' ? subsetPreset : undefined
+    })),
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
     outputSuffix: settings.common.outputSuffix,
@@ -525,6 +554,29 @@ onBeforeUnmount(() => {
               {{ format.label }}
             </option>
           </select>
+        </template>
+        <template #pending-font-compression="{ item }">
+          <select
+            v-if="operation === 'convert'"
+            class="pending-font-compression-select"
+            :value="pendingItems.find((pending) => pending.id === item.id)?.subsetPreset ?? 'none'"
+            :aria-label="`${item.label || item.path} 的压缩范围`"
+            @change="
+              updatePendingSubset(
+                item.id || item.path,
+                ($event.target as HTMLSelectElement).value as FontConversionSubsetPreset
+              )
+            "
+          >
+            <option
+              v-for="option in conversionSubsetOptions"
+              :key="option.value"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+          <span v-else>—</span>
         </template>
         <template #actions>
           <div class="flex items-center gap-1">

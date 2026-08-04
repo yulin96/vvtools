@@ -51,6 +51,7 @@ const PDF_COMPRESSION_MODES = new Set(['lossless', 'lossy'])
 const PDF_IMAGE_FORMATS = new Set(['png', 'jpeg', 'webp'])
 const FONT_OPERATIONS = new Set(['convert', 'splitCollection', 'variableStatic', 'subset'])
 const FONT_FORMATS = new Set(['ttf', 'otf', 'woff', 'woff2'])
+const FONT_CONVERSION_SUBSET_PRESETS = new Set(['none', 'latin', '3500', '6500', '8105'])
 const FONT_INSTANCE_MODES = new Set(['named', 'default'])
 const FONT_SUBSET_MODES = new Set(['latin', 'chinese', 'custom'])
 const FONT_SUBSET_CHINESE_LEVELS = new Set(['3500', '6500', '8105'])
@@ -143,7 +144,13 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
     }
     if (request.sources.length > 500) throw new Error('单次最多添加 500 个文件')
     request.sources.forEach((source) => {
-      if (!source || typeof source !== 'object' || !FONT_FORMATS.has(source.outputFormat)) {
+      if (
+        !source ||
+        typeof source !== 'object' ||
+        !FONT_FORMATS.has(source.outputFormat) ||
+        (source.subsetPreset !== undefined &&
+          !FONT_CONVERSION_SUBSET_PRESETS.has(source.subsetPreset))
+      ) {
         throw new Error('字体来源参数无效')
       }
       validateSourcePath(source.path, 'font')
