@@ -127,7 +127,7 @@ describe('image processor', () => {
     directories.push(root)
     const sourcePath = join(root, 'source.jpg')
     const outputPath = join(root, `${mode}.jpg`)
-    await sharp({ create: { width: 24, height: 16, channels: 3, background: '#76bfd1' } })
+    await sharp({ create: { width: 400, height: 300, channels: 3, background: '#76bfd1' } })
       .withExif({ IFD0: { Make: 'VVTools Camera' } })
       .withIccProfile('p3')
       .jpeg({ quality: 100 })
