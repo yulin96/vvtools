@@ -375,6 +375,7 @@ onBeforeUnmount(() => {
                   <span class="sr-only">自定义帧率</span>
                   <input
                     ref="customFrameRateInput"
+                    class="custom-value-input"
                     :value="store.settings.video.lastOptions.customFrameRate"
                     :disabled="store.settings.video.lastOptions.frameRate !== 'custom'"
                     aria-label="自定义帧率"
@@ -410,6 +411,7 @@ onBeforeUnmount(() => {
                   <span class="sr-only">自定义高度</span>
                   <input
                     ref="customResolutionHeightInput"
+                    class="custom-value-input"
                     :value="store.settings.video.lastOptions.customResolutionHeight"
                     :disabled="store.settings.video.lastOptions.resolution !== 'custom'"
                     aria-label="自定义高度"

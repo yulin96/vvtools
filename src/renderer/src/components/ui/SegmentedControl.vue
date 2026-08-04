@@ -62,18 +62,35 @@ function handleResize(): void {
   movePill(false)
 }
 
+function observeControlSizes(): void {
+  if (!resizeObserver || !bar.value) return
+  resizeObserver.observe(bar.value)
+  for (const option of bar.value.querySelectorAll<HTMLElement>('.t-tab')) {
+    resizeObserver.observe(option)
+  }
+}
+
 watch(
-  () => [props.modelValue, props.options.length],
+  () => props.modelValue,
   async () => {
     await nextTick()
     movePill(true)
   }
 )
 
+watch(
+  () => props.options.length,
+  async () => {
+    await nextTick()
+    observeControlSizes()
+    movePill(false)
+  }
+)
+
 onMounted(() => {
   requestAnimationFrame(() => movePill(false))
   resizeObserver = new ResizeObserver(() => movePill(false))
-  if (bar.value) resizeObserver.observe(bar.value)
+  observeControlSizes()
   window.addEventListener('resize', handleResize)
 })
 
