@@ -15,6 +15,7 @@ import {
   Video,
   X
 } from '@lucide/vue'
+import { useRoute } from 'vue-router'
 import { useAppStore } from './stores/app'
 import appIcon from '../../../resources/icon.png'
 import SegmentedControl from './components/ui/SegmentedControl.vue'
@@ -22,6 +23,7 @@ import Button from './components/ui/Button.vue'
 import Modal from './components/ui/Modal.vue'
 
 const store = useAppStore()
+const route = useRoute()
 type ThemeMode = 'system' | 'light' | 'dark'
 
 const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -56,6 +58,12 @@ const navigation = [
   { to: '/font', label: '字体处理', icon: Type },
   { to: '/settings', label: '设置', icon: Settings }
 ]
+const currentPageLabel = computed(
+  () => navigation.find((item) => item.to === route.path)?.label ?? 'VVTools'
+)
+const taskStatusLabel = computed(() =>
+  store.activeCount > 0 ? `${store.activeCount} 个任务处理中` : '暂无处理任务'
+)
 
 watch(
   [themeMode, isDark],
@@ -88,7 +96,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'app-window-overlay': hasIntegratedTitlebar }">
+  <div
+    class="app-shell"
+    :class="{
+      'app-window-overlay': hasIntegratedTitlebar
+    }"
+  >
     <header
       v-if="hasIntegratedTitlebar"
       class="app-titlebar"
@@ -111,6 +124,17 @@ onBeforeUnmount(() => {
             <PanelLeftOpen class="t-icon size-4" data-icon="b" />
           </span>
         </button>
+      </div>
+      <div class="app-titlebar-context" aria-live="polite">
+        <span class="app-titlebar-page">{{ currentPageLabel }}</span>
+        <span class="app-titlebar-separator" aria-hidden="true"></span>
+        <span
+          class="app-titlebar-task-status"
+          :class="{ 'app-titlebar-task-status-active': store.activeCount > 0 }"
+        >
+          <span class="app-titlebar-task-dot" aria-hidden="true"></span>
+          {{ taskStatusLabel }}
+        </span>
       </div>
     </header>
     <aside class="app-sidebar" :class="{ 'app-sidebar-collapsed': sidebarCollapsed }">

@@ -676,8 +676,8 @@ export function registerIpc(
     if (process.platform !== 'win32') return
     window().setTitleBarOverlay(
       theme === 'dark'
-        ? { color: '#101116', symbolColor: '#f3f1f8', height: 40 }
-        : { color: '#f5f5f9', symbolColor: '#1c1b27', height: 40 }
+        ? { color: '#101116', symbolColor: '#f3f1f8', height: 36 }
+        : { color: '#f5f5f9', symbolColor: '#1c1b27', height: 36 }
     )
   })
   handle(IPC_CHANNELS.getUpdateState, (event) => {

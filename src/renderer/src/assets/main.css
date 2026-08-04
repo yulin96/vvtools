@@ -324,7 +324,7 @@ body {
 }
 
 .app-shell {
-  --window-titlebar-height: 40px;
+  --window-titlebar-height: 36px;
   position: relative;
   display: flex;
   gap: var(--shell-gap);
@@ -336,7 +336,7 @@ body {
 }
 
 .app-window-overlay {
-  padding-top: calc(var(--window-titlebar-height) + var(--shell-gap));
+  padding-top: calc(var(--window-titlebar-height) + 4px);
 }
 
 .app-titlebar {
@@ -368,6 +368,58 @@ body {
   display: flex;
   align-items: center;
   -webkit-app-region: no-drag;
+}
+
+.app-titlebar-context {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.app-titlebar-page {
+  flex-shrink: 0;
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.app-titlebar-separator {
+  width: 1px;
+  height: 12px;
+  flex-shrink: 0;
+  background: var(--border);
+}
+
+.app-titlebar-task-status {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-titlebar-task-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.app-titlebar-task-status-active {
+  color: var(--signal-strong);
+}
+
+.app-titlebar-task-status-active .app-titlebar-task-dot {
+  background: var(--signal);
 }
 
 .app-titlebar-button {

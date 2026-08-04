@@ -34,7 +34,7 @@ const minimumWindowSize = { width: 1040, height: 680 }
 const windowsTitleBarOverlay = {
   color: '#f5f5f9',
   symbolColor: '#1c1b27',
-  height: 40
+  height: 36
 }
 
 app.setName('VVTools')
