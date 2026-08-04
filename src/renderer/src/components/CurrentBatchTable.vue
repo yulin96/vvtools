@@ -28,6 +28,9 @@ export interface PendingBatchItem {
   path: string
   label?: string
   spec?: string
+  sourceSize?: number
+  metadataLoading?: boolean
+  metadataError?: string
 }
 
 const props = defineProps<{
@@ -190,11 +193,17 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
                 </div>
               </div>
             </td>
-            <td class="batch-col-size text-muted-foreground">—</td>
+            <td class="batch-col-size text-muted-foreground">
+              <div class="batch-size-cell" :title="item.metadataError">
+                <span>{{ item.metadataLoading ? '读取中…' : formatBytes(item.sourceSize) }}</span>
+                <ArrowRight class="size-3.5" />
+                <span>—</span>
+              </div>
+            </td>
             <td class="batch-col-savings text-muted-foreground">—</td>
             <td class="batch-col-spec">
               <slot name="pending-spec" :item="item">
-                {{ item.spec || extension(item.path) }}
+                {{ item.metadataLoading ? '读取中…' : item.spec || extension(item.path) }}
               </slot>
             </td>
             <td class="batch-col-progress">

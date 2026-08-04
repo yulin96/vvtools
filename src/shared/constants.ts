@@ -177,6 +177,7 @@ export const IPC_CHANNELS = {
   selectImageDirectory: 'directory:select-images',
   selectTextFile: 'file:select-text',
   expandImageInputs: 'images:expand-inputs',
+  inspectImageInput: 'images:inspect-input',
   openOutputDirectory: 'directory:open-output',
   createTasks: 'tasks:create',
   inspectTasks: 'tasks:inspect',

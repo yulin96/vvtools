@@ -80,9 +80,17 @@ const imageTasks = computed(() => store.currentBatchTasks.image)
 const pendingTableItems = computed(() =>
   pendingInputs.value.map((input) => ({
     path: input.path,
-    label: inputLabel(input)
+    label: inputLabel(input),
+    sourceSize: input.sourceSize,
+    spec: input.width && input.height ? `${input.width} × ${input.height}` : undefined,
+    metadataLoading: input.metadataStatus === 'loading',
+    metadataError: input.metadataError
   }))
 )
+const metadataQueue: string[] = []
+const queuedMetadataPaths = new Set<string>()
+let metadataWorkerCount = 0
+const metadataConcurrency = 4
 const formatLabel = computed(() => {
   const format = store.settings?.image.lastOptions.format
   return format === 'original' ? '保持原格式' : (format?.toUpperCase() ?? '')
@@ -168,12 +176,60 @@ function stageInputs(inputs: ImageInputFile[]): void {
   if (inputs.length === 0) return
   if (pendingInputs.value.length === 0) store.prepareCurrentBatch('image')
   const combined = new Map(pendingInputs.value.map((input) => [input.path, input]))
-  for (const input of inputs) combined.set(input.path, input)
+  const pathsToInspect: string[] = []
+  for (const input of inputs) {
+    const existing = combined.get(input.path)
+    if (existing) continue
+    combined.set(input.path, { ...input, metadataStatus: 'loading' })
+    pathsToInspect.push(input.path)
+  }
   if (combined.size > 500) {
     store.errorMessage = '单次最多添加 500 张图片'
     return
   }
   pendingInputs.value = [...combined.values()]
+  queueImageMetadata(pathsToInspect)
+}
+
+function queueImageMetadata(paths: string[]): void {
+  for (const path of paths) {
+    if (queuedMetadataPaths.has(path)) continue
+    queuedMetadataPaths.add(path)
+    metadataQueue.push(path)
+  }
+  while (metadataWorkerCount < metadataConcurrency && metadataQueue.length > 0) {
+    metadataWorkerCount += 1
+    void runMetadataWorker()
+  }
+}
+
+async function runMetadataWorker(): Promise<void> {
+  try {
+    while (metadataQueue.length > 0) {
+      const path = metadataQueue.shift()
+      if (!path) continue
+      try {
+        const metadata = await window.api.inspectImageInput(path)
+        pendingInputs.value = pendingInputs.value.map((input) =>
+          input.path === path
+            ? { ...input, ...metadata, metadataStatus: 'ready', metadataError: undefined }
+            : input
+        )
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        pendingInputs.value = pendingInputs.value.map((input) =>
+          input.path === path
+            ? { ...input, metadataStatus: 'error', metadataError: message }
+            : input
+        )
+      } finally {
+        queuedMetadataPaths.delete(path)
+      }
+    }
+  } finally {
+    metadataWorkerCount -= 1
+    if (metadataQueue.length > 0) queueImageMetadata([])
+  }
 }
 
 function reportError(error: unknown): void {
@@ -204,7 +260,10 @@ async function startProcessing(): Promise<void> {
   const settings = store.settings
   const request: CreateTasksRequest = {
     kind: 'image',
-    sources: pendingInputs.value.map((input) => ({ ...input })),
+    sources: pendingInputs.value.map(({ path, relativeDirectory }) => ({
+      path,
+      relativeDirectory
+    })),
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
     outputSuffix: settings.common.outputSuffix,

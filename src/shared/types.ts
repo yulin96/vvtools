@@ -131,6 +131,18 @@ export interface FontOptions {
 export interface ImageInputFile {
   path: string
   relativeDirectory: string
+  sourceSize?: number
+  width?: number
+  height?: number
+  metadataStatus?: 'loading' | 'ready' | 'error'
+  metadataError?: string
+}
+
+export interface ImageSourceMetadata {
+  sourceSize: number
+  format: string
+  width: number
+  height: number
 }
 
 export interface FontInputFile {
@@ -369,6 +381,7 @@ export interface VVToolsApi {
   selectOutputDirectory: (current?: string) => Promise<string | null>
   selectImageDirectory: () => Promise<ImageInputFile[]>
   expandImageInputs: (paths: string[]) => Promise<ImageInputFile[]>
+  inspectImageInput: (path: string) => Promise<ImageSourceMetadata>
   openOutputDirectory: () => Promise<void>
   createTasks: (request: CreateTasksRequest) => Promise<MediaTask[]>
   inspectTasks: (request: CreateTasksRequest) => Promise<MediaInspection[]>

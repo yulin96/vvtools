@@ -30,6 +30,7 @@ import { extractVersionReleaseNotes } from '../shared/release-notes.mjs'
 import { getRuntimeCapabilities } from './media/ffmpeg-runtime'
 import { sanitizeFontInstances } from './media/font-metadata'
 import { collectImageInputs } from './media/image-inputs'
+import { inspectImageMetadata } from './media/image-metadata'
 import { inspectTasks } from './media/preflight'
 import { SettingsStore } from './services/settings-store'
 import { TaskQueue } from './services/task-queue'
@@ -589,6 +590,12 @@ export function registerIpc(
   handle(IPC_CHANNELS.expandImageInputs, (event, paths: string[]) => {
     assertTrusted(event, window())
     return collectImageInputs(paths)
+  })
+
+  handle(IPC_CHANNELS.inspectImageInput, (event, path: string) => {
+    assertTrusted(event, window())
+    validateSourcePath(path, 'image')
+    return inspectImageMetadata(path)
   })
 
   handle(IPC_CHANNELS.openOutputDirectory, async (event) => {

@@ -1,6 +1,5 @@
 import { accessSync, constants, existsSync, statSync } from 'fs'
 import { dirname, join } from 'path'
-import sharp from 'sharp'
 import type {
   CreateTasksRequest,
   FontFormat,
@@ -13,6 +12,7 @@ import { getOutputExtension, resolveOutputPath } from './output-path'
 import { getVideoResolutionBounds, probeVideo } from './video-processor'
 import { probeAudio } from './audio-processor'
 import { probeFont } from './font-processor'
+import { inspectImageMetadata } from './image-metadata'
 import { probePdf } from './pdf-processor'
 
 interface InspectionSource {
@@ -119,21 +119,14 @@ export async function inspectTasks(
         }
       }
 
-      const metadata = await sharp(source.path, { failOn: 'error' }).metadata()
-      if (!metadata.width || !metadata.height || !metadata.format) {
-        throw new Error('无法读取有效的图片信息')
-      }
-      const rotated = Boolean(
-        metadata.orientation && metadata.orientation >= 5 && metadata.orientation <= 8
-      )
-      const width = rotated ? metadata.height : metadata.width
-      const height = rotated ? metadata.width : metadata.height
+      const metadata = await inspectImageMetadata(source.path, sourceSize)
+      const { width, height } = metadata
       const outputDimensions = expectedImageDimensions(request.options, width, height)
       return {
         sourcePath: source.path,
         outputPath: '',
         valid: true,
-        sourceSize,
+        sourceSize: metadata.sourceSize,
         format: metadata.format,
         width,
         height,
