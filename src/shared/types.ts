@@ -1,5 +1,11 @@
 export type TaskKind = 'video' | 'image' | 'audio' | 'pdf' | 'font'
-export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
+export type TaskStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
+  | 'skipped'
+  | 'failed'
+  | 'cancelled'
 
 export type VideoQuality = 'high' | 'balanced' | 'small'
 export type VideoResolution = 'source' | '1080p' | '720p' | 'custom'
@@ -245,6 +251,7 @@ export interface MediaTask {
   pageNumber?: number
   fontIndex?: number
   fontInstance?: FontInstance
+  skippedReason?: string
   failure?: TaskFailure
 }
 

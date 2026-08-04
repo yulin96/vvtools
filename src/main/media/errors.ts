@@ -7,6 +7,16 @@ export class TaskCancelledError extends Error {
   }
 }
 
+export class TaskSkippedError extends Error {
+  constructor(
+    message: string,
+    readonly outputSize?: number
+  ) {
+    super(message)
+    this.name = 'TaskSkippedError'
+  }
+}
+
 export class MediaProcessError extends Error {
   constructor(
     message: string,

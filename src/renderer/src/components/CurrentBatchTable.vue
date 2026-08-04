@@ -57,6 +57,7 @@ const statusMeta: Record<
   pending: { label: '等待中', tone: 'neutral', icon: Clock3 },
   processing: { label: '处理中', tone: 'info', icon: CircleEllipsis },
   completed: { label: '已完成', tone: 'success', icon: CheckCircle2 },
+  skipped: { label: '已跳过', tone: 'warning', icon: TriangleAlert },
   failed: { label: '失败', tone: 'danger', icon: TriangleAlert },
   cancelled: { label: '已取消', tone: 'warning', icon: Ban }
 }
@@ -68,13 +69,15 @@ const activeCount = computed(
 const completedCount = computed(
   () => props.tasks.filter((task) => task.status === 'completed').length
 )
+const skippedCount = computed(() => props.tasks.filter((task) => task.status === 'skipped').length)
 const orderedTasks = computed(() => {
   const priority: Record<TaskStatus, number> = {
     processing: 0,
     pending: 1,
     failed: 2,
-    cancelled: 3,
-    completed: 4
+    skipped: 3,
+    cancelled: 4,
+    completed: 5
   }
 
   return [...props.tasks].sort(
@@ -104,6 +107,7 @@ const summary = computed(() => {
   if (props.pendingItems.length) parts.push(`${props.pendingItems.length} 个待开始`)
   if (activeCount.value) parts.push(`${activeCount.value} 个处理中或等待`)
   if (completedCount.value) parts.push(`${completedCount.value} 个已完成`)
+  if (skippedCount.value) parts.push(`${skippedCount.value} 个未变小已跳过`)
   return parts.join(' · ') || '当前批次暂无任务'
 })
 
@@ -228,7 +232,11 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
             </td>
           </tr>
 
-          <tr v-for="task in orderedTasks" :key="task.id">
+          <tr
+            v-for="task in orderedTasks"
+            :key="task.id"
+            :class="{ 'batch-task-row-skipped': task.status === 'skipped' }"
+          >
             <td class="batch-col-name">
               <div class="batch-file-cell">
                 <component
@@ -237,6 +245,7 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
                   :class="{
                     'semantic-success': task.status === 'completed',
                     'text-signal-strong': task.status === 'processing',
+                    'semantic-warning': task.status === 'skipped',
                     'semantic-danger': task.status === 'failed'
                   }"
                 />
@@ -253,7 +262,10 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
             <td class="batch-col-size">
               <div class="batch-size-cell">
                 <span
-                  :class="{ 'line-through text-muted-foreground': task.outputSize !== undefined }"
+                  :class="{
+                    'line-through text-muted-foreground':
+                      task.status === 'completed' && task.outputSize !== undefined
+                  }"
                 >
                   {{ formatBytes(task.sourceSize) }}
                 </span>
@@ -288,7 +300,7 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
               </p>
             </td>
             <td class="batch-col-status">
-              <Badge :tone="statusMeta[task.status].tone">
+              <Badge :tone="statusMeta[task.status].tone" :title="task.skippedReason">
                 <component :is="statusMeta[task.status].icon" class="mr-1 size-3" />
                 {{ statusMeta[task.status].label }}
               </Badge>

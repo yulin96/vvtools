@@ -17,7 +17,7 @@ import type {
   VideoOptions
 } from '../../shared/types'
 import { FailureLogService } from './failure-log'
-import { MediaProcessError, TaskCancelledError } from '../media/errors'
+import { MediaProcessError, TaskCancelledError, TaskSkippedError } from '../media/errors'
 import { getOutputExtension, resolveOutputPath } from '../media/output-path'
 import { commitStagedOutput, createStagingOutputPath } from '../media/output-commit'
 
@@ -335,7 +335,12 @@ export class TaskQueue extends EventEmitter {
       task.status = 'completed'
       task.progress = 100
     } catch (error) {
-      if (error instanceof TaskCancelledError || controller.signal.aborted) {
+      if (error instanceof TaskSkippedError) {
+        task.status = 'skipped'
+        task.progress = 100
+        task.outputSize = error.outputSize
+        task.skippedReason = error.message
+      } else if (error instanceof TaskCancelledError || controller.signal.aborted) {
         task.status = 'cancelled'
         task.progress = null
       } else {

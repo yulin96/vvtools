@@ -12,5 +12,7 @@ describe('task progress presentation', () => {
   it('clears the progress bar after cancellation', () => {
     expect(taskProgressValue({ status: 'cancelled', progress: null })).toBe(0)
     expect(taskProgressText({ status: 'cancelled', progress: null })).toBe('—')
+    expect(taskProgressValue({ status: 'skipped', progress: 100 })).toBe(100)
+    expect(taskProgressText({ status: 'skipped', progress: 100 })).toBe('跳过')
   })
 })

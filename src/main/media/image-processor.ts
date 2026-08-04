@@ -2,7 +2,7 @@ import { renameSync, rmSync, statSync } from 'fs'
 import { extname } from 'path'
 import sharp, { type Metadata, type Sharp } from 'sharp'
 import type { ImageFormat, ImageOptions, MediaTask } from '../../shared/types'
-import { MediaProcessError, TaskCancelledError } from './errors'
+import { MediaProcessError, TaskCancelledError, TaskSkippedError } from './errors'
 import { createTaskCommand } from './ffmpeg-runtime'
 
 sharp.concurrency(2)
@@ -160,10 +160,20 @@ export async function processImage(
       throw new TaskCancelledError()
     }
     onProgress(100)
-    return statSync(task.outputPath).size
+    const outputSize = statSync(task.outputPath).size
+    if (outputSize > task.sourceSize) {
+      throw new TaskSkippedError('转换后文件更大，已跳过且未保存', outputSize)
+    }
+    return outputSize
   } catch (error) {
     rmSync(task.outputPath, { force: true })
-    if (error instanceof TaskCancelledError || error instanceof MediaProcessError) throw error
+    if (
+      error instanceof TaskCancelledError ||
+      error instanceof TaskSkippedError ||
+      error instanceof MediaProcessError
+    ) {
+      throw error
+    }
     throw new MediaProcessError('图片处理失败，请确认文件格式和参数有效', {
       command,
       stderrTail: error instanceof Error ? error.message : String(error)

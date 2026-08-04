@@ -1851,6 +1851,11 @@ input {
   background: var(--surface-raised);
 }
 
+.batch-task-table tbody .batch-task-row-skipped,
+.batch-task-table tbody .batch-task-row-skipped:hover {
+  background: color-mix(in srgb, var(--warning-bg) 55%, transparent);
+}
+
 .batch-col-name {
   width: 27%;
 }
