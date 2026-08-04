@@ -190,6 +190,7 @@ export const IPC_CHANNELS = {
   getCapabilities: 'runtime:capabilities',
   getVersion: 'system:version',
   getReleaseNotes: 'system:release-notes',
+  setWindowTheme: 'window:set-theme',
   getUpdateState: 'updates:get-state',
   checkForUpdates: 'updates:check',
   downloadUpdate: 'updates:download',

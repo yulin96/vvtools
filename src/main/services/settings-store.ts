@@ -31,12 +31,9 @@ export class SettingsStore {
         closeBehavior: 'ask',
         outputMode: 'custom',
         outputDirectory: join(downloadsPath, 'VVTools'),
-        outputSuffix: '',
+        outputSuffix: '_c',
         outputNameTemplate: '{name}{suffix}',
-        outputConflictPolicy: 'rename',
-        completionNotification: true,
-        completionSound: false,
-        completionAction: 'none'
+        outputConflictPolicy: 'rename'
       },
       image: {
         lastOptions: { ...DEFAULT_IMAGE_OPTIONS }
@@ -94,19 +91,7 @@ export class SettingsStore {
           common?.outputConflictPolicy === 'overwrite' ||
           common?.outputConflictPolicy === 'skip'
             ? common.outputConflictPolicy
-            : this.settings.common.outputConflictPolicy,
-        completionNotification:
-          typeof common?.completionNotification === 'boolean'
-            ? common.completionNotification
-            : this.settings.common.completionNotification,
-        completionSound:
-          typeof common?.completionSound === 'boolean'
-            ? common.completionSound
-            : this.settings.common.completionSound,
-        completionAction:
-          common?.completionAction === 'none' || common?.completionAction === 'openOutput'
-            ? common.completionAction
-            : this.settings.common.completionAction
+            : this.settings.common.outputConflictPolicy
       },
       image: {
         lastOptions: imageOptions
@@ -245,17 +230,7 @@ function migrateCommonSettings(
       value.outputConflictPolicy === 'overwrite' ||
       value.outputConflictPolicy === 'skip'
         ? value.outputConflictPolicy
-        : fallback.outputConflictPolicy,
-    completionNotification:
-      typeof value.completionNotification === 'boolean'
-        ? value.completionNotification
-        : fallback.completionNotification,
-    completionSound:
-      typeof value.completionSound === 'boolean' ? value.completionSound : fallback.completionSound,
-    completionAction:
-      value.completionAction === 'none' || value.completionAction === 'openOutput'
-        ? value.completionAction
-        : fallback.completionAction
+        : fallback.outputConflictPolicy
   }
 }
 

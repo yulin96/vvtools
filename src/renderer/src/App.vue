@@ -63,6 +63,7 @@ watch(
     document.documentElement.dataset.theme = dark ? 'dark' : 'light'
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
     localStorage.setItem('vvtools-theme', mode)
+    if (isWindows) void window.api.setWindowTheme(dark ? 'dark' : 'light')
   },
   { immediate: true }
 )

@@ -1,15 +1,13 @@
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { app, BrowserWindow, dialog, Menu, Notification, screen, shell, Tray } from 'electron'
-import { dirname, join } from 'path'
+import { app, BrowserWindow, dialog, Menu, screen, shell, Tray } from 'electron'
+import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
-import type { MediaTask } from '../shared/types'
 import { registerIpc } from './ipc'
 import { processAudio } from './media/audio-processor'
 import { processFont } from './media/font-processor'
 import { processImage } from './media/image-processor'
 import { processPdf } from './media/pdf-processor'
 import { processVideo } from './media/video-processor'
-import { batchSummaryText, summarizeBatch } from './services/completion'
 import { FailureLogService } from './services/failure-log'
 import { SettingsStore } from './services/settings-store'
 import { resolveTaskConcurrency } from './services/task-concurrency'
@@ -30,11 +28,14 @@ let tray: Tray | null = null
 let unregisterIpc: (() => void) | null = null
 let isQuitting = false
 let closeDialogOpen = false
-let batchWasActive = false
-const batchTaskIds = new Set<string>()
 const updates = new UpdateService(() => mainWindow)
 const defaultWindowSize = { width: 1280, height: 800 }
 const minimumWindowSize = { width: 1040, height: 680 }
+const windowsTitleBarOverlay = {
+  color: '#f5f5f9',
+  symbolColor: '#1c1b27',
+  height: 40
+}
 
 app.setName('VVTools')
 configureOverlayScrollbars(app.commandLine, process.platform)
@@ -60,7 +61,7 @@ function createWindow(): void {
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hiddenInset' as const }
       : process.platform === 'win32'
-        ? { titleBarStyle: 'hidden' as const, titleBarOverlay: true }
+        ? { titleBarStyle: 'hidden' as const, titleBarOverlay: windowsTitleBarOverlay }
         : {}),
     show: false,
     autoHideMenuBar: true,
@@ -154,52 +155,8 @@ function updateTrayMenu(): void {
   )
 }
 
-function handleQueueChanged(tasks: MediaTask[]): void {
+function handleQueueChanged(): void {
   updateTrayMenu()
-  const activeTasks = tasks.filter(
-    (task) => task.status === 'pending' || task.status === 'processing'
-  )
-  if (activeTasks.length > 0) {
-    batchWasActive = true
-    for (const task of activeTasks) batchTaskIds.add(task.id)
-    return
-  }
-  if (!batchWasActive) return
-
-  const batchTasks = tasks.filter((task) => batchTaskIds.has(task.id))
-  batchWasActive = false
-  batchTaskIds.clear()
-  if (batchTasks.length > 0) void reportBatchCompleted(batchTasks)
-}
-
-async function reportBatchCompleted(tasks: MediaTask[]): Promise<void> {
-  const settings = settingsStore?.get()
-  if (!settings) return
-  const common = settings.common
-  const summary = summarizeBatch(tasks)
-  if (common.completionNotification && Notification.isSupported()) {
-    const notification = new Notification({
-      title: '媒体任务处理完成',
-      body: batchSummaryText(summary),
-      silent: !common.completionSound,
-      icon
-    })
-    notification.on('click', showMainWindow)
-    notification.show()
-  }
-
-  if (common.completionAction !== 'openOutput') return
-  const completedOutputs = tasks
-    .filter((task) => task.status === 'completed')
-    .map((task) => task.outputPath)
-  const outputDirectories = new Set(completedOutputs.map(dirname))
-  if (outputDirectories.size === 1) {
-    const error = await shell.openPath([...outputDirectories][0])
-    if (error) dialog.showErrorBox('无法打开输出位置', error)
-    return
-  }
-  const lastOutput = completedOutputs.at(-1)
-  if (lastOutput) shell.showItemInFolder(lastOutput)
 }
 
 function continueInBackground(): void {

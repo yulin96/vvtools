@@ -443,22 +443,6 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
       common.outputConflictPolicy =
         value.outputConflictPolicy as AppSettings['common']['outputConflictPolicy']
     }
-    if (value.completionNotification !== undefined) {
-      if (typeof value.completionNotification !== 'boolean') {
-        throw new Error('完成通知参数无效')
-      }
-      common.completionNotification = value.completionNotification
-    }
-    if (value.completionSound !== undefined) {
-      if (typeof value.completionSound !== 'boolean') throw new Error('完成提示音参数无效')
-      common.completionSound = value.completionSound
-    }
-    if (value.completionAction !== undefined) {
-      if (!['none', 'openOutput'].includes(String(value.completionAction))) {
-        throw new Error('完成后操作参数无效')
-      }
-      common.completionAction = value.completionAction as AppSettings['common']['completionAction']
-    }
     result.common = common
   }
 
@@ -685,6 +669,16 @@ export function registerIpc(
       console.error('读取更新日志失败', error)
       return ''
     }
+  })
+  handle(IPC_CHANNELS.setWindowTheme, (event, theme: unknown) => {
+    assertTrusted(event, window())
+    if (theme !== 'light' && theme !== 'dark') throw new Error('窗口主题无效')
+    if (process.platform !== 'win32') return
+    window().setTitleBarOverlay(
+      theme === 'dark'
+        ? { color: '#101116', symbolColor: '#f3f1f8', height: 40 }
+        : { color: '#f5f5f9', symbolColor: '#1c1b27', height: 40 }
+    )
   })
   handle(IPC_CHANNELS.getUpdateState, (event) => {
     assertTrusted(event, window())

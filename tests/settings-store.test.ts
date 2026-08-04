@@ -26,12 +26,9 @@ describe('SettingsStore', () => {
     expect(store.get()).toMatchObject({
       common: {
         outputMode: 'custom',
-        outputSuffix: '',
+        outputSuffix: '_c',
         outputNameTemplate: '{name}{suffix}',
         outputConflictPolicy: 'rename',
-        completionNotification: true,
-        completionSound: false,
-        completionAction: 'none',
         closeBehavior: 'ask',
         concurrency: {
           mode: 'auto',
@@ -79,10 +76,7 @@ describe('SettingsStore', () => {
         closeBehavior: 'minimizeToTray',
         outputSuffix: '-compressed',
         outputNameTemplate: '{name}_{preset}_{date}',
-        outputConflictPolicy: 'skip',
-        completionNotification: false,
-        completionSound: true,
-        completionAction: 'openOutput'
+        outputConflictPolicy: 'skip'
       },
       image: {
         lastOptions: {
@@ -113,9 +107,6 @@ describe('SettingsStore', () => {
         closeBehavior: 'minimizeToTray',
         outputNameTemplate: '{name}_{preset}_{date}',
         outputConflictPolicy: 'skip',
-        completionNotification: false,
-        completionSound: true,
-        completionAction: 'openOutput',
         outputSuffix: '-compressed'
       },
       image: {

@@ -16,7 +16,6 @@ export type ImageMetadataMode = 'strip' | 'colorProfile' | 'all'
 export type OutputMode = 'source' | 'custom'
 export type CloseBehavior = 'ask' | 'minimizeToTray' | 'quit'
 export type OutputConflictPolicy = 'rename' | 'overwrite' | 'skip'
-export type CompletionAction = 'none' | 'openOutput'
 export type AudioFormat = 'mp3' | 'm4a' | 'wav' | 'flac'
 export type AudioChannels = 'source' | 'mono' | 'stereo'
 export type PdfOperation = 'compress' | 'toImage'
@@ -147,9 +146,6 @@ export interface CommonSettings {
   outputSuffix: string
   outputNameTemplate: string
   outputConflictPolicy: OutputConflictPolicy
-  completionNotification: boolean
-  completionSound: boolean
-  completionAction: CompletionAction
 }
 
 export interface ImageSettings {
@@ -385,6 +381,7 @@ export interface VVToolsApi {
   getCapabilities: () => Promise<RuntimeCapabilities>
   getVersion: () => Promise<string>
   getReleaseNotes: () => Promise<string>
+  setWindowTheme: (theme: 'light' | 'dark') => Promise<void>
   getUpdateState: () => Promise<UpdateState>
   checkForUpdates: () => Promise<UpdateState>
   downloadUpdate: () => Promise<void>

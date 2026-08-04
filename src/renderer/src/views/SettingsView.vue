@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Bell, Cpu, FileOutput, RefreshCw } from '@lucide/vue'
+import { Cpu, FileOutput, RefreshCw } from '@lucide/vue'
 import type { AppSettings, TaskKind } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
@@ -7,7 +7,6 @@ import OutputSuffixField from '../components/OutputSuffixField.vue'
 import Badge from '../components/ui/Badge.vue'
 import Button from '../components/ui/Button.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
-import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 
 const store = useAppStore()
 const concurrencyModeOptions = [
@@ -103,14 +102,6 @@ function updateOutputNameTemplate(event: Event): void {
   void store.updateSettings({ common: { outputNameTemplate: template } })
 }
 
-function updateCompletionAction(event: Event): void {
-  void store.updateSettings({
-    common: {
-      completionAction: (event.target as HTMLSelectElement)
-        .value as AppSettings['common']['completionAction']
-    }
-  })
-}
 </script>
 
 <template>
@@ -203,45 +194,6 @@ function updateCompletionAction(event: Event): void {
               可用：{name} {suffix} {preset} {width} {height} {page} {index} {instance}
               {date}。模板必须包含 {name}。
             </span>
-          </label>
-        </div>
-      </section>
-
-      <section class="settings-card">
-        <div class="settings-card-title">
-          <Bell class="size-4" />
-          <div>
-            <h2>完成提醒</h2>
-            <p>一轮任务全部结束后汇总成功、失败和取消数量。</p>
-          </div>
-        </div>
-        <div class="settings-card-controls flex flex-1 justify-end gap-4">
-          <ToggleSwitch
-            label="系统通知"
-            :model-value="store.settings.common.completionNotification"
-            enabled-text="已开启"
-            disabled-text="已关闭"
-            @update:model-value="
-              store.updateSettings({ common: { completionNotification: $event } })
-            "
-          />
-          <ToggleSwitch
-            label="通知提示音"
-            :model-value="store.settings.common.completionSound"
-            enabled-text="有声音"
-            disabled-text="静音"
-            @update:model-value="store.updateSettings({ common: { completionSound: $event } })"
-          />
-          <label class="field-label w-52">
-            <span>任务全部完成后</span>
-            <select
-              :value="store.settings.common.completionAction"
-              class="field-control"
-              @change="updateCompletionAction"
-            >
-              <option value="none">不执行操作（推荐）</option>
-              <option value="openOutput">打开输出位置</option>
-            </select>
           </label>
         </div>
       </section>

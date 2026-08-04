@@ -23,6 +23,7 @@ const api: VVToolsApi = {
   getCapabilities: () => ipcRenderer.invoke(IPC_CHANNELS.getCapabilities),
   getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.getVersion),
   getReleaseNotes: () => ipcRenderer.invoke(IPC_CHANNELS.getReleaseNotes),
+  setWindowTheme: (theme) => ipcRenderer.invoke(IPC_CHANNELS.setWindowTheme, theme),
   getUpdateState: () => ipcRenderer.invoke(IPC_CHANNELS.getUpdateState),
   checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.checkForUpdates),
   downloadUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.downloadUpdate),
