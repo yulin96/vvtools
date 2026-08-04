@@ -460,15 +460,16 @@ describe('TaskQueue', () => {
     expect(task.outputPath).toBe(join(paths.output, 'source.flac'))
   })
 
-  it('expands each requested PDF page into an independent image task', () => {
+  it('keeps one PDF image conversion as one task and commits its page folder', async () => {
     const paths = fixture()
     const source = join(dirname(paths.source), 'document.pdf')
     writeFileSync(source, '%PDF fixture')
-    const queue = new TaskQueue(
-      concurrency(1),
-      successfulRunner,
-      new FailureLogService(paths.userData)
-    )
+    const pdfRunner: TaskRunner = async (task) => {
+      mkdirSync(task.outputPath, { recursive: true })
+      for (const outputPath of task.outputPaths ?? []) writeFileSync(outputPath, 'processed')
+      return (task.outputPaths?.length ?? 0) * 9
+    }
+    const queue = new TaskQueue(concurrency(1), pdfRunner, new FailureLogService(paths.userData))
     const tasks = queue.create({
       kind: 'pdf',
       sourcePaths: [source],
@@ -480,11 +481,20 @@ describe('TaskQueue', () => {
       options: { operation: 'toImage', imageFormat: 'png', dpi: 144, imageQuality: 90 }
     })
 
-    expect(tasks.map((task) => task.pageNumber)).toEqual([1, 2, 3])
-    expect(tasks.map((task) => task.outputPath)).toEqual([
-      join(paths.output, 'document-page-001.png'),
-      join(paths.output, 'document-page-002.png'),
-      join(paths.output, 'document-page-003.png')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0].pageNumbers).toEqual([1, 2, 3])
+    expect(tasks[0].outputPath).toBe(join(paths.output, 'document'))
+    expect(tasks[0].outputPaths).toEqual([
+      join(paths.output, 'document', 'document-page-001.png'),
+      join(paths.output, 'document', 'document-page-002.png'),
+      join(paths.output, 'document', 'document-page-003.png')
+    ])
+
+    await waitFor(() => queue.list()[0]?.status === 'completed')
+    expect(readdirSync(join(paths.output, 'document'))).toEqual([
+      'document-page-001.png',
+      'document-page-002.png',
+      'document-page-003.png'
     ])
   })
 

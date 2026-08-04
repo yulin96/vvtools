@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -6,7 +6,8 @@ import {
   createAvailableOutputPath,
   getOutputExtension,
   renderOutputBaseName,
-  resolveOutputPath
+  resolveOutputPath,
+  resolvePdfImageOutput
 } from '../src/main/media/output-path'
 
 const directories: string[] = []
@@ -98,5 +99,47 @@ describe('output paths', () => {
       skipped: false,
       overwritesExisting: true
     })
+  })
+
+  it('groups PDF page images in a collision-safe source-named folder', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vvtools-output-'))
+    directories.push(directory)
+    const reservedPaths = new Set<string>()
+    const first = resolvePdfImageOutput({
+      sourcePath: '/input/document.pdf',
+      outputDirectory: directory,
+      imageFormat: 'png',
+      pageNumbers: [1, 2],
+      reservedPaths,
+      outputSuffix: '_images',
+      nameTemplate: '{name}-page-{page}'
+    })
+    const second = resolvePdfImageOutput({
+      sourcePath: '/input/document.pdf',
+      outputDirectory: directory,
+      imageFormat: 'png',
+      pageNumbers: [1],
+      reservedPaths,
+      outputSuffix: '_images',
+      nameTemplate: '{name}-page-{page}'
+    })
+
+    expect(first.directory.path).toBe(join(directory, 'document_images'))
+    expect(first.paths).toEqual([
+      join(directory, 'document_images', 'document-page-001.png'),
+      join(directory, 'document_images', 'document-page-002.png')
+    ])
+    expect(second.directory.path).toBe(join(directory, 'document_images_1'))
+
+    mkdirSync(join(directory, 'archive'))
+    const existingFolder = resolvePdfImageOutput({
+      sourcePath: '/input/archive.pdf',
+      outputDirectory: directory,
+      imageFormat: 'png',
+      pageNumbers: [1],
+      reservedPaths: new Set(),
+      conflictPolicy: 'overwrite'
+    })
+    expect(existingFolder.directory.path).toBe(join(directory, 'archive_1'))
   })
 })

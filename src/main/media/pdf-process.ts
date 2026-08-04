@@ -240,7 +240,7 @@ class PdfProcessSession {
 }
 
 const childSource = String.raw`
-const { readFile, writeFile } = require('node:fs/promises')
+const { mkdir, readFile, stat, writeFile } = require('node:fs/promises')
 const { pathToFileURL } = require('node:url')
 const readline = require('node:readline')
 
@@ -324,6 +324,28 @@ async function renderPage(task, options, paths, progress) {
   await writeFile(task.outputPath, render.data)
 }
 
+async function renderPages(task, options, paths, progress) {
+  const pageNumbers = task.pageNumbers || []
+  const outputPaths = task.outputPaths || []
+  if (!pageNumbers.length || pageNumbers.length !== outputPaths.length) {
+    throw new Error('PDF 页面与输出文件数量不匹配')
+  }
+  await mkdir(task.outputPath, { recursive: true })
+  let outputSize = 0
+  for (let index = 0; index < pageNumbers.length; index += 1) {
+    await renderPage(
+      { ...task, pageNumber: pageNumbers[index], outputPath: outputPaths[index] },
+      options,
+      paths,
+      (value) => progress(Math.min(99, Math.round(((index + value / 100) / pageNumbers.length) * 100)))
+    )
+    outputSize += (await stat(outputPaths[index])).size
+    progress(Math.min(99, Math.round(((index + 1) / pageNumbers.length) * 100)))
+  }
+  progress(100)
+  return outputSize
+}
+
 async function getQpdf(paths) {
   const modules = await loadModules(paths)
   if (modules.qpdf) return modules.qpdf
@@ -396,10 +418,12 @@ async function processTask(task, paths, progress) {
   if (options.operation === 'compress') {
     if (options.compressionMode === 'lossy') await compressLossy(task, options, paths, progress)
     else await compressLossless(task, paths, progress)
+  } else if (task.outputPaths && task.outputPaths.length) {
+    return renderPages(task, options, paths, progress)
   } else {
     await renderPage(task, options, paths, progress)
   }
-  const stats = await require('node:fs/promises').stat(task.outputPath)
+  const stats = await stat(task.outputPath)
   progress(100)
   return stats.size
 }

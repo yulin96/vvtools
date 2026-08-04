@@ -111,6 +111,33 @@ describe('PDF processor', () => {
       expect((await readFile(outputPath)).subarray(1, 4).toString()).toBe('PNG')
     }
   })
+
+  it('renders multiple pages into one task output folder', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-pdf-folder-'))
+    directories.push(root)
+    const sourcePath = join(root, 'source.pdf')
+    const outputPath = join(root, 'source-images')
+    const outputPaths = [join(outputPath, 'page-001.png'), join(outputPath, 'page-002.png')]
+    await writeFile(sourcePath, createTestPdf(false))
+    const task: MediaTask = {
+      id: 'pdf-pages',
+      kind: 'pdf',
+      sourcePath,
+      outputPath,
+      outputPaths,
+      pageNumbers: [1, 1],
+      status: 'processing',
+      progress: 0,
+      options: { ...DEFAULT_PDF_OPTIONS, operation: 'toImage', dpi: 72 },
+      sourceSize: 1,
+      createdAt: new Date(0).toISOString()
+    }
+
+    expect(await processPdf(task, new AbortController().signal)).toBeGreaterThan(0)
+    for (const path of outputPaths) {
+      expect((await readFile(path)).subarray(1, 4).toString()).toBe('PNG')
+    }
+  })
 })
 
 function createTestPdf(breakMetadataXref: boolean): Buffer {

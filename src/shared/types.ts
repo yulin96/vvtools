@@ -245,6 +245,8 @@ export interface MediaTask {
   sourceWidth?: number
   sourceHeight?: number
   pageNumber?: number
+  pageNumbers?: number[]
+  outputPaths?: string[]
   fontIndex?: number
   fontInstance?: FontInstance
   skippedReason?: string

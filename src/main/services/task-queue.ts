@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
 import { mkdirSync, rmSync, statSync } from 'fs'
-import { dirname, join } from 'path'
+import { basename, dirname, join } from 'path'
 import { EventEmitter } from 'events'
 import type {
   AudioOptions,
@@ -20,7 +20,7 @@ import type {
 } from '../../shared/types'
 import { FailureLogService } from './failure-log'
 import { MediaProcessError, TaskCancelledError, TaskSkippedError } from '../media/errors'
-import { getOutputExtension, resolveOutputPath } from '../media/output-path'
+import { getOutputExtension, resolveOutputPath, resolvePdfImageOutput } from '../media/output-path'
 import { commitStagedOutput, createStagingOutputPath } from '../media/output-commit'
 
 export type TaskRunner = (
@@ -85,6 +85,45 @@ export class TaskQueue extends EventEmitter {
               source.relativeDirectory
             ? join(request.outputDirectory, source.relativeDirectory)
             : request.outputDirectory
+      if (request.kind === 'pdf' && request.options.operation === 'toImage') {
+        mkdirSync(outputDirectory, { recursive: true })
+        const pageNumbers = pdfPageNumbers(request, sourceMetadata)
+        const output = resolvePdfImageOutput({
+          sourcePath,
+          outputDirectory,
+          imageFormat: request.options.imageFormat,
+          pageNumbers,
+          reservedPaths: this.reservedPaths,
+          outputSuffix: request.outputSuffix,
+          nameTemplate: request.outputNameTemplate,
+          conflictPolicy: request.outputConflictPolicy,
+          presetName: request.presetName,
+          width: sourceMetadata?.width,
+          height: sourceMetadata?.height
+        })
+        if (output.directory.skipped) return []
+        const task: MediaTask = {
+          id: randomUUID(),
+          kind: 'pdf',
+          sourcePath,
+          outputPath: output.directory.path,
+          outputPaths: output.paths,
+          pageNumbers,
+          status: 'pending',
+          progress: 0,
+          options: structuredClone(request.options),
+          outputSuffix: request.outputSuffix,
+          outputNameTemplate: request.outputNameTemplate,
+          outputConflictPolicy: request.outputConflictPolicy,
+          presetName: request.presetName,
+          sourceWidth: sourceMetadata?.width,
+          sourceHeight: sourceMetadata?.height,
+          sourceSize: statSync(sourcePath).size,
+          createdAt: new Date().toISOString()
+        }
+        this.tasks.set(task.id, task)
+        return [structuredClone(task)]
+      }
       const units = expandTaskUnits(request, sourceMetadata)
       const sourceTaskIds: string[] = []
       const sourceReservedPaths: string[] = []
@@ -247,11 +286,15 @@ export class TaskQueue extends EventEmitter {
                       path: original.sourcePath,
                       width: original.sourceWidth,
                       height: original.sourceHeight,
-                      pageCount: original.pageNumber ?? 1
+                      pageCount:
+                        original.pageNumbers?.length && original.pageNumbers.length > 0
+                          ? Math.max(...original.pageNumbers)
+                          : (original.pageNumber ?? 1)
                     }
                   ],
                   pageNumbers:
-                    original.pageNumber === undefined ? undefined : [original.pageNumber],
+                    original.pageNumbers ??
+                    (original.pageNumber === undefined ? undefined : [original.pageNumber]),
                   options: structuredClone(original.options) as PdfOptions
                 }
               : {
@@ -320,6 +363,9 @@ export class TaskQueue extends EventEmitter {
     const stagingPath = createStagingOutputPath(task.outputPath, task.id)
     const processingTask = structuredClone(task)
     processingTask.outputPath = stagingPath
+    if (task.outputPaths?.length) {
+      processingTask.outputPaths = task.outputPaths.map((path) => join(stagingPath, basename(path)))
+    }
     this.running.set(task.id, controller)
     task.status = 'processing'
     task.progress = 0
@@ -332,7 +378,11 @@ export class TaskQueue extends EventEmitter {
         this.progressChanged(task)
       })
       if (controller.signal.aborted) throw new TaskCancelledError()
-      commitStagedOutput(stagingPath, task.outputPath, task.outputConflictPolicy === 'overwrite')
+      commitStagedOutput(
+        stagingPath,
+        task.outputPath,
+        !task.outputPaths?.length && task.outputConflictPolicy === 'overwrite'
+      )
       task.outputSize = outputSize
       task.status = 'completed'
       task.progress = 100
@@ -355,7 +405,7 @@ export class TaskQueue extends EventEmitter {
         task.failure = failure
       }
     } finally {
-      rmSync(stagingPath, { force: true })
+      rmSync(stagingPath, { recursive: true, force: true })
       task.completedAt = new Date().toISOString()
       this.running.delete(task.id)
       this.lastProgressNotifications.delete(task.id)
@@ -420,6 +470,16 @@ function expandTaskUnits(
     return instances.map((fontInstance) => ({ fontInstance }))
   }
   return [{}]
+}
+
+function pdfPageNumbers(
+  request: Extract<CreateTasksRequest, { kind: 'pdf' }>,
+  metadata: MediaInputMetadata | undefined
+): number[] {
+  const pages =
+    request.pageNumbers ?? (metadata?.pageCount ? range(1, metadata.pageCount) : undefined)
+  if (!pages || pages.length === 0) throw new Error('无法确定 PDF 页面数量，请重新检查文件')
+  return pages
 }
 
 function range(start: number, end: number): number[] {

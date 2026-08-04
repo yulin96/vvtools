@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, useId, watch, type Component } from 'vue'
+import {
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  useId,
+  useSlots,
+  watch,
+  type Component
+} from 'vue'
 
 type SegmentedValue = string | number
 
@@ -25,6 +34,7 @@ const emit = defineEmits<{
 }>()
 
 const controlId = useId()
+const slots = useSlots()
 const bar = ref<HTMLElement | null>(null)
 const pill = ref<HTMLElement | null>(null)
 let resizeObserver: ResizeObserver | null = null
@@ -79,7 +89,7 @@ onBeforeUnmount(() => {
     <div
       ref="bar"
       class="segmented-control t-tabs"
-      role="radiogroup"
+      :role="slots.append ? 'group' : 'radiogroup'"
       :aria-labelledby="`${controlId}-label`"
       :aria-disabled="disabled || undefined"
     >
@@ -106,6 +116,7 @@ onBeforeUnmount(() => {
           <span v-if="!iconOnly">{{ option.label }}</span>
         </span>
       </label>
+      <slot name="append" />
     </div>
   </div>
 </template>

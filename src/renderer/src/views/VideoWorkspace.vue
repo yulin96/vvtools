@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { FileVideo2, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
@@ -28,6 +28,8 @@ const store = useAppStore()
 const configExpanded = ref(false)
 const dragging = ref(false)
 const starting = ref(false)
+const customFrameRateInput = ref<HTMLInputElement | null>(null)
+const customResolutionHeightInput = ref<HTMLInputElement | null>(null)
 const pendingPaths = computed<string[]>({
   get: () => store.pendingVideoPaths,
   set: (value) => (store.pendingVideoPaths = value)
@@ -153,18 +155,38 @@ function optionsEqual(left: VideoOptions, right: VideoOptions): boolean {
   )
 }
 
-function updateVideo(patch: Partial<VideoOptions>): void {
-  if (!store.settings) return
-  void store.updateSettings({
+function updateVideo(patch: Partial<VideoOptions>): Promise<void> {
+  if (!store.settings) return Promise.resolve()
+  return store.updateSettings({
     video: {
       lastOptions: { ...store.settings.video.lastOptions, ...patch }
     }
   })
 }
 
+async function updateVideoFrameRate(value: string | number): Promise<void> {
+  const frameRate = value as VideoFrameRate
+  await updateVideo({ frameRate })
+  if (frameRate !== 'custom') return
+
+  await nextTick()
+  customFrameRateInput.value?.focus()
+  customFrameRateInput.value?.select()
+}
+
+async function updateVideoResolution(value: string | number): Promise<void> {
+  const resolution = value as VideoResolution
+  await updateVideo({ resolution })
+  if (resolution !== 'custom') return
+
+  await nextTick()
+  customResolutionHeightInput.value?.focus()
+  customResolutionHeightInput.value?.select()
+}
+
 function updateVideoCodec(value: string | number): void {
   const codec = value as VideoCodec
-  updateVideo({
+  void updateVideo({
     codec,
     ...(codec === 'mpeg4' && store.settings?.video.lastOptions.encoderMode === 'hardware'
       ? { encoderMode: 'auto' as const }
@@ -334,69 +356,76 @@ onBeforeUnmount(() => {
 
         <fieldset class="config-group">
           <legend class="sr-only">画面</legend>
-          <div class="config-group-fields config-group-fields-switch-input">
+          <div class="config-group-fields config-group-fields-single">
             <SegmentedControl
-              class="video-frame-rate-segments"
+              class="video-frame-rate-segments custom-value-segments"
+              :class="{
+                'is-expanded': store.settings.video.lastOptions.frameRate === 'custom'
+              }"
               label="输出帧率"
               :model-value="store.settings.video.lastOptions.frameRate"
               :options="frameRateOptions"
-              @update:model-value="updateVideo({ frameRate: $event as VideoFrameRate })"
-            />
-            <label
-              class="compact-field"
-              :class="{ 'opacity-45': store.settings.video.lastOptions.frameRate !== 'custom' }"
+              @update:model-value="updateVideoFrameRate"
             >
-              <span>自定义帧率</span>
-              <div class="number-field">
-                <input
-                  :value="
-                    store.settings.video.lastOptions.frameRate === 'custom'
-                      ? store.settings.video.lastOptions.customFrameRate
-                      : '无需设置'
-                  "
-                  :disabled="store.settings.video.lastOptions.frameRate !== 'custom'"
-                  type="number"
-                  min="1"
-                  max="240"
-                  step="0.01"
-                  @change="
-                    updateVideo({
-                      customFrameRate: Number(($event.target as HTMLInputElement).value)
-                    })
-                  "
-                /><span v-if="store.settings.video.lastOptions.frameRate === 'custom'">fps</span>
-              </div>
-            </label>
+              <template #append>
+                <label
+                  class="custom-value-append"
+                  :aria-hidden="store.settings.video.lastOptions.frameRate !== 'custom'"
+                >
+                  <span class="sr-only">自定义帧率</span>
+                  <input
+                    ref="customFrameRateInput"
+                    :value="store.settings.video.lastOptions.customFrameRate"
+                    :disabled="store.settings.video.lastOptions.frameRate !== 'custom'"
+                    aria-label="自定义帧率"
+                    type="number"
+                    min="1"
+                    max="240"
+                    step="0.01"
+                    @change="
+                      updateVideo({
+                        customFrameRate: Number(($event.target as HTMLInputElement).value)
+                      })
+                    "
+                  />
+                  <span class="custom-value-unit" aria-hidden="true">fps</span>
+                </label>
+              </template>
+            </SegmentedControl>
             <SegmentedControl
+              class="custom-value-segments"
+              :class="{
+                'is-expanded': store.settings.video.lastOptions.resolution === 'custom'
+              }"
               label="最大分辨率"
               :model-value="store.settings.video.lastOptions.resolution"
               :options="resolutionOptions"
-              @update:model-value="updateVideo({ resolution: $event as VideoResolution })"
-            />
-            <label
-              class="compact-field"
-              :class="{ 'opacity-45': store.settings.video.lastOptions.resolution !== 'custom' }"
+              @update:model-value="updateVideoResolution"
             >
-              <span>自定义高度</span>
-              <div class="number-field">
-                <input
-                  :value="
-                    store.settings.video.lastOptions.resolution === 'custom'
-                      ? store.settings.video.lastOptions.customResolutionHeight
-                      : '无需设置'
-                  "
-                  :disabled="store.settings.video.lastOptions.resolution !== 'custom'"
-                  type="number"
-                  min="144"
-                  max="4320"
-                  @change="
-                    updateVideo({
-                      customResolutionHeight: Number(($event.target as HTMLInputElement).value)
-                    })
-                  "
-                /><span v-if="store.settings.video.lastOptions.resolution === 'custom'">px</span>
-              </div>
-            </label>
+              <template #append>
+                <label
+                  class="custom-value-append"
+                  :aria-hidden="store.settings.video.lastOptions.resolution !== 'custom'"
+                >
+                  <span class="sr-only">自定义高度</span>
+                  <input
+                    ref="customResolutionHeightInput"
+                    :value="store.settings.video.lastOptions.customResolutionHeight"
+                    :disabled="store.settings.video.lastOptions.resolution !== 'custom'"
+                    aria-label="自定义高度"
+                    type="number"
+                    min="144"
+                    max="4320"
+                    @change="
+                      updateVideo({
+                        customResolutionHeight: Number(($event.target as HTMLInputElement).value)
+                      })
+                    "
+                  />
+                  <span class="custom-value-unit" aria-hidden="true">px</span>
+                </label>
+              </template>
+            </SegmentedControl>
           </div>
         </fieldset>
 

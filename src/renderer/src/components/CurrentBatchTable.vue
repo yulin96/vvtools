@@ -14,7 +14,13 @@ import {
   X,
   XCircle
 } from '@lucide/vue'
-import type { FontOptions, MediaTask, TaskKind, TaskStatus } from '../../../shared/types'
+import type {
+  FontOptions,
+  MediaTask,
+  PdfOptions,
+  TaskKind,
+  TaskStatus
+} from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import { taskProgressText, taskProgressValue } from '../lib/task-progress'
 import { fileName, formatBytes } from '../lib/utils'
@@ -122,6 +128,10 @@ function taskSpec(task: MediaTask): string {
     if (task.fontIndex !== undefined) return `${format} · 集合字体 ${task.fontIndex + 1}`
     if (task.fontInstance) return `${format} · ${task.fontInstance.name}`
     return format
+  }
+  if (task.kind === 'pdf' && (task.options as PdfOptions).operation === 'toImage') {
+    const format = (task.options as PdfOptions).imageFormat.toUpperCase()
+    if (task.pageNumbers?.length) return `${task.pageNumbers.length} 页 · ${format}`
   }
   if (task.pageNumber !== undefined) return `第 ${task.pageNumber} 页`
   if (task.sourceWidth && task.sourceHeight) return `${task.sourceWidth} × ${task.sourceHeight}`

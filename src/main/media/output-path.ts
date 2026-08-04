@@ -88,6 +88,60 @@ export interface ResolvedOutputPath {
   overwritesExisting: boolean
 }
 
+interface ResolvePdfImageOutputOptions {
+  sourcePath: string
+  outputDirectory: string
+  imageFormat: PdfImageFormat
+  pageNumbers: number[]
+  reservedPaths: Set<string>
+  outputSuffix?: string
+  nameTemplate?: string
+  conflictPolicy?: OutputConflictPolicy
+  presetName?: string
+  width?: number
+  height?: number
+}
+
+export interface ResolvedPdfImageOutput {
+  directory: ResolvedOutputPath
+  paths: string[]
+}
+
+export function resolvePdfImageOutput(
+  options: ResolvePdfImageOutputOptions
+): ResolvedPdfImageOutput {
+  const directory = resolveOutputPath({
+    sourcePath: options.sourcePath,
+    outputDirectory: options.outputDirectory,
+    extension: '',
+    reservedPaths: options.reservedPaths,
+    outputSuffix: options.outputSuffix,
+    nameTemplate: '{name}{suffix}',
+    conflictPolicy: options.conflictPolicy === 'skip' ? 'skip' : 'rename'
+  })
+  if (directory.skipped) return { directory, paths: [] }
+
+  const extension = options.imageFormat === 'jpeg' ? '.jpg' : `.${options.imageFormat}`
+  const reservedImagePaths = new Set<string>()
+  const paths = options.pageNumbers.map(
+    (page) =>
+      resolveOutputPath({
+        sourcePath: options.sourcePath,
+        outputDirectory: directory.path,
+        extension,
+        reservedPaths: reservedImagePaths,
+        outputSuffix: options.outputSuffix,
+        nameTemplate: options.nameTemplate,
+        conflictPolicy: 'rename',
+        presetName: options.presetName,
+        width: options.width,
+        height: options.height,
+        page
+      }).path
+  )
+  return { directory, paths }
+}
+
 export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOutputPath {
   const {
     sourcePath,

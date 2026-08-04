@@ -8,7 +8,7 @@ import type {
   MediaInspection,
   VideoOptions
 } from '../../shared/types'
-import { getOutputExtension, resolveOutputPath } from './output-path'
+import { getOutputExtension, resolveOutputPath, resolvePdfImageOutput } from './output-path'
 import { getVideoResolutionBounds, probeVideo } from './video-processor'
 import { probeAudio } from './audio-processor'
 import { probeFont } from './font-processor'
@@ -147,6 +147,37 @@ export async function inspectTasks(
   return inspections.map((inspection, index) => {
     const source = sources[index]
     if (!inspection.valid) return inspection
+    if (request.kind === 'pdf' && request.options.operation === 'toImage') {
+      const pageNumbers = request.pageNumbers ?? range(1, inspection.pageCount ?? 0)
+      const output = resolvePdfImageOutput({
+        sourcePath: source.path,
+        outputDirectory: outputDirectoryFor(request, source),
+        imageFormat: request.options.imageFormat,
+        pageNumbers,
+        reservedPaths,
+        outputSuffix: request.outputSuffix,
+        nameTemplate: request.outputNameTemplate,
+        conflictPolicy: request.outputConflictPolicy,
+        presetName: request.presetName,
+        width: inspection.outputWidth ?? inspection.width,
+        height: inspection.outputHeight ?? inspection.height
+      })
+      if (output.directory.skipped) {
+        return {
+          ...inspection,
+          outputPath: output.directory.path,
+          outputPaths: [],
+          valid: false,
+          skipped: true,
+          error: '输出文件夹已存在，当前冲突策略为跳过'
+        }
+      }
+      return {
+        ...inspection,
+        outputPath: output.directory.path,
+        outputPaths: output.paths
+      }
+    }
     const outputPaths: string[] = []
     const claimedPaths: string[] = []
     const units = inspectionUnits(request, inspection)

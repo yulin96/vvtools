@@ -642,7 +642,14 @@ export function registerIpc(
     assertTrusted(event, window())
     const task = queue.list().find((item) => item.id === taskId)
     if (!task) throw new Error('任务不存在')
-    if (existsSync(task.outputPath)) shell.showItemInFolder(task.outputPath)
+    if (
+      existsSync(task.outputPath) &&
+      task.kind === 'pdf' &&
+      (task.options as PdfOptions).operation === 'toImage'
+    ) {
+      const error = await shell.openPath(task.outputPath)
+      if (error) throw new Error(error)
+    } else if (existsSync(task.outputPath)) shell.showItemInFolder(task.outputPath)
     else {
       const error = await shell.openPath(dirname(task.outputPath))
       if (error) throw new Error(error)
