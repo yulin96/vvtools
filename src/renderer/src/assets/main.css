@@ -898,6 +898,25 @@ input {
   gap: 10px;
 }
 
+.settings-update-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.settings-capabilities-list {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.settings-capability-badge,
+.settings-capabilities-action {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .settings-group-heading {
   display: flex;
   align-items: baseline;
@@ -2097,6 +2116,10 @@ html[data-theme='dark'] .bg-slate-950 {
 
   .settings-card:not(.settings-card-stack) {
     flex-direction: column;
+  }
+
+  .settings-update-actions {
+    flex-wrap: wrap;
   }
 
   .settings-card-controls {

@@ -700,6 +700,10 @@ export function registerIpc(
     assertTrusted(event, window())
     return updates.openReleasePage()
   })
+  handle(IPC_CHANNELS.openSourcePage, (event) => {
+    assertTrusted(event, window())
+    return shell.openExternal('https://github.com/yulin96/vvtools')
+  })
 
   const notify = (tasks: ReturnType<TaskQueue['list']>): void => {
     const current = getWindow()

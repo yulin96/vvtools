@@ -29,6 +29,7 @@ const api: VVToolsApi = {
   downloadUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.downloadUpdate),
   installUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.installUpdate),
   openReleasePage: () => ipcRenderer.invoke(IPC_CHANNELS.openReleasePage),
+  openSourcePage: () => ipcRenderer.invoke(IPC_CHANNELS.openSourcePage),
   onTasksChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, tasks: MediaTask[]): void =>
       callback(tasks)

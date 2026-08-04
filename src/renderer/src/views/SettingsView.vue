@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { Cpu, FileOutput, RefreshCw } from '@lucide/vue'
+import { Cpu, ExternalLink, FileOutput, RefreshCw } from '@lucide/vue'
 import type { AppSettings, TaskKind } from '../../../shared/types'
-import { useAppStore } from '../stores/app'
 import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import Badge from '../components/ui/Badge.vue'
 import Button from '../components/ui/Button.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
+import { useAppStore } from '../stores/app'
 
 const store = useAppStore()
 const concurrencyModeOptions = [
@@ -102,6 +102,9 @@ function updateOutputNameTemplate(event: Event): void {
   void store.updateSettings({ common: { outputNameTemplate: template } })
 }
 
+function openSourcePage(): void {
+  void window.api.openSourcePage()
+}
 </script>
 
 <template>
@@ -113,6 +116,47 @@ function updateOutputNameTemplate(event: Event): void {
       </div>
     </header>
     <template v-if="store.settings">
+      <section class="settings-card settings-update-card">
+        <div class="settings-card-title">
+          <RefreshCw class="size-4" />
+          <div>
+            <h2>软件更新</h2>
+            <p>{{ store.updateDescription }}</p>
+            <div
+              v-if="store.updateState.status === 'downloading'"
+              class="mt-2 h-1.5 w-64 overflow-hidden rounded-full bg-muted"
+            >
+              <div
+                class="h-full rounded-full bg-primary transition-[width]"
+                :style="{
+                  width: `${Math.min(100, Math.max(0, store.updateState.percent ?? 0))}%`
+                }"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="settings-update-actions">
+          <Button variant="secondary" size="sm" @click="openSourcePage">
+            <ExternalLink class="size-3.5" />
+            GitHub 地址
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            :disabled="
+              store.updateState.status === 'checking' || store.updateState.status === 'downloading'
+            "
+            @click="store.requestUpdateAction"
+          >
+            <RefreshCw
+              class="size-3.5"
+              :class="{ 'animate-spin': store.updateState.status === 'checking' }"
+            />
+            {{ store.updateButtonLabel }}
+          </Button>
+        </div>
+      </section>
+
       <div class="settings-group-heading">
         <span>通用</span>
         <p>这里的修改会同时影响图片、视频、音频、PDF 和字体任务。</p>
@@ -200,45 +244,10 @@ function updateOutputNameTemplate(event: Event): void {
 
       <div class="settings-group-heading">
         <span>应用</span>
-        <p>版本更新和本机处理组件状态。</p>
+        <p>本机处理组件状态。</p>
       </div>
 
-      <section class="settings-card">
-        <div class="settings-card-title">
-          <RefreshCw class="size-4" />
-          <div>
-            <h2>软件更新</h2>
-            <p>{{ store.updateDescription }}</p>
-            <div
-              v-if="store.updateState.status === 'downloading'"
-              class="mt-2 h-1.5 w-64 overflow-hidden rounded-full bg-muted"
-            >
-              <div
-                class="h-full rounded-full bg-primary transition-[width]"
-                :style="{
-                  width: `${Math.min(100, Math.max(0, store.updateState.percent ?? 0))}%`
-                }"
-              />
-            </div>
-          </div>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          :disabled="
-            store.updateState.status === 'checking' || store.updateState.status === 'downloading'
-          "
-          @click="store.requestUpdateAction"
-        >
-          <RefreshCw
-            class="size-3.5"
-            :class="{ 'animate-spin': store.updateState.status === 'checking' }"
-          />
-          {{ store.updateButtonLabel }}
-        </Button>
-      </section>
-
-      <section class="settings-card">
+      <section class="settings-card settings-capabilities-card">
         <div class="settings-card-title">
           <RefreshCw class="size-4" />
           <div>
@@ -246,7 +255,7 @@ function updateOutputNameTemplate(event: Event): void {
             <p>媒体任务开始前会再次校验文件。</p>
           </div>
         </div>
-        <div class="space-y-3">
+        <div class="settings-capabilities-list space-y-3">
           <div
             v-for="(item, name) in store.capabilities"
             :key="name"
@@ -258,7 +267,7 @@ function updateOutputNameTemplate(event: Event): void {
                 {{ item.version || item.error || '正在检测…' }}
               </p>
             </div>
-            <Badge :tone="item.available ? 'success' : 'danger'">
+            <Badge class="settings-capability-badge" :tone="item.available ? 'success' : 'danger'">
               {{ item.available ? '可用' : '不可用' }}
             </Badge>
           </div>
@@ -266,7 +275,12 @@ function updateOutputNameTemplate(event: Event): void {
             正在检测 FFmpeg、FFprobe、PDFium、qpdf、FontTools 和 sharp…
           </p>
         </div>
-        <Button variant="secondary" size="sm" @click="store.refreshCapabilities">
+        <Button
+          class="settings-capabilities-action"
+          variant="secondary"
+          size="sm"
+          @click="store.refreshCapabilities"
+        >
           <RefreshCw class="size-3.5" />重新检测
         </Button>
       </section>

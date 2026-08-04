@@ -387,6 +387,7 @@ export interface VVToolsApi {
   downloadUpdate: () => Promise<void>
   installUpdate: () => Promise<void>
   openReleasePage: () => Promise<void>
+  openSourcePage: () => Promise<void>
   onTasksChanged: (callback: (tasks: MediaTask[]) => void) => () => void
   onUpdateChanged: (callback: (state: UpdateState) => void) => () => void
 }

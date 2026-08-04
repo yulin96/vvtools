@@ -196,5 +196,6 @@ export const IPC_CHANNELS = {
   downloadUpdate: 'updates:download',
   installUpdate: 'updates:install',
   openReleasePage: 'updates:open-release-page',
+  openSourcePage: 'system:open-source-page',
   updatesChanged: 'updates:changed'
 } as const
