@@ -10,7 +10,7 @@ import { MediaProcessError, TaskCancelledError } from './errors'
 import { createTaskCommand } from './ffmpeg-runtime'
 
 const require = createRequire(import.meta.url)
-const pdfiumLibraryPromise = PDFiumLibrary.init()
+let pdfiumLibraryPromise: ReturnType<typeof PDFiumLibrary.init> | null = null
 let qpdfModulePromise: Promise<QpdfInstance> | null = null
 let qpdfQueue: Promise<void> = Promise.resolve()
 
@@ -22,7 +22,7 @@ export interface PdfProbe {
 
 export async function probePdf(sourcePath: string, signal: AbortSignal): Promise<PdfProbe> {
   if (signal.aborted) throw new TaskCancelledError()
-  const library = await pdfiumLibraryPromise
+  const library = await getPdfiumLibrary()
   const document = await library.loadDocument(await readFile(sourcePath))
   try {
     const pageCount = document.getPageCount()
@@ -85,7 +85,7 @@ async function renderPdfPage(
   onProgress: (progress: number) => void
 ): Promise<void> {
   const pageNumber = task.pageNumber ?? 1
-  const library = await pdfiumLibraryPromise
+  const library = await getPdfiumLibrary()
   const document = await library.loadDocument(await readFile(task.sourcePath))
   try {
     if (pageNumber < 1 || pageNumber > document.getPageCount()) {
@@ -183,7 +183,7 @@ async function compressPdfLossy(
   onProgress: (progress: number) => void
 ): Promise<void> {
   if (signal.aborted) throw new TaskCancelledError()
-  const library = await pdfiumLibraryPromise
+  const library = await getPdfiumLibrary()
   const sourceDocument = await library.loadDocument(await readFile(sourcePath))
   try {
     const pageCount = sourceDocument.getPageCount()
@@ -229,6 +229,11 @@ async function compressPdfLossy(
 export function isQpdfSuccessExitCode(exitCode: number): boolean {
   // qpdf uses 3 when processing succeeds after recovering from input warnings.
   return exitCode === 0 || exitCode === 3
+}
+
+function getPdfiumLibrary(): ReturnType<typeof PDFiumLibrary.init> {
+  pdfiumLibraryPromise ??= PDFiumLibrary.init()
+  return pdfiumLibraryPromise
 }
 
 async function getQpdfModule(): Promise<QpdfInstance> {

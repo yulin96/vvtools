@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'fs'
+import { existsSync, mkdtempSync, rmSync, statSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -6,6 +6,7 @@ import sharp, { type Metadata } from 'sharp'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { MediaTask } from '../src/shared/types'
 import { processImage } from '../src/main/media/image-processor'
+import { TaskSkippedError } from '../src/main/media/errors'
 import { DEFAULT_IMAGE_OPTIONS } from '../src/shared/constants'
 
 const directories: string[] = []
@@ -46,7 +47,7 @@ describe('image processor', () => {
         resizeMode: 'percentage',
         percentage: 50
       },
-      sourceSize: 1,
+      sourceSize: statSync(sourcePath).size,
       createdAt: new Date(0).toISOString()
     }
     expect(await processImage(task, new AbortController().signal)).toBeGreaterThan(0)
@@ -62,7 +63,7 @@ describe('image processor', () => {
     directories.push(root)
     const sourcePath = join(root, 'source.png')
     const outputPath = join(root, 'source_processed.avif')
-    await sharp({ create: { width: 40, height: 30, channels: 4, background: '#76bfd1' } })
+    await sharp({ create: { width: 400, height: 300, channels: 4, background: '#76bfd1' } })
       .png()
       .toFile(sourcePath)
     const task: MediaTask = {
@@ -77,7 +78,7 @@ describe('image processor', () => {
         format: 'avif',
         quality: 75
       },
-      sourceSize: 1,
+      sourceSize: statSync(sourcePath).size,
       createdAt: new Date(0).toISOString()
     }
 
@@ -85,8 +86,8 @@ describe('image processor', () => {
     expect(await readMetadata(outputPath)).toMatchObject({
       format: 'heif',
       compression: 'av1',
-      width: 40,
-      height: 30
+      width: 400,
+      height: 300
     })
   })
 
@@ -111,7 +112,7 @@ describe('image processor', () => {
         compressionMode: 'targetSize',
         targetSizeKb: 10
       },
-      sourceSize: 1,
+      sourceSize: statSync(sourcePath).size,
       createdAt: new Date(0).toISOString()
     }
     expect(await processImage(task, new AbortController().signal)).toBeLessThanOrEqual(10 * 1024)
@@ -129,7 +130,7 @@ describe('image processor', () => {
     await sharp({ create: { width: 24, height: 16, channels: 3, background: '#76bfd1' } })
       .withExif({ IFD0: { Make: 'VVTools Camera' } })
       .withIccProfile('p3')
-      .jpeg()
+      .jpeg({ quality: 100 })
       .toFile(sourcePath)
     const task: MediaTask = {
       id: mode,
@@ -139,7 +140,7 @@ describe('image processor', () => {
       status: 'processing',
       progress: 0,
       options: { ...DEFAULT_IMAGE_OPTIONS, format: 'jpeg', metadataMode: mode },
-      sourceSize: 1,
+      sourceSize: statSync(sourcePath).size,
       createdAt: new Date(0).toISOString()
     }
 
@@ -147,5 +148,32 @@ describe('image processor', () => {
     const metadata = await readMetadata(outputPath)
     expect(Boolean(metadata.exif)).toBe(keepsExif)
     expect(Boolean(metadata.icc)).toBe(keepsIcc)
+  })
+
+  it('skips and removes output when conversion makes the image larger', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-image-skip-'))
+    directories.push(root)
+    const sourcePath = join(root, 'source.png')
+    const outputPath = join(root, 'source_processed.avif')
+    await sharp({ create: { width: 1, height: 1, channels: 4, background: '#76bfd1' } })
+      .png()
+      .toFile(sourcePath)
+    const task: MediaTask = {
+      id: 'image-skip',
+      kind: 'image',
+      sourcePath,
+      outputPath,
+      status: 'processing',
+      progress: 0,
+      options: { ...DEFAULT_IMAGE_OPTIONS, format: 'avif', quality: 100 },
+      sourceSize: statSync(sourcePath).size,
+      createdAt: new Date(0).toISOString()
+    }
+
+    await expect(processImage(task, new AbortController().signal)).rejects.toBeInstanceOf(
+      TaskSkippedError
+    )
+    expect(existsSync(sourcePath)).toBe(true)
+    expect(existsSync(outputPath)).toBe(false)
   })
 })

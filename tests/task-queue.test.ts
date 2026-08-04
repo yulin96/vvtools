@@ -12,7 +12,7 @@ import { dirname, join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { FailureLogService } from '../src/main/services/failure-log'
 import { TaskQueue, type TaskRunner } from '../src/main/services/task-queue'
-import { MediaProcessError, TaskCancelledError } from '../src/main/media/errors'
+import { MediaProcessError, TaskCancelledError, TaskSkippedError } from '../src/main/media/errors'
 import {
   DEFAULT_FONT_OPTIONS,
   DEFAULT_IMAGE_OPTIONS,
@@ -202,6 +202,32 @@ describe('TaskQueue', () => {
     await waitFor(() =>
       queue.list().some((task) => task.id === retry?.id && task.status === 'completed')
     )
+  })
+
+  it('marks larger image output as skipped without committing the staged file', async () => {
+    const paths = fixture()
+    const runner: TaskRunner = async (task) => {
+      writeFileSync(task.outputPath, 'larger temporary output')
+      throw new TaskSkippedError('转换后文件更大，已跳过且未保存', 23)
+    }
+    const queue = new TaskQueue(concurrency(1), runner, new FailureLogService(paths.userData))
+    queue.create({
+      kind: 'image',
+      sources: [{ path: paths.source, relativeDirectory: '' }],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '_processed',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+
+    await waitFor(() => queue.list()[0]?.status === 'skipped')
+    expect(queue.list()[0]).toMatchObject({
+      progress: 100,
+      outputSize: 23,
+      skippedReason: '转换后文件更大，已跳过且未保存'
+    })
+    expect(existsSync(queue.list()[0].outputPath)).toBe(false)
+    expect(existsSync(paths.source)).toBe(true)
   })
 
   it('keeps task state in memory without writing task history', async () => {
