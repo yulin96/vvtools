@@ -5,6 +5,8 @@ import type { ImageFormat, ImageOptions, MediaTask } from '../../shared/types'
 import { MediaProcessError, TaskCancelledError } from './errors'
 import { createTaskCommand } from './ffmpeg-runtime'
 
+sharp.concurrency(2)
+
 if (process.platform === 'win32') {
   sharp.cache({ files: 0 })
 }

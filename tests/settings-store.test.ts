@@ -32,7 +32,7 @@ describe('SettingsStore', () => {
         closeBehavior: 'ask',
         concurrency: {
           mode: 'auto',
-          custom: { image: 8, video: 1, audio: 2 }
+          custom: { image: 16, video: 1, audio: 2 }
         }
       }
     })
@@ -225,7 +225,7 @@ describe('SettingsStore', () => {
 
   it('resolves automatic concurrency by media type', () => {
     expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 10)).toEqual({
-      image: 8,
+      image: 10,
       video: 1,
       audio: 2,
       pdf: 1,
@@ -235,6 +235,13 @@ describe('SettingsStore', () => {
       image: 2,
       video: 1,
       audio: 1,
+      pdf: 1,
+      font: 1
+    })
+    expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 16)).toEqual({
+      image: 16,
+      video: 1,
+      audio: 2,
       pdf: 1,
       font: 1
     })

@@ -3,7 +3,7 @@ import { DEFAULT_CONCURRENCY_SETTINGS } from '../../shared/constants'
 import type { ConcurrencySettings, TaskConcurrencyLimits, TaskKind } from '../../shared/types'
 
 const MAXIMUM_CONCURRENCY: TaskConcurrencyLimits = {
-  image: 8,
+  image: 16,
   video: 2,
   audio: 4,
   pdf: 2,
@@ -45,7 +45,7 @@ export function resolveTaskConcurrency(
   if (settings.mode === 'custom') return structuredClone(settings.custom)
   const processors = Math.max(1, parallelism)
   return {
-    image: Math.min(8, Math.max(1, Math.ceil(processors * 0.75))),
+    image: Math.min(16, processors),
     video: 1,
     audio: Math.min(2, Math.max(1, Math.floor(processors / 4))),
     pdf: 1,

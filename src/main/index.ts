@@ -1,5 +1,6 @@
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { app, BrowserWindow, dialog, Menu, screen, shell, Tray } from 'electron'
+import { availableParallelism } from 'os'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { registerIpc } from './ipc'
@@ -19,6 +20,8 @@ import {
   type WindowState
 } from './services/window-state-store'
 import { configureOverlayScrollbars } from './scrollbar-config'
+
+process.env.UV_THREADPOOL_SIZE ??= String(Math.min(16, availableParallelism()))
 
 let mainWindow: BrowserWindow | null = null
 let queue: TaskQueue | null = null

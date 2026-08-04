@@ -13,7 +13,7 @@ import type {
 export const DEFAULT_CONCURRENCY_SETTINGS: ConcurrencySettings = {
   mode: 'auto',
   custom: {
-    image: 8,
+    image: 16,
     video: 1,
     audio: 2,
     pdf: 1,
