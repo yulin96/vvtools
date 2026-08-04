@@ -12,6 +12,7 @@ import type {
   ImageOptions,
   PdfOptions,
   RuntimeCapabilities,
+  TaskProgressUpdate,
   TaskKind,
   VideoOptions,
   VideoQuality,
@@ -718,11 +719,22 @@ export function registerIpc(
       current.webContents.send(IPC_CHANNELS.tasksChanged, tasks)
   }
   queue.on('changed', notify)
+  const notifyProgress = (update: TaskProgressUpdate): void => {
+    const current = getWindow()
+    if (current && !current.isDestroyed())
+      current.webContents.send(IPC_CHANNELS.taskProgressChanged, update)
+  }
+  queue.on('progress', notifyProgress)
 
   return () => {
     queue.off('changed', notify)
+    queue.off('progress', notifyProgress)
     for (const channel of Object.values(IPC_CHANNELS)) {
-      if (channel !== IPC_CHANNELS.tasksChanged && channel !== IPC_CHANNELS.updatesChanged) {
+      if (
+        channel !== IPC_CHANNELS.tasksChanged &&
+        channel !== IPC_CHANNELS.taskProgressChanged &&
+        channel !== IPC_CHANNELS.updatesChanged
+      ) {
         ipcMain.removeHandler(channel)
       }
     }

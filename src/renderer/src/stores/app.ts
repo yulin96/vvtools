@@ -53,6 +53,7 @@ export const useAppStore = defineStore('app', () => {
     font: []
   })
   let unsubscribe: (() => void) | null = null
+  let unsubscribeProgress: (() => void) | null = null
   let unsubscribeUpdates: (() => void) | null = null
   let promptedAvailableVersion = ''
   let promptedDownloadedVersion = ''
@@ -152,6 +153,12 @@ export const useAppStore = defineStore('app', () => {
       currentReleaseNotes.value = releaseNotes
       unsubscribe?.()
       unsubscribe = window.api.onTasksChanged((nextTasks) => (tasks.value = nextTasks))
+      unsubscribeProgress?.()
+      unsubscribeProgress = window.api.onTaskProgressChanged(({ id, progress }) => {
+        const index = tasks.value.findIndex((task) => task.id === id)
+        if (index < 0 || tasks.value[index].progress === progress) return
+        tasks.value[index] = { ...tasks.value[index], progress }
+      })
       unsubscribeUpdates?.()
       unsubscribeUpdates = window.api.onUpdateChanged(handleUpdateState)
       handleUpdateState(await window.api.getUpdateState())
@@ -336,6 +343,8 @@ export const useAppStore = defineStore('app', () => {
   function dispose(): void {
     unsubscribe?.()
     unsubscribe = null
+    unsubscribeProgress?.()
+    unsubscribeProgress = null
     unsubscribeUpdates?.()
     unsubscribeUpdates = null
   }

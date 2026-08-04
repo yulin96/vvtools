@@ -11,6 +11,7 @@ import type {
   ImageOptions,
   MediaInputMetadata,
   MediaTask,
+  TaskProgressUpdate,
   PdfOptions,
   TaskConcurrencyLimits,
   TaskFailure,
@@ -43,6 +44,7 @@ export class TaskQueue extends EventEmitter {
   private readonly tasks = new Map<string, MediaTask>()
   private readonly running = new Map<string, AbortController>()
   private readonly reservedPaths = new Set<string>()
+  private readonly lastProgressNotifications = new Map<string, { at: number; progress: number }>()
 
   constructor(
     private concurrency: TaskConcurrencyLimits,
@@ -327,7 +329,7 @@ export class TaskQueue extends EventEmitter {
     try {
       const outputSize = await this.runner(processingTask, controller.signal, (progress) => {
         task.progress = progress
-        this.changed()
+        this.progressChanged(task)
       })
       if (controller.signal.aborted) throw new TaskCancelledError()
       commitStagedOutput(stagingPath, task.outputPath, task.outputConflictPolicy === 'overwrite')
@@ -356,6 +358,7 @@ export class TaskQueue extends EventEmitter {
       rmSync(stagingPath, { force: true })
       task.completedAt = new Date().toISOString()
       this.running.delete(task.id)
+      this.lastProgressNotifications.delete(task.id)
       this.reservedPaths.delete(task.outputPath)
       this.changed()
       this.dispatch()
@@ -364,6 +367,18 @@ export class TaskQueue extends EventEmitter {
 
   private changed(): void {
     this.emit('changed', this.list())
+  }
+
+  private progressChanged(task: MediaTask): void {
+    if (typeof task.progress !== 'number') return
+    const progress = Math.min(100, Math.max(0, Math.round(task.progress)))
+    task.progress = progress
+    const now = Date.now()
+    const previous = this.lastProgressNotifications.get(task.id)
+    if (previous?.progress === progress || (previous && now - previous.at < 150)) return
+    this.lastProgressNotifications.set(task.id, { at: now, progress })
+    const update: TaskProgressUpdate = { id: task.id, progress }
+    this.emit('progress', update)
   }
 
   private discardSettledBatch(kind: MediaTask['kind']): void {

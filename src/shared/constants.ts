@@ -186,6 +186,7 @@ export const IPC_CHANNELS = {
   retryTask: 'tasks:retry',
   openTaskOutput: 'tasks:open-output',
   tasksChanged: 'tasks:changed',
+  taskProgressChanged: 'tasks:progress-changed',
   getSettings: 'settings:get',
   updateSettings: 'settings:update',
   getCapabilities: 'runtime:capabilities',

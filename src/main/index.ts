@@ -7,7 +7,7 @@ import { registerIpc } from './ipc'
 import { processAudio } from './media/audio-processor'
 import { processFont } from './media/font-processor'
 import { processImage } from './media/image-processor'
-import { processPdf } from './media/pdf-processor'
+import { processPdf, shutdownPdfProcesses } from './media/pdf-processor'
 import { processVideo } from './media/video-processor'
 import { FailureLogService } from './services/failure-log'
 import { SettingsStore } from './services/settings-store'
@@ -250,6 +250,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   isQuitting = true
   queue?.shutdown()
+  shutdownPdfProcesses()
   unregisterIpc?.()
   tray?.destroy()
   tray = null

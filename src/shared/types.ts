@@ -1,11 +1,5 @@
 export type TaskKind = 'video' | 'image' | 'audio' | 'pdf' | 'font'
-export type TaskStatus =
-  | 'pending'
-  | 'processing'
-  | 'completed'
-  | 'skipped'
-  | 'failed'
-  | 'cancelled'
+export type TaskStatus = 'pending' | 'processing' | 'completed' | 'skipped' | 'failed' | 'cancelled'
 
 export type VideoQuality = 'high' | 'balanced' | 'small'
 export type VideoResolution = 'source' | '1080p' | '720p' | 'custom'
@@ -255,6 +249,11 @@ export interface MediaTask {
   failure?: TaskFailure
 }
 
+export interface TaskProgressUpdate {
+  id: string
+  progress: number | null
+}
+
 export interface MediaInspection {
   sourcePath: string
   outputPath: string
@@ -409,5 +408,6 @@ export interface VVToolsApi {
   openReleasePage: () => Promise<void>
   openSourcePage: () => Promise<void>
   onTasksChanged: (callback: (tasks: MediaTask[]) => void) => () => void
+  onTaskProgressChanged: (callback: (update: TaskProgressUpdate) => void) => () => void
   onUpdateChanged: (callback: (state: UpdateState) => void) => () => void
 }

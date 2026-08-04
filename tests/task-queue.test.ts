@@ -80,6 +80,40 @@ describe('TaskQueue', () => {
     await waitFor(() => queue.list()[0]?.status === 'completed')
   })
 
+  it('emits throttled task progress separately from full task snapshots', async () => {
+    const paths = fixture()
+    let release!: () => void
+    const blocker = new Promise<void>((resolve) => (release = resolve))
+    const runner: TaskRunner = async (task, _signal, onProgress) => {
+      onProgress(10.4)
+      onProgress(11.2)
+      onProgress(11.8)
+      await blocker
+      writeFileSync(task.outputPath, 'processed')
+      return 9
+    }
+    const queue = new TaskQueue(concurrency(1), runner, new FailureLogService(paths.userData))
+    const snapshots: unknown[] = []
+    const progress: unknown[] = []
+    queue.on('changed', (tasks) => snapshots.push(tasks))
+    queue.on('progress', (update) => progress.push(update))
+
+    const [task] = queue.create({
+      kind: 'image',
+      sources: [{ path: paths.source, relativeDirectory: '' }],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+
+    expect(progress).toEqual([{ id: task.id, progress: 10 }])
+    expect(snapshots).toHaveLength(2)
+    release()
+    await waitFor(() => queue.list()[0]?.status === 'completed')
+    expect(snapshots).toHaveLength(3)
+  })
+
   it('respects concurrency and continues dispatching', async () => {
     const paths = fixture()
     let running = 0

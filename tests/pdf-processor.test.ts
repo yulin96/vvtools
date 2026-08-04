@@ -5,11 +5,17 @@ import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { DEFAULT_PDF_OPTIONS } from '../src/shared/constants'
 import type { MediaTask } from '../src/shared/types'
-import { isQpdfSuccessExitCode, probePdf, processPdf } from '../src/main/media/pdf-processor'
+import {
+  isQpdfSuccessExitCode,
+  probePdf,
+  processPdf,
+  shutdownPdfProcesses
+} from '../src/main/media/pdf-processor'
 
 const directories: string[] = []
 
 afterEach(() => {
+  shutdownPdfProcesses()
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
 })
 
@@ -78,6 +84,32 @@ describe('PDF processor', () => {
       width: 100,
       height: 100
     })
+  })
+
+  it('renders consecutive page tasks through the reusable PDF process', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-pdf-pages-'))
+    directories.push(root)
+    const sourcePath = join(root, 'source.pdf')
+    await writeFile(sourcePath, createTestPdf(false))
+
+    for (const index of [1, 2]) {
+      const outputPath = join(root, `page-${index}.png`)
+      const task: MediaTask = {
+        id: `pdf-page-${index}`,
+        kind: 'pdf',
+        sourcePath,
+        outputPath,
+        status: 'processing',
+        progress: 0,
+        pageNumber: 1,
+        options: { ...DEFAULT_PDF_OPTIONS, operation: 'toImage', dpi: 72 },
+        sourceSize: 1,
+        createdAt: new Date(0).toISOString()
+      }
+
+      expect(await processPdf(task, new AbortController().signal)).toBeGreaterThan(0)
+      expect((await readFile(outputPath)).subarray(1, 4).toString()).toBe('PNG')
+    }
   })
 })
 
