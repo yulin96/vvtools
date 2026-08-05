@@ -322,7 +322,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <div class="video-workspace-content">
+    <div class="video-workspace-content workspace-scroll-content">
       <CurrentBatchTable
         v-if="pendingPaths.length || pdfTasks.length"
         kind="pdf"

@@ -35,7 +35,7 @@ const updates = new UpdateService(() => mainWindow)
 const defaultWindowSize = { width: 1280, height: 800 }
 const minimumWindowSize = { width: 1040, height: 680 }
 const windowsTitleBarOverlay = {
-  color: '#f5f5f9',
+  color: '#ffffff',
   symbolColor: '#1c1b27',
   height: 36
 }

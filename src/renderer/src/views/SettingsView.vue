@@ -108,7 +108,7 @@ function openSourcePage(): void {
 </script>
 
 <template>
-  <div class="page-container">
+  <div class="page-container workspace-scroll-content">
     <header class="page-header">
       <div>
         <h1>设置</h1>

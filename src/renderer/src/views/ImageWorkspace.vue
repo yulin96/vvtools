@@ -535,7 +535,7 @@ onBeforeUnmount(() => {
       </AdvancedSettingsPanel>
     </section>
 
-    <div class="video-workspace-content" @click="configExpanded = false">
+    <div class="video-workspace-content workspace-scroll-content" @click="configExpanded = false">
       <CurrentBatchTable
         v-if="pendingInputs.length || imageTasks.length"
         kind="image"

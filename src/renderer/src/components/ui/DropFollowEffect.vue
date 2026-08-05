@@ -26,15 +26,15 @@ function updatePointer(event: DragEvent): void {
     if (!element) return
 
     const bounds = element.getBoundingClientRect()
-    const surface = element.parentElement
+    const surface = document.querySelector<HTMLElement>('.video-drop-workspace')
     if (!surface) return
     const x = Math.min(bounds.width, Math.max(0, pointerX - bounds.left))
     const y = Math.min(bounds.height, Math.max(0, pointerY - bounds.top))
     const normalizedX = bounds.width ? x / bounds.width - 0.5 : 0
     const normalizedY = bounds.height ? y / bounds.height - 0.5 : 0
 
-    surface.style.setProperty('--drop-follow-x', `${x}px`)
-    surface.style.setProperty('--drop-follow-y', `${y}px`)
+    element.style.setProperty('--drop-follow-x', `${x}px`)
+    element.style.setProperty('--drop-follow-y', `${y}px`)
     surface.style.setProperty('--drop-follow-shift-x', `${(normalizedX * 12).toFixed(2)}px`)
     surface.style.setProperty('--drop-follow-shift-y', `${(normalizedY * 12).toFixed(2)}px`)
   })
@@ -51,12 +51,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    ref="effectElement"
-    class="drop-follow-effect"
-    :class="{ 'is-active': active }"
-    aria-hidden="true"
-  >
-    <div class="drop-follow-grid" />
-  </div>
+  <Teleport to="body">
+    <div
+      ref="effectElement"
+      class="drop-follow-effect"
+      :class="{ 'is-active': active }"
+      aria-hidden="true"
+    >
+      <div class="drop-follow-grid" />
+    </div>
+  </Teleport>
 </template>
