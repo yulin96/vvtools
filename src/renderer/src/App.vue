@@ -21,6 +21,7 @@ import appIcon from '../../../resources/icon.png'
 import SegmentedControl from './components/ui/SegmentedControl.vue'
 import Button from './components/ui/Button.vue'
 import Modal from './components/ui/Modal.vue'
+import { detectMediaWorkspacePath, queueRoutedDrop } from './lib/media-drop'
 
 const store = useAppStore()
 const route = useRoute()
@@ -85,12 +86,33 @@ function handleSystemThemeChange(event: MediaQueryListEvent): void {
   systemIsDark.value = event.matches
 }
 
+function hasDroppedFiles(event: DragEvent): boolean {
+  return [...(event.dataTransfer?.types || [])].includes('Files')
+}
+
+function handleWorkspaceDrop(event: DragEvent): void {
+  if (!hasDroppedFiles(event)) return
+  const paths = [...(event.dataTransfer?.files || [])].map((file) =>
+    window.api.getDroppedFilePath(file)
+  )
+  const targetPath = detectMediaWorkspacePath(paths)
+  if (!targetPath || targetPath === route.path) return
+
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  queueRoutedDrop(targetPath, paths)
+  void router.push(targetPath)
+}
+
+window.addEventListener('drop', handleWorkspaceDrop, true)
+
 onMounted(() => {
   colorSchemeQuery.addEventListener('change', handleSystemThemeChange)
   void store.initialize()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('drop', handleWorkspaceDrop, true)
   colorSchemeQuery.removeEventListener('change', handleSystemThemeChange)
   store.dispose()
 })
@@ -228,9 +250,9 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </Transition>
-      <RouterView v-slot="{ Component, route }">
+      <RouterView v-slot="{ Component, route: viewRoute }">
         <Transition name="page-swap">
-          <div :key="route.path" class="route-view">
+          <div :key="viewRoute.path" class="route-view">
             <component :is="Component" />
           </div>
         </Transition>

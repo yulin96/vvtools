@@ -26,6 +26,7 @@ import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
+import { takeRoutedDrop } from '../lib/media-drop'
 
 const store = useAppStore()
 const configExpanded = ref(false)
@@ -325,6 +326,10 @@ onMounted(() => {
   window.addEventListener('dragover', handleDragOver, true)
   window.addEventListener('dragleave', handleDragLeave, true)
   window.addEventListener('drop', handleDrop, true)
+  const routedPaths = takeRoutedDrop('/image')
+  if (routedPaths.length > 0) {
+    void window.api.expandImageInputs(routedPaths).then(stageInputs).catch(reportError)
+  }
 })
 
 onBeforeUnmount(() => {

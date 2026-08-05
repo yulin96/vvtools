@@ -15,6 +15,7 @@ import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
+import { takeRoutedDrop } from '../lib/media-drop'
 
 const store = useAppStore()
 const dragging = ref(false)
@@ -149,6 +150,7 @@ onMounted(() => {
   window.addEventListener('dragover', handleDragOver, true)
   window.addEventListener('dragleave', handleDragLeave, true)
   window.addEventListener('drop', handleDrop, true)
+  stageFiles(takeRoutedDrop('/audio'))
 })
 
 onBeforeUnmount(() => {

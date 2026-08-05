@@ -738,28 +738,38 @@ body {
 }
 
 .app-alert {
-  position: sticky;
-  top: 40px;
-  z-index: 30;
+  position: absolute;
+  z-index: 70;
+  top: 12px;
+  right: 18px;
   display: flex;
+  width: min(420px, calc(100% - 36px));
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: 40px;
-  border-bottom: 1px solid var(--danger-fg);
+  gap: 12px;
+  border: 1px solid color-mix(in srgb, var(--danger-fg) 28%, transparent);
+  border-radius: 12px;
   background: var(--danger-bg);
-  padding: 10px 24px;
+  box-shadow: var(--shadow-low);
+  padding: 10px 10px 10px 14px;
   color: var(--danger-fg);
   font-size: 13px;
+  line-height: 1.5;
+}
+
+.app-alert > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .app-alert-close {
+  flex-shrink: 0;
   border-radius: 8px;
   padding: 5px;
 }
 
 .app-alert-close:hover {
-  background: rgb(255 255 255 / 15%);
+  background: color-mix(in srgb, var(--danger-fg) 10%, transparent);
 }
 
 .app-alert-close:focus-visible,

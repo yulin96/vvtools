@@ -23,6 +23,7 @@ import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
+import { takeRoutedDrop } from '../lib/media-drop'
 
 const store = useAppStore()
 const configExpanded = ref(false)
@@ -277,6 +278,7 @@ onMounted(() => {
   window.addEventListener('dragover', handleDragOver, true)
   window.addEventListener('dragleave', handleDragLeave, true)
   window.addEventListener('drop', handleDrop, true)
+  stageFiles(takeRoutedDrop('/video'))
 })
 
 onBeforeUnmount(() => {

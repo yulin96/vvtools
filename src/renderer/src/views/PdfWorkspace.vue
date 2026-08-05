@@ -14,6 +14,7 @@ import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
+import { takeRoutedDrop } from '../lib/media-drop'
 
 const store = useAppStore()
 const dragging = ref(false)
@@ -174,6 +175,7 @@ onMounted(() => {
   window.addEventListener('dragover', handleDragOver, true)
   window.addEventListener('dragleave', handleDragLeave, true)
   window.addEventListener('drop', handleDrop, true)
+  stageFiles(takeRoutedDrop('/pdf'))
 })
 
 onBeforeUnmount(() => {
