@@ -38,12 +38,6 @@ const imageFormatOptions = [
 ]
 const supportedExtensions = new Set(['pdf'])
 
-const formatLabel = computed(() => {
-  const options = store.settings?.pdf.lastOptions
-  if (!options) return ''
-  if (options.operation === 'toImage') return `PDF → ${options.imageFormat.toUpperCase()}`
-  return options.compressionMode === 'lossy' ? '有损压缩' : '无损压缩'
-})
 const workspaceMode = computed<PdfWorkspaceMode>(() => {
   const options = store.settings?.pdf.lastOptions
   if (!options || options.operation === 'toImage') return 'toImage'
@@ -186,142 +180,8 @@ onBeforeUnmount(() => {
 <template>
   <div class="video-drop-workspace" :class="{ 'video-drop-workspace-active': dragging }">
     <DropFollowEffect :active="dragging" />
-    <section v-if="store.settings" class="video-config-panel" aria-label="PDF 处理设置">
-      <div class="video-config-heading">
-        <div class="config-heading-main">
-          <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">PDF 处理设置</span>
-          <span class="config-summary truncate text-xs text-muted-foreground">{{
-            formatLabel
-          }}</span>
-        </div>
-        <div class="video-config-actions">
-          <OutputLocationControls />
-          <SourceOverwriteWarning />
-          <Button
-            size="sm"
-            :disabled="pendingPaths.length === 0 || starting"
-            @click="startProcessing"
-          >
-            <Play class="size-4" />
-            {{
-              starting
-                ? '正在开始…'
-                : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
-            }}
-          </Button>
-        </div>
-      </div>
 
-      <div class="workflow-mode-row">
-        <SegmentedControl
-          class="pdf-operation-segments"
-          label="PDF 处理方式"
-          :model-value="workspaceMode"
-          :options="operationOptions"
-          hide-label
-          @update:model-value="setWorkspaceMode($event as PdfWorkspaceMode)"
-        />
-      </div>
-
-      <div
-        v-if="store.settings.pdf.lastOptions.operation === 'toImage'"
-        class="image-config-primary pdf-config-primary"
-      >
-        <fieldset class="config-group">
-          <legend class="sr-only">图片格式</legend>
-          <div class="config-group-fields">
-            <SegmentedControl
-              label="图片格式"
-              :model-value="store.settings.pdf.lastOptions.imageFormat"
-              :options="imageFormatOptions"
-              @update:model-value="updatePdf({ imageFormat: $event as PdfImageFormat })"
-            />
-          </div>
-        </fieldset>
-
-        <fieldset class="config-group">
-          <legend class="sr-only">图片质量</legend>
-          <div class="config-group-fields">
-            <label class="compact-field">
-              <span>分辨率</span>
-              <select
-                :value="store.settings.pdf.lastOptions.dpi"
-                @change="updatePdf({ dpi: Number(($event.target as HTMLSelectElement).value) })"
-              >
-                <option :value="72">72 DPI</option>
-                <option :value="96">96 DPI</option>
-                <option :value="144">144 DPI</option>
-                <option :value="200">200 DPI</option>
-                <option :value="300">300 DPI</option>
-                <option :value="600">600 DPI</option>
-              </select>
-            </label>
-            <label
-              class="compact-field"
-              :class="{ 'opacity-45': store.settings.pdf.lastOptions.imageFormat === 'png' }"
-            >
-              <span>有损质量</span>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                :value="store.settings.pdf.lastOptions.imageQuality"
-                :disabled="store.settings.pdf.lastOptions.imageFormat === 'png'"
-                @change="
-                  updatePdf({ imageQuality: Number(($event.target as HTMLInputElement).value) })
-                "
-              />
-            </label>
-          </div>
-        </fieldset>
-      </div>
-
-      <div
-        v-else-if="store.settings.pdf.lastOptions.compressionMode === 'lossy'"
-        class="image-config-primary pdf-lossy-config"
-      >
-        <fieldset class="config-group">
-          <legend class="sr-only">有损压缩参数</legend>
-          <div class="config-group-fields">
-            <label class="compact-field">
-              <span>页面分辨率</span>
-              <select
-                :value="store.settings.pdf.lastOptions.compressionDpi"
-                @change="
-                  updatePdf({
-                    compressionDpi: Number(($event.target as HTMLSelectElement).value)
-                  })
-                "
-              >
-                <option :value="96">96 DPI</option>
-                <option :value="144">144 DPI</option>
-                <option :value="200">200 DPI</option>
-                <option :value="300">300 DPI</option>
-              </select>
-            </label>
-            <label class="compact-field">
-              <span>图片质量</span>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                :value="store.settings.pdf.lastOptions.compressionQuality"
-                @change="
-                  updatePdf({
-                    compressionQuality: Number(($event.target as HTMLInputElement).value)
-                  })
-                "
-              />
-            </label>
-          </div>
-          <p class="pdf-lossy-note">
-            页面将重建为 JPEG 图片，可显著缩小图片型 PDF，但文字将无法选择，矢量内容也会被栅格化。
-          </p>
-        </fieldset>
-      </div>
-    </section>
-
+    <!-- Left Main Content Area -->
     <div class="video-workspace-content">
       <CurrentBatchTable
         v-if="pendingPaths.length || pdfTasks.length"
@@ -347,12 +207,161 @@ onBeforeUnmount(() => {
           <UploadCloud v-if="dragging" class="size-8" />
           <FileText v-else class="size-8" />
         </div>
-        <p class="text-lg font-semibold">
+        <p class="text-base font-semibold">
           {{ dragging ? '松开即可添加 PDF' : emptyStateCopy.title }}
         </p>
-        <p class="mt-1 text-sm text-muted-foreground">{{ emptyStateCopy.description }}</p>
+        <p class="mt-1 text-xs text-muted-foreground">{{ emptyStateCopy.description }}</p>
         <Button class="mt-5" @click="chooseFiles">选择 PDF 文件</Button>
       </div>
     </div>
+
+    <!-- Right Sidebar Settings Panel -->
+    <section v-if="store.settings" class="video-config-panel" aria-label="PDF 处理设置">
+      <!-- Panel Header -->
+      <div class="video-config-heading">
+        <div class="config-heading-main">
+          <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
+          <span class="shrink-0 text-sm font-semibold">PDF 处理设置</span>
+        </div>
+      </div>
+
+      <!-- Panel Body -->
+      <div class="video-config-body">
+        <div class="config-section">
+          <div class="config-section-title">基础设置</div>
+
+          <div class="space-y-3">
+            <label class="compact-field">
+              <span>处理方式</span>
+              <SegmentedControl
+                class="pdf-operation-segments"
+                label="PDF 处理方式"
+                :model-value="workspaceMode"
+                :options="operationOptions"
+                hide-label
+                @update:model-value="setWorkspaceMode($event as PdfWorkspaceMode)"
+              />
+            </label>
+
+            <!-- 转图片参数 -->
+            <template v-if="store.settings.pdf.lastOptions.operation === 'toImage'">
+              <label class="compact-field">
+                <span>输出图片格式</span>
+                <SegmentedControl
+                  label="图片格式"
+                  hide-label
+                  :model-value="store.settings.pdf.lastOptions.imageFormat"
+                  :options="imageFormatOptions"
+                  @update:model-value="updatePdf({ imageFormat: $event as PdfImageFormat })"
+                />
+              </label>
+
+              <label class="compact-field">
+                <span>分辨率 (DPI)</span>
+                <select
+                  class="compact-select"
+                  :value="store.settings.pdf.lastOptions.dpi"
+                  @change="updatePdf({ dpi: Number(($event.target as HTMLSelectElement).value) })"
+                >
+                  <option :value="72">72 DPI</option>
+                  <option :value="96">96 DPI</option>
+                  <option :value="144">144 DPI</option>
+                  <option :value="200">200 DPI</option>
+                  <option :value="300">300 DPI</option>
+                  <option :value="600">600 DPI</option>
+                </select>
+              </label>
+
+              <label v-if="store.settings.pdf.lastOptions.imageFormat !== 'png'" class="compact-field">
+                <span>有损质量 (1 - 100)</span>
+                <div class="number-field">
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    :value="store.settings.pdf.lastOptions.imageQuality"
+                    @change="
+                      updatePdf({ imageQuality: Number(($event.target as HTMLInputElement).value) })
+                    "
+                  />
+                  <span>/ 100</span>
+                </div>
+              </label>
+            </template>
+
+            <!-- 有损压缩参数 -->
+            <template v-else-if="store.settings.pdf.lastOptions.compressionMode === 'lossy'">
+              <label class="compact-field">
+                <span>页面分辨率</span>
+                <select
+                  class="compact-select"
+                  :value="store.settings.pdf.lastOptions.compressionDpi"
+                  @change="
+                    updatePdf({
+                      compressionDpi: Number(($event.target as HTMLSelectElement).value)
+                    })
+                  "
+                >
+                  <option :value="96">96 DPI</option>
+                  <option :value="144">144 DPI</option>
+                  <option :value="200">200 DPI</option>
+                  <option :value="300">300 DPI</option>
+                </select>
+              </label>
+
+              <label class="compact-field">
+                <span>图片质量</span>
+                <div class="number-field">
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    :value="store.settings.pdf.lastOptions.compressionQuality"
+                    @change="
+                      updatePdf({
+                        compressionQuality: Number(($event.target as HTMLInputElement).value)
+                      })
+                    "
+                  />
+                  <span>/ 100</span>
+                </div>
+              </label>
+
+              <div class="rounded-lg border border-border bg-muted/30 p-2.5 text-xs text-muted-foreground leading-relaxed">
+                页面将重建为 JPEG 图片，适用于图片型 PDF；文字与矢量内容将被栅格化。
+              </div>
+            </template>
+
+            <!-- 无损压缩说明 -->
+            <template v-else>
+              <div class="rounded-lg border border-border bg-muted/30 p-2.5 text-xs text-muted-foreground leading-relaxed">
+                重新整理 PDF 内部流结构，不改变图像画质与文字矢量属性。
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel Footer -->
+      <div class="video-config-footer">
+        <div class="flex items-center justify-between gap-2">
+          <OutputLocationControls />
+          <SourceOverwriteWarning />
+        </div>
+        <Button
+          size="default"
+          class="w-full h-10 text-sm font-medium"
+          :disabled="pendingPaths.length === 0 || starting"
+          @click="startProcessing"
+        >
+          <Play class="size-4" />
+          {{
+            starting
+              ? '正在开始…'
+              : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+          }}
+        </Button>
+      </div>
+    </section>
   </div>
 </template>

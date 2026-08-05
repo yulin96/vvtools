@@ -45,33 +45,6 @@ const resizeModeOptions = [
   { value: 'height', label: '高度', title: '指定高度', ariaLabel: '指定高度' },
   { value: 'percentage', label: '缩放', title: '按比例缩放', ariaLabel: '按比例缩放' }
 ]
-const imageFormatOptions = [
-  { value: 'original', label: '原格式' },
-  { value: 'jpeg', label: 'JPEG' },
-  { value: 'png', label: 'PNG' },
-  { value: 'webp', label: 'WebP' },
-  { value: 'avif', label: 'AVIF' }
-]
-const metadataModeOptions = [
-  {
-    value: 'colorProfile',
-    label: '保留色彩',
-    title: '仅保留色彩配置',
-    ariaLabel: '仅保留色彩配置'
-  },
-  {
-    value: 'strip',
-    label: '全部移除',
-    title: '移除所有附加信息，文件可能更小',
-    ariaLabel: '移除所有附加信息，文件可能更小'
-  },
-  {
-    value: 'all',
-    label: '全部保留',
-    title: '尽量保留所有附加信息',
-    ariaLabel: '尽量保留所有附加信息'
-  }
-]
 const imagePresetOptions = [
   { value: 'custom', label: '自定义' },
   ...DEFAULT_IMAGE_PRESETS.map((preset) => ({ value: preset.id, label: preset.name }))
@@ -91,24 +64,6 @@ const metadataQueue: string[] = []
 const queuedMetadataPaths = new Set<string>()
 let metadataWorkerCount = 0
 const metadataConcurrency = 4
-const formatLabel = computed(() => {
-  const format = store.settings?.image.lastOptions.format
-  return format === 'original' ? '保持原格式' : (format?.toUpperCase() ?? '')
-})
-const compressionLabel = computed(() => {
-  const image = store.settings?.image.lastOptions
-  if (!image) return ''
-  return image.compressionMode === 'quality'
-    ? `质量 ${image.quality}`
-    : `不超过 ${image.targetSizeKb} KB`
-})
-const resizeLabel = computed(() => {
-  const image = store.settings?.image.lastOptions
-  if (!image || image.resizeMode === 'source') return '原始尺寸'
-  if (image.resizeMode === 'width') return `宽 ${image.width}px`
-  if (image.resizeMode === 'height') return `高 ${image.height}px`
-  return `${image.percentage}%`
-})
 const activePresetId = computed(() => {
   if (!store.settings) return 'custom'
   return (
@@ -337,205 +292,9 @@ onBeforeUnmount(() => {
 <template>
   <div class="video-drop-workspace" :class="{ 'video-drop-workspace-active': dragging }">
     <DropFollowEffect :active="dragging" />
-    <section v-if="store.settings" class="video-config-panel" aria-label="图片处理设置">
-      <div class="video-config-heading">
-        <div class="config-heading-main">
-          <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">图片处理设置</span>
-          <Button
-            class="config-expand-toggle"
-            variant="ghost"
-            size="sm"
-            :aria-expanded="configExpanded"
-            aria-controls="image-advanced-settings"
-            @click="configExpanded = !configExpanded"
-          >
-            {{ configExpanded ? '收起设置' : '更多设置' }}
-            <AnimatedChevron :expanded="configExpanded" />
-          </Button>
-          <span class="config-summary truncate text-xs text-muted-foreground">
-            {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
-          </span>
-        </div>
-        <div class="video-config-actions">
-          <SegmentedControl
-            class="preset-segments image-preset-segments"
-            label="图片处理方案"
-            :model-value="activePresetId"
-            :options="imagePresetOptions"
-            hide-label
-            @update:model-value="applyPreset"
-          />
-          <OutputLocationControls />
-          <SourceOverwriteWarning />
-          <Button
-            size="sm"
-            :disabled="pendingInputs.length === 0 || starting"
-            @click="startProcessing"
-          >
-            <Play class="size-4" />
-            {{
-              starting
-                ? '正在开始…'
-                : `开始处理${pendingInputs.length ? ` (${pendingInputs.length})` : ''}`
-            }}
-          </Button>
-        </div>
-      </div>
 
-      <div class="image-config-primary">
-        <fieldset class="config-group">
-          <legend class="sr-only">压缩</legend>
-          <div class="config-group-fields config-group-fields-switch-input">
-            <SegmentedControl
-              label="压缩目标"
-              :model-value="store.settings.image.lastOptions.compressionMode"
-              :options="compressionModeOptions"
-              @update:model-value="updateImage({ compressionMode: $event as ImageCompressionMode })"
-            />
-            <label class="compact-field">
-              <span>{{
-                store.settings.image.lastOptions.compressionMode === 'quality'
-                  ? '输出画质'
-                  : '单张大小上限'
-              }}</span>
-              <div class="number-field">
-                <input
-                  v-if="store.settings.image.lastOptions.compressionMode === 'quality'"
-                  :value="store.settings.image.lastOptions.quality"
-                  type="number"
-                  min="1"
-                  max="100"
-                  @change="
-                    updateImage({ quality: Number(($event.target as HTMLInputElement).value) })
-                  "
-                />
-                <input
-                  v-else
-                  :value="store.settings.image.lastOptions.targetSizeKb"
-                  type="number"
-                  min="1"
-                  max="100000"
-                  @change="
-                    updateImage({ targetSizeKb: Number(($event.target as HTMLInputElement).value) })
-                  "
-                />
-                <span>{{
-                  store.settings.image.lastOptions.compressionMode === 'quality' ? '/ 100' : 'KB'
-                }}</span>
-              </div>
-            </label>
-          </div>
-        </fieldset>
-
-        <fieldset class="config-group">
-          <legend class="sr-only">尺寸</legend>
-          <div class="config-group-fields config-group-fields-switch-input">
-            <SegmentedControl
-              class="image-resize-segments"
-              label="图片尺寸"
-              :model-value="store.settings.image.lastOptions.resizeMode"
-              :options="resizeModeOptions"
-              @update:model-value="updateImage({ resizeMode: $event as ImageResizeMode })"
-            />
-            <label
-              class="compact-field"
-              :class="{ 'opacity-45': store.settings.image.lastOptions.resizeMode === 'source' }"
-            >
-              <span>{{ resizeValueLabel(store.settings.image.lastOptions.resizeMode) }}</span>
-              <div class="number-field">
-                <input
-                  v-if="store.settings.image.lastOptions.resizeMode === 'width'"
-                  :value="store.settings.image.lastOptions.width"
-                  type="number"
-                  min="1"
-                  max="32768"
-                  @change="
-                    updateImage({ width: Number(($event.target as HTMLInputElement).value) })
-                  "
-                />
-                <input
-                  v-else-if="store.settings.image.lastOptions.resizeMode === 'height'"
-                  :value="store.settings.image.lastOptions.height"
-                  type="number"
-                  min="1"
-                  max="32768"
-                  @change="
-                    updateImage({ height: Number(($event.target as HTMLInputElement).value) })
-                  "
-                />
-                <input
-                  v-else-if="store.settings.image.lastOptions.resizeMode === 'percentage'"
-                  :value="store.settings.image.lastOptions.percentage"
-                  type="number"
-                  min="1"
-                  max="1000"
-                  @change="
-                    updateImage({ percentage: Number(($event.target as HTMLInputElement).value) })
-                  "
-                />
-                <input v-else value="无需设置" disabled />
-                <span
-                  v-if="['width', 'height'].includes(store.settings.image.lastOptions.resizeMode)"
-                  >px</span
-                >
-                <span v-else-if="store.settings.image.lastOptions.resizeMode === 'percentage'"
-                  >%</span
-                >
-              </div>
-            </label>
-          </div>
-        </fieldset>
-
-        <fieldset class="config-group">
-          <legend class="sr-only">输出</legend>
-          <div class="config-group-fields config-group-fields-single">
-            <SegmentedControl
-              label="输出格式"
-              :model-value="store.settings.image.lastOptions.format"
-              :options="imageFormatOptions"
-              @update:model-value="updateImage({ format: $event as ImageFormat })"
-            />
-          </div>
-        </fieldset>
-      </div>
-
-      <AdvancedSettingsPanel
-        id="image-advanced-settings"
-        :open="configExpanded"
-        class="video-config-expanded"
-      >
-        <fieldset class="config-group advanced-settings-list image-advanced-settings-list">
-          <legend class="sr-only">处理偏好</legend>
-          <div class="config-group-fields">
-            <SegmentedControl
-              label="附加信息（元数据）"
-              :model-value="store.settings.image.lastOptions.metadataMode"
-              :options="metadataModeOptions"
-              @update:model-value="
-                updateImage({ metadataMode: $event as ImageOptions['metadataMode'] })
-              "
-            />
-            <ToggleSwitch
-              label="文件夹层级"
-              :model-value="store.settings.image.lastOptions.preserveStructure"
-              enabled-text="保留原文件夹"
-              disabled-text="全部放在一起"
-              @update:model-value="updateImage({ preserveStructure: $event })"
-            />
-            <ToggleSwitch
-              label="小图是否放大"
-              :model-value="store.settings.image.lastOptions.allowEnlargement"
-              enabled-text="放大到目标尺寸"
-              disabled-text="保持原尺寸"
-              @update:model-value="updateImage({ allowEnlargement: $event })"
-            />
-          </div>
-        </fieldset>
-      </AdvancedSettingsPanel>
-    </section>
-
-    <div class="video-workspace-content" @click="configExpanded = false">
+    <!-- Left Main Content Area -->
+    <div class="video-workspace-content">
       <CurrentBatchTable
         v-if="pendingInputs.length || imageTasks.length"
         kind="image"
@@ -568,11 +327,11 @@ onBeforeUnmount(() => {
           <UploadCloud v-if="dragging" class="size-8" />
           <Images v-else class="size-8" />
         </div>
-        <p class="text-lg font-semibold">
+        <p class="text-base font-semibold">
           {{ dragging ? '松开即可添加图片或文件夹' : '拖入图片或文件夹' }}
         </p>
-        <p class="mt-1 text-sm text-muted-foreground">
-          文件会先加入待处理列表，不会立即开始。支持 JPG、PNG、WebP。
+        <p class="mt-1 text-xs text-muted-foreground">
+          支持 JPG、PNG、WebP、AVIF 等常见格式 · 添加后不会立即处理
         </p>
         <div class="mt-5 flex items-center gap-2">
           <Button @click="chooseFiles">选择图片文件</Button>
@@ -580,5 +339,220 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+
+    <!-- Right Sidebar Settings Panel -->
+    <section v-if="store.settings" class="video-config-panel" aria-label="图片处理设置">
+      <!-- Panel Header -->
+      <div class="video-config-heading">
+        <div class="config-heading-main">
+          <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
+          <span class="shrink-0 text-sm font-semibold">图片处理设置</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs text-muted-foreground">预设</span>
+          <select
+            class="panel-preset-select"
+            :value="activePresetId"
+            @change="applyPreset(($event.target as HTMLSelectElement).value)"
+          >
+            <option v-for="opt in imagePresetOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Panel Body -->
+      <div class="video-config-body">
+        <!-- 基础设置 -->
+        <div class="config-section">
+          <div class="config-section-title">基础设置</div>
+
+          <!-- 压缩方式 -->
+          <div class="space-y-3">
+            <label class="compact-field">
+              <span>压缩方式</span>
+              <SegmentedControl
+                label="压缩目标"
+                hide-label
+                :model-value="store.settings.image.lastOptions.compressionMode"
+                :options="compressionModeOptions"
+                @update:model-value="updateImage({ compressionMode: $event as ImageCompressionMode })"
+              />
+            </label>
+
+            <!-- 质量 / 文件大小上限数值 -->
+            <label class="compact-field">
+              <span>{{
+                store.settings.image.lastOptions.compressionMode === 'quality'
+                  ? '输出画质 (1 - 100)'
+                  : '单张大小上限 (KB)'
+              }}</span>
+              <div class="number-field">
+                <input
+                  v-if="store.settings.image.lastOptions.compressionMode === 'quality'"
+                  :value="store.settings.image.lastOptions.quality"
+                  type="number"
+                  min="1"
+                  max="100"
+                  @change="
+                    updateImage({ quality: Number(($event.target as HTMLInputElement).value) })
+                  "
+                />
+                <input
+                  v-else
+                  :value="store.settings.image.lastOptions.targetSizeKb"
+                  type="number"
+                  min="1"
+                  max="100000"
+                  @change="
+                    updateImage({ targetSizeKb: Number(($event.target as HTMLInputElement).value) })
+                  "
+                />
+                <span>{{
+                  store.settings.image.lastOptions.compressionMode === 'quality' ? '/ 100' : 'KB'
+                }}</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- 图片尺寸 -->
+          <div class="mt-4 space-y-3">
+            <label class="compact-field">
+              <span>图片尺寸</span>
+              <SegmentedControl
+                class="image-resize-segments"
+                label="图片尺寸"
+                hide-label
+                :model-value="store.settings.image.lastOptions.resizeMode"
+                :options="resizeModeOptions"
+                @update:model-value="updateImage({ resizeMode: $event as ImageResizeMode })"
+              />
+            </label>
+
+            <!-- 动态尺寸数值 (Only shown when NOT 'source') -->
+            <label v-if="store.settings.image.lastOptions.resizeMode !== 'source'" class="compact-field">
+              <span>{{ resizeValueLabel(store.settings.image.lastOptions.resizeMode) }}</span>
+              <div class="number-field">
+                <input
+                  v-if="store.settings.image.lastOptions.resizeMode === 'width'"
+                  :value="store.settings.image.lastOptions.width"
+                  type="number"
+                  min="1"
+                  max="32768"
+                  @change="
+                    updateImage({ width: Number(($event.target as HTMLInputElement).value) })
+                  "
+                />
+                <input
+                  v-else-if="store.settings.image.lastOptions.resizeMode === 'height'"
+                  :value="store.settings.image.lastOptions.height"
+                  type="number"
+                  min="1"
+                  max="32768"
+                  @change="
+                    updateImage({ height: Number(($event.target as HTMLInputElement).value) })
+                  "
+                />
+                <input
+                  v-else-if="store.settings.image.lastOptions.resizeMode === 'percentage'"
+                  :value="store.settings.image.lastOptions.percentage"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  @change="
+                    updateImage({ percentage: Number(($event.target as HTMLInputElement).value) })
+                  "
+                />
+                <span v-if="['width', 'height'].includes(store.settings.image.lastOptions.resizeMode)">px</span>
+                <span v-else-if="store.settings.image.lastOptions.resizeMode === 'percentage'">%</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- 输出格式 -->
+          <div class="mt-4">
+            <label class="compact-field">
+              <span>输出格式</span>
+              <select
+                class="compact-select"
+                :value="store.settings.image.lastOptions.format"
+                @change="updateImage({ format: ($event.target as HTMLSelectElement).value as ImageFormat })"
+              >
+                <option value="original">保持原格式</option>
+                <option value="jpeg">JPEG</option>
+                <option value="png">PNG</option>
+                <option value="webp">WebP</option>
+                <option value="avif">AVIF</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <!-- 高级设置 Collapsible Section -->
+        <div class="border-t border-border pt-3">
+          <button
+            type="button"
+            class="config-accordion-trigger"
+            :aria-expanded="configExpanded"
+            @click="configExpanded = !configExpanded"
+          >
+            <span>高级设置</span>
+            <AnimatedChevron :expanded="configExpanded" />
+          </button>
+          <AdvancedSettingsPanel :open="configExpanded" class="mt-3 space-y-3">
+            <label class="compact-field">
+              <span>元数据处理</span>
+              <select
+                class="compact-select"
+                :value="store.settings.image.lastOptions.metadataMode"
+                @change="updateImage({ metadataMode: ($event.target as HTMLSelectElement).value as ImageOptions['metadataMode'] })"
+              >
+                <option value="colorProfile">仅保留色彩配置</option>
+                <option value="strip">移除所有附加信息 (文件更小)</option>
+                <option value="all">尽量保留所有附加信息</option>
+              </select>
+            </label>
+
+            <ToggleSwitch
+              label="文件夹层级"
+              :model-value="store.settings.image.lastOptions.preserveStructure"
+              enabled-text="保留原文件夹结构"
+              disabled-text="全部输出到同级"
+              @update:model-value="updateImage({ preserveStructure: $event })"
+            />
+
+            <ToggleSwitch
+              label="小图处理策略"
+              :model-value="store.settings.image.lastOptions.allowEnlargement"
+              enabled-text="小图片允许放大"
+              disabled-text="保持原尺寸不放大"
+              @update:model-value="updateImage({ allowEnlargement: $event })"
+            />
+          </AdvancedSettingsPanel>
+        </div>
+      </div>
+
+      <!-- Panel Footer -->
+      <div class="video-config-footer">
+        <div class="flex items-center justify-between gap-2">
+          <OutputLocationControls />
+          <SourceOverwriteWarning />
+        </div>
+        <Button
+          size="default"
+          class="w-full h-10 text-sm font-medium"
+          :disabled="pendingInputs.length === 0 || starting"
+          @click="startProcessing"
+        >
+          <Play class="size-4" />
+          {{
+            starting
+              ? '正在开始…'
+              : `开始处理${pendingInputs.length ? ` (${pendingInputs.length})` : ''}`
+          }}
+        </Button>
+      </div>
+    </section>
   </div>
 </template>
