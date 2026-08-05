@@ -727,11 +727,14 @@ body {
 }
 
 .workspace-scroll-content {
-  height: 100%;
   min-height: 0;
   overflow: auto;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 28px, black 100%);
   mask-image: linear-gradient(to bottom, transparent 0, black 28px, black 100%);
+}
+
+.page-container.workspace-scroll-content {
+  height: 100%;
 }
 
 .app-alert {
@@ -1090,7 +1093,11 @@ input {
 }
 
 .video-drop-workspace-active {
-  background: var(--drop-active);
+  background: var(--background);
+}
+
+.video-drop-workspace-active .workspace-scroll-content {
+  overflow: hidden;
 }
 
 .drop-follow-effect {
@@ -1121,14 +1128,14 @@ input {
 
 .drop-follow-grid {
   position: absolute;
-  background-image: radial-gradient(circle, rgb(139 120 246 / 58%) 1.25px, transparent 1.25px);
+  background-image: radial-gradient(circle, rgb(139 120 246 / 76%) 1.5px, transparent 1.5px);
   background-size: 18px 18px;
   mask-image: radial-gradient(
     circle 250px at var(--drop-follow-x) var(--drop-follow-y),
     black,
     transparent 76%
   );
-  opacity: 0.72;
+  opacity: 0.9;
   inset: 0;
 }
 
