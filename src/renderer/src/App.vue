@@ -15,7 +15,7 @@ import {
   Video,
   X
 } from '@lucide/vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from './stores/app'
 import appIcon from '../../../resources/icon.png'
 import SegmentedControl from './components/ui/SegmentedControl.vue'
@@ -24,6 +24,7 @@ import Modal from './components/ui/Modal.vue'
 
 const store = useAppStore()
 const route = useRoute()
+const router = useRouter()
 type ThemeMode = 'system' | 'light' | 'dark'
 
 const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -149,19 +150,21 @@ onBeforeUnmount(() => {
       </div>
 
       <nav class="sidebar-nav" aria-label="主导航">
-        <RouterLink
+        <button
           v-for="item in navigation"
           :key="item.to"
-          :to="item.to"
+          type="button"
           class="sidebar-link"
-          active-class="sidebar-link-active"
+          :class="{ 'sidebar-link-active': route.path === item.to }"
+          :aria-current="route.path === item.to ? 'page' : undefined"
           :title="sidebarCollapsed ? item.label : undefined"
+          @click="router.push(item.to)"
         >
           <span class="sidebar-link-icon">
             <component :is="item.icon" class="size-4" />
           </span>
           <span class="sidebar-label">{{ item.label }}</span>
-        </RouterLink>
+        </button>
       </nav>
 
       <div class="sidebar-footer">

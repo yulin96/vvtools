@@ -126,6 +126,23 @@ html[data-theme='dark'] {
   --drawer-backdrop: rgb(0 0 0 / 34%);
 }
 
+a,
+button,
+label,
+select,
+summary,
+[role='button'],
+[role='link'],
+input[type='button'],
+input[type='checkbox'],
+input[type='file'],
+input[type='radio'],
+input[type='range'],
+input[type='reset'],
+input[type='submit'] {
+  cursor: default;
+}
+
 @theme inline {
   --color-workspace: var(--workspace);
   --color-background: var(--background);
@@ -166,7 +183,6 @@ html[data-theme='dark'] {
   height: 30px;
   padding: 4px 12px;
   color: var(--tabs-text-muted);
-  cursor: pointer;
   border-radius: 48px;
   z-index: 1;
   transition: color var(--tabs-dur) var(--tabs-ease);
@@ -553,13 +569,18 @@ body {
 .sidebar-link {
   position: relative;
   display: flex;
+  width: 100%;
   height: 42px;
   align-items: center;
   gap: 7px;
+  border: 0;
   border-radius: 11px;
+  background: transparent;
   color: var(--sidebar-muted);
+  cursor: default;
   font-size: 13px;
   font-weight: 600;
+  text-align: left;
   transition:
     color var(--duration-quick) var(--ease-out),
     background-color var(--duration-quick) var(--ease-out),
@@ -653,7 +674,6 @@ body {
   background: transparent;
   padding: 0 11px;
   color: var(--sidebar-muted);
-  cursor: pointer;
   font-size: 10px;
   line-height: 18px;
   transition:
@@ -1605,7 +1625,6 @@ input {
   flex: 1;
   border-radius: 6px;
   padding: 0;
-  cursor: pointer;
 }
 
 .segmented-control-input {
