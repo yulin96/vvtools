@@ -90,6 +90,12 @@ function hasDroppedFiles(event: DragEvent): boolean {
   return [...(event.dataTransfer?.types || [])].includes('Files')
 }
 
+function handleWorkspaceDragOver(event: DragEvent): void {
+  if (!hasDroppedFiles(event)) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+}
+
 function handleWorkspaceDrop(event: DragEvent): void {
   if (!hasDroppedFiles(event)) return
   const paths = [...(event.dataTransfer?.files || [])].map((file) =>
@@ -104,6 +110,7 @@ function handleWorkspaceDrop(event: DragEvent): void {
   void router.push(targetPath)
 }
 
+window.addEventListener('dragover', handleWorkspaceDragOver, true)
 window.addEventListener('drop', handleWorkspaceDrop, true)
 
 onMounted(() => {
@@ -112,6 +119,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('dragover', handleWorkspaceDragOver, true)
   window.removeEventListener('drop', handleWorkspaceDrop, true)
   colorSchemeQuery.removeEventListener('change', handleSystemThemeChange)
   store.dispose()
