@@ -151,10 +151,24 @@ describe('video command', () => {
     )
     expect(nvenc[nvenc.indexOf('-cq') + 1]).toBe('23')
     expect(nvenc[nvenc.indexOf('-preset') + 1]).toBe('p4')
+
+    const amf = buildVideoArgs(
+      task({ codec: 'h264', encoderMode: 'hardware', quality: 'small' }),
+      'h264',
+      'h264_amf'
+    )
+    expect(amf[amf.indexOf('-rc') + 1]).toBe('qvbr')
+    expect(amf[amf.indexOf('-qvbr_quality_level') + 1]).toBe('28')
+    expect(amf[amf.indexOf('-quality') + 1]).toBe('quality')
+    expect(amf).not.toContain('-crf')
   })
 
   it('selects platform-specific hardware encoder candidates', () => {
     expect(hardwareEncoderCandidates('h264', 'darwin')).toEqual(['h264_videotoolbox'])
-    expect(hardwareEncoderCandidates('h265', 'win32')).toEqual(['hevc_nvenc', 'hevc_qsv'])
+    expect(hardwareEncoderCandidates('h265', 'win32')).toEqual([
+      'hevc_nvenc',
+      'hevc_qsv',
+      'hevc_amf'
+    ])
   })
 })

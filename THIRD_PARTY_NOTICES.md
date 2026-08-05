@@ -4,11 +4,18 @@ VVTools distributes or uses the following third-party software. This file is not
 
 ## FFmpeg and FFprobe
 
-The packaged executables are supplied by the `ffmpeg-static` and `@derhuerst/ffprobe-static` packages. Their builds may include GPL components such as libx264. Distributions must include the corresponding license notices and satisfy the source-code and attribution requirements that apply to the exact binaries being shipped.
+VVTools pins FFmpeg and FFprobe 8.1.2 executables by platform and verifies every downloaded
+archive with the SHA-256 values recorded in `scripts/stage-media-binaries.mjs`. Windows binaries
+are supplied by Gyan.dev; macOS and Linux binaries are supplied by Martin Riedl's FFmpeg build
+server. Their builds include GPL components such as libx264 and libx265. Distributions must
+include the corresponding license notices and satisfy the source-code and attribution
+requirements that apply to the exact binaries being shipped.
 
 - FFmpeg project: https://ffmpeg.org/
+- FFmpeg 8.1.2 source: https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz
 - License information: https://ffmpeg.org/legal.html
-- Static binary package: https://github.com/eugeneware/ffmpeg-static
+- Windows builds: https://www.gyan.dev/ffmpeg/builds/
+- macOS and Linux builds: https://ffmpeg.martin-riedl.de/
 
 ## sharp and libvips
 

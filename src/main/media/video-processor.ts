@@ -119,6 +119,8 @@ function addQualityArgs(args: string[], encoder: string, quality: VideoOptions['
     args.push('-cq', CRF_BY_QUALITY[quality], '-b:v', '0')
   } else if (encoder.endsWith('_qsv')) {
     args.push('-global_quality', CRF_BY_QUALITY[quality])
+  } else if (encoder.endsWith('_amf')) {
+    args.push('-rc', 'qvbr', '-qvbr_quality_level', CRF_BY_QUALITY[quality])
   } else if (encoder === 'mpeg4') {
     const qualityValue = { high: '2', balanced: '5', small: '10' }[quality]
     args.push('-q:v', qualityValue)
@@ -130,6 +132,7 @@ function addQualityArgs(args: string[], encoder: string, quality: VideoOptions['
 function addEncoderPerformanceArgs(args: string[], encoder: string): void {
   if (encoder.endsWith('_videotoolbox')) args.push('-realtime', 'true')
   else if (encoder.endsWith('_nvenc')) args.push('-preset', 'p4')
+  else if (encoder.endsWith('_amf')) args.push('-quality', 'quality')
   else if (encoder === 'mpeg4') return
   else args.push('-preset', 'medium')
 }

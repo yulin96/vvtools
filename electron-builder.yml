@@ -14,8 +14,6 @@ extraResources:
 releaseInfo:
   releaseNotesFile: .release/release-notes.md
 files:
-  - '!node_modules/ffmpeg-static/**'
-  - '!node_modules/@derhuerst/ffprobe-static/**'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'

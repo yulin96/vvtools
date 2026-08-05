@@ -1,33 +1,30 @@
 import { app } from 'electron'
 import { spawn } from 'child_process'
-import { createRequire } from 'module'
 import { basename, join } from 'path'
 import type { RuntimeCapabilities, TaskCommand } from '../../shared/types'
 
 let hardwareEncodersPromise: Promise<string[]> | null = null
-const require = createRequire(import.meta.url)
 
 function packagedBinaryPath(name: 'ffmpeg' | 'ffprobe'): string {
   return join(process.resourcesPath, 'bin', process.platform === 'win32' ? `${name}.exe` : name)
 }
 
-function developmentBinaryPath(packageName: 'ffmpeg-static' | '@derhuerst/ffprobe-static'): string {
-  return require(packageName) as string
+function developmentBinaryPath(name: 'ffmpeg' | 'ffprobe'): string {
+  return join(
+    process.cwd(),
+    '.media-bin',
+    'current',
+    process.platform === 'win32' ? `${name}.exe` : name
+  )
 }
 
 export function getFfmpegPath(): string {
-  const path = app.isPackaged
-    ? packagedBinaryPath('ffmpeg')
-    : developmentBinaryPath('ffmpeg-static')
-  if (!path) throw new Error(`当前平台 ${process.platform}-${process.arch} 没有可用的 FFmpeg`)
+  const path = app.isPackaged ? packagedBinaryPath('ffmpeg') : developmentBinaryPath('ffmpeg')
   return path
 }
 
 export function getFfprobePath(): string {
-  const path = app.isPackaged
-    ? packagedBinaryPath('ffprobe')
-    : developmentBinaryPath('@derhuerst/ffprobe-static')
-  if (!path) throw new Error(`当前平台 ${process.platform}-${process.arch} 没有可用的 FFprobe`)
+  const path = app.isPackaged ? packagedBinaryPath('ffprobe') : developmentBinaryPath('ffprobe')
   return path
 }
 
@@ -84,7 +81,12 @@ export function hardwareEncoderCandidates(
   if (platform === 'darwin') {
     return [codec === 'h264' ? 'h264_videotoolbox' : 'hevc_videotoolbox']
   }
-  if (platform === 'win32' || platform === 'linux') {
+  if (platform === 'win32') {
+    return codec === 'h264'
+      ? ['h264_nvenc', 'h264_qsv', 'h264_amf']
+      : ['hevc_nvenc', 'hevc_qsv', 'hevc_amf']
+  }
+  if (platform === 'linux') {
     return codec === 'h264' ? ['h264_nvenc', 'h264_qsv'] : ['hevc_nvenc', 'hevc_qsv']
   }
   return []
