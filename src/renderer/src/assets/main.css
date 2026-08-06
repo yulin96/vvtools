@@ -1344,7 +1344,17 @@ input {
 }
 
 .font-operation-segments {
-  width: 440px;
+  width: 550px;
+}
+
+.font-quick-convert-summary {
+  display: flex;
+  min-height: 44px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  color: var(--foreground);
+  font-size: 12px;
 }
 
 .workflow-mode-row {
@@ -2294,7 +2304,7 @@ html[data-theme='dark'] .bg-slate-950 {
   }
 
   .font-operation-segments {
-    width: 400px;
+    width: 500px;
   }
 }
 

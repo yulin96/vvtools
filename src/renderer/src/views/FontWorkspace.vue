@@ -26,6 +26,8 @@ import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import { takeRoutedDrop } from '../lib/media-drop'
 
+type FontWorkspaceMode = FontOperation | 'quickConvert'
+
 const store = useAppStore()
 const dragging = ref(false)
 const starting = ref(false)
@@ -51,10 +53,11 @@ const pendingTableItems = computed(() =>
 const mode = ref<FontOperation>('convert')
 const modeOptions = [
   { value: 'convert', label: '字体转换' },
+  { value: 'quickConvert', label: '快速转换' },
   { value: 'splitCollection', label: '字体拆分' },
   { value: 'variableStatic', label: '可变字体' },
   { value: 'subset', label: '字体压缩' }
-]
+] satisfies Array<{ value: FontWorkspaceMode; label: string }>
 const formatOptions = [
   { value: 'ttf', label: 'TTF' },
   { value: 'otf', label: 'OTF' },
@@ -83,8 +86,17 @@ const conversionSubsetOptions = [
   { value: '8105', label: '中文 8105' }
 ] satisfies Array<{ value: FontConversionSubsetPreset; label: string }>
 const supportedExtensions = new Set(['ttf', 'otf', 'woff', 'woff2', 'ttc', 'otc'])
+const quickConversionFormats: Partial<Record<FontFormat, FontFormat[]>> = {
+  ttf: ['ttf', 'woff', 'woff2'],
+  otf: ['otf', 'woff', 'woff2'],
+  woff: ['woff', 'woff2']
+}
+const quickConvert = ref(false)
 
 const operation = computed(() => store.settings?.font.lastOptions.operation ?? mode.value)
+const selectedMode = computed<FontWorkspaceMode>(() =>
+  quickConvert.value ? 'quickConvert' : operation.value
+)
 watch(
   () => store.settings?.font.lastOptions.subsetText,
   (value) => (subsetTextDraft.value = value ?? ''),
@@ -140,6 +152,7 @@ const subsetScopeDescription = computed(() => {
 const summary = computed(() => {
   const options = store.settings?.font.lastOptions
   if (!options) return ''
+  if (quickConvert.value) return '自动生成网页字体 · 中文 8105'
   if (options.operation === 'subset') {
     const scope =
       options.subsetMode === 'latin'
@@ -152,6 +165,12 @@ const summary = computed(() => {
   return `${options.outputFormat.toUpperCase()} · ${modeOptions.find((item) => item.value === options.operation)?.label ?? ''}`
 })
 const emptyStateCopy = computed(() => {
+  if (quickConvert.value) {
+    return {
+      title: '拖入字体并快速生成网页格式',
+      description: 'TTF/OTF 自动生成原格式、WOFF 和 WOFF2，WOFF 自动生成 WOFF 和 WOFF2。'
+    }
+  }
   if (operation.value === 'splitCollection') {
     return {
       title: '拖入需要拆分的字体集合',
@@ -191,34 +210,60 @@ function updateFont(patch: Partial<FontOptions>): void {
   })
 }
 
-function setMode(value: FontOperation): void {
+function setMode(value: FontWorkspaceMode): void {
+  if (value === 'quickConvert') {
+    quickConvert.value = true
+    mode.value = 'convert'
+    updateFont({ operation: 'convert' })
+    return
+  }
+  quickConvert.value = false
   mode.value = value
   updateFont({ operation: value })
 }
 
+function pathExtension(path: string): string {
+  return path.split('.').pop()?.toLowerCase() || ''
+}
+
 function stageFiles(paths: string[]): void {
-  const supported = paths.filter((path) =>
-    supportedExtensions.has(path.split('.').pop()?.toLowerCase() || '')
-  )
+  const supported = paths.filter((path) => supportedExtensions.has(pathExtension(path)))
   if (supported.length === 0 && paths.length > 0) {
     store.errorMessage = '没有可导入的字体文件'
     return
   }
-  if (pendingItems.value.length === 0) store.prepareCurrentBatch('font')
-  if (pendingItems.value.length + supported.length > 500) {
-    store.errorMessage = '单次最多添加 500 个文件'
+  const quickIgnoredCount = quickConvert.value
+    ? supported.filter((path) => !quickConversionFormats[pathExtension(path) as FontFormat]).length
+    : 0
+  const stagedItems: PendingFontItem[] = quickConvert.value
+    ? supported.flatMap((path) => {
+        const formats = quickConversionFormats[pathExtension(path) as FontFormat]
+        return (formats ?? []).map((outputFormat) => ({
+          id: crypto.randomUUID(),
+          path,
+          outputFormat,
+          subsetPreset: '8105' as const
+        }))
+      })
+    : supported.map((path) => ({
+        id: crypto.randomUUID(),
+        path,
+        outputFormat: store.settings?.font.lastOptions.outputFormat ?? 'woff2',
+        subsetPreset: 'none' as const
+      }))
+  if (stagedItems.length === 0 && paths.length > 0) {
+    store.errorMessage = '快速转换仅支持 TTF、OTF 和 WOFF 字体'
     return
   }
-  const outputFormat = store.settings?.font.lastOptions.outputFormat ?? 'woff2'
-  pendingItems.value = [
-    ...pendingItems.value,
-    ...supported.map((path) => ({
-      id: crypto.randomUUID(),
-      path,
-      outputFormat,
-      subsetPreset: 'none' as const
-    }))
-  ]
+  if (pendingItems.value.length === 0) store.prepareCurrentBatch('font')
+  if (pendingItems.value.length + stagedItems.length > 500) {
+    store.errorMessage = '单次最多添加 500 个字体转换任务'
+    return
+  }
+  pendingItems.value = [...pendingItems.value, ...stagedItems]
+  if (quickIgnoredCount > 0) {
+    store.errorMessage = '快速转换已忽略 WOFF2、TTC 或 OTC 文件'
+  }
 }
 
 function updatePendingFormat(id: string, outputFormat: FontFormat): void {
@@ -334,7 +379,7 @@ async function startProcessing(): Promise<void> {
           ? withVariable(settings.common.outputNameTemplate, '{instance}')
           : settings.common.outputNameTemplate,
     outputConflictPolicy: settings.common.outputConflictPolicy,
-    presetName: modeOptions.find((item) => item.value === selectedOperation)?.label ?? '字体处理',
+    presetName: modeOptions.find((item) => item.value === selectedMode.value)?.label ?? '字体处理',
     options
   }
   starting.value = true
@@ -418,23 +463,30 @@ onBeforeUnmount(() => {
         <SegmentedControl
           class="font-operation-segments"
           label="字体处理方式"
-          :model-value="operation"
+          :model-value="selectedMode"
           :options="modeOptions"
           hide-label
-          @update:model-value="setMode($event as FontOperation)"
+          @update:model-value="setMode($event as FontWorkspaceMode)"
         />
       </div>
 
       <div class="image-config-primary font-config-primary">
         <fieldset class="config-group">
-          <legend class="sr-only">输出格式</legend>
+          <legend class="sr-only">{{ quickConvert ? '快速转换规则' : '输出格式' }}</legend>
           <div class="config-group-fields">
             <SegmentedControl
+              v-if="!quickConvert"
               label="输出格式"
               :model-value="store.settings.font.lastOptions.outputFormat"
               :options="formatOptions"
               @update:model-value="updateFont({ outputFormat: $event as FontFormat })"
             />
+            <div v-else class="font-quick-convert-summary" aria-label="快速转换规则">
+              <span><strong>TTF</strong> → TTF、WOFF、WOFF2</span>
+              <span><strong>OTF</strong> → OTF、WOFF、WOFF2</span>
+              <span><strong>WOFF</strong> → WOFF、WOFF2</span>
+              <span class="text-muted-foreground">统一压缩：中文 8105</span>
+            </div>
             <SegmentedControl
               v-if="operation === 'variableStatic'"
               label="实例"
