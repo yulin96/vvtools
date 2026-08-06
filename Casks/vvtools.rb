@@ -21,8 +21,7 @@ cask "vvtools" do
 
   postflight_steps do
     run "/usr/bin/xattr",
-        args: ["-dr", "com.apple.quarantine", "{{appdir}}/VVTools.app"],
-        must_succeed: true
+        args: ["-dr", "com.apple.quarantine", "{{appdir}}/VVTools.app"]
   end
 
   zap trash: "~/Library/Application Support/VVTools"

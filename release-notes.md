@@ -2,6 +2,8 @@
 
 ## 未发布
 
+- 修复 Homebrew 6 无法解析 Cask 导致 macOS 版本无法安装的问题。
+
 ## v0.0.15
 
 - macOS 版本改用 Ad-hoc 签名并支持应用内下载和重启安装更新；发布流程会按 ARM64/x64 生成并校验 `latest-mac.yml`，自动更新失败时可转到 GitHub 手动下载。
