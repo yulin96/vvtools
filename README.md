@@ -26,8 +26,8 @@ pnpm dev
 添加本仓库作为自定义 Tap，然后安装 VVTools：
 
 ```bash
-brew tap yulin96/apps https://github.com/yulin96/vvtools.git
-brew install --cask yulin96/apps/vvtools
+brew tap yulin96/vvtools https://github.com/yulin96/vvtools.git
+brew install --cask yulin96/vvtools/vvtools
 ```
 
 Cask 会自动选择 Apple Silicon 或 Intel 安装包、跟随最新 GitHub Release，并清除已安装
@@ -35,14 +35,14 @@ Cask 会自动选择 Apple Silicon 或 Intel 安装包、跟随最新 GitHub Rel
 
 ```bash
 brew update
-brew upgrade --cask --greedy-latest yulin96/apps/vvtools
+brew upgrade --cask --greedy-latest yulin96/vvtools/vvtools
 ```
 
 普通卸载会保留本地配置；仅在需要一并清除配置时使用 `--zap`：
 
 ```bash
-brew uninstall --cask yulin96/apps/vvtools
-brew uninstall --cask --zap yulin96/apps/vvtools
+brew uninstall --cask yulin96/vvtools/vvtools
+brew uninstall --cask --zap yulin96/vvtools/vvtools
 ```
 
 ## 验证
