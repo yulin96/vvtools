@@ -23,7 +23,7 @@ const concurrencyOptions: Record<TaskKind, number> = {
   video: 2,
   audio: 4,
   pdf: 2,
-  font: 1
+  font: 4
 }
 const concurrencyKinds = ['image', 'video', 'audio', 'pdf', 'font'] as const
 const concurrencyLabels: Record<TaskKind, string> = {
@@ -183,7 +183,7 @@ function openSourcePage(): void {
               v-if="store.settings.common.concurrency.mode === 'auto'"
               class="settings-inline-note"
             >
-              图片会按 CPU 可用逻辑处理器数自动分配，最高 16 个；视频、PDF 和字体各使用 1 个；音频最高 2 个。
+              图片按 CPU 自动分配，最高 16 个；字体最高 4 个，音频最高 2 个；视频和 PDF 各 1 个。
             </p>
           </div>
           <div

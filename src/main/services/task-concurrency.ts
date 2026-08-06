@@ -7,7 +7,7 @@ const MAXIMUM_CONCURRENCY: TaskConcurrencyLimits = {
   video: 2,
   audio: 4,
   pdf: 2,
-  font: 1
+  font: 4
 }
 
 export function isConcurrencySettings(value: unknown): value is ConcurrencySettings {
@@ -49,7 +49,7 @@ export function resolveTaskConcurrency(
     video: 1,
     audio: Math.min(2, Math.max(1, Math.floor(processors / 4))),
     pdf: 1,
-    font: 1
+    font: Math.min(4, Math.max(1, Math.ceil(processors / 4)))
   }
 }
 

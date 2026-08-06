@@ -229,7 +229,7 @@ describe('SettingsStore', () => {
       video: 1,
       audio: 2,
       pdf: 1,
-      font: 1
+      font: 3
     })
     expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 2)).toEqual({
       image: 2,
@@ -243,7 +243,7 @@ describe('SettingsStore', () => {
       video: 1,
       audio: 2,
       pdf: 1,
-      font: 1
+      font: 4
     })
   })
 })

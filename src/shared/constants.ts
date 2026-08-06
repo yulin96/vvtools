@@ -17,7 +17,7 @@ export const DEFAULT_CONCURRENCY_SETTINGS: ConcurrencySettings = {
     video: 1,
     audio: 2,
     pdf: 1,
-    font: 1
+    font: 2
   }
 }
 
