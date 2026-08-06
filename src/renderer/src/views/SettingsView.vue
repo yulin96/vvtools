@@ -248,41 +248,46 @@ function openSourcePage(): void {
       </div>
 
       <section class="settings-card settings-capabilities-card">
-        <div class="settings-card-title">
-          <RefreshCw class="size-4" />
-          <div>
-            <h2>处理组件</h2>
-            <p>媒体任务开始前会再次校验文件。</p>
+        <div class="settings-capabilities-heading">
+          <div class="settings-card-title">
+            <RefreshCw class="size-4" />
+            <div>
+              <h2>处理组件</h2>
+              <p>媒体任务开始前会再次校验文件。</p>
+            </div>
           </div>
+          <Button
+            class="settings-capabilities-action"
+            variant="secondary"
+            size="sm"
+            @click="store.refreshCapabilities"
+          >
+            <RefreshCw class="size-3.5" />重新检测
+          </Button>
         </div>
-        <div class="settings-capabilities-list space-y-3">
+        <div class="settings-capabilities-list">
           <div
             v-for="(item, name) in store.capabilities"
             :key="name"
-            class="flex items-center justify-between gap-4 rounded-md border border-border px-3 py-2.5"
+            class="settings-capability-item"
           >
-            <div class="min-w-0">
-              <p class="text-sm font-medium">{{ capabilityLabel(name) }}</p>
-              <p class="truncate text-xs text-muted-foreground" :title="item.version || item.error">
-                {{ item.version || item.error || '正在检测…' }}
-              </p>
+            <div class="settings-capability-item-heading">
+              <p>{{ capabilityLabel(name) }}</p>
+              <Badge
+                class="settings-capability-badge"
+                :tone="item.available ? 'success' : 'danger'"
+              >
+                {{ item.available ? '可用' : '不可用' }}
+              </Badge>
             </div>
-            <Badge class="settings-capability-badge" :tone="item.available ? 'success' : 'danger'">
-              {{ item.available ? '可用' : '不可用' }}
-            </Badge>
+            <p class="settings-capability-detail" :title="item.version || item.error">
+              {{ item.version || item.error || '正在检测…' }}
+            </p>
           </div>
-          <p v-if="!store.capabilities" class="text-sm text-muted-foreground">
+          <p v-if="!store.capabilities" class="settings-capabilities-loading">
             正在检测 FFmpeg、FFprobe、PDFium、qpdf、FontTools 和 sharp…
           </p>
         </div>
-        <Button
-          class="settings-capabilities-action"
-          variant="secondary"
-          size="sm"
-          @click="store.refreshCapabilities"
-        >
-          <RefreshCw class="size-3.5" />重新检测
-        </Button>
       </section>
     </template>
   </div>
