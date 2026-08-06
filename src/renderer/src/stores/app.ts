@@ -40,7 +40,7 @@ export const useAppStore = defineStore('app', () => {
   const appVersion = ref('')
   const currentReleaseNotes = ref('')
   const updateState = ref<UpdateState>({ status: 'idle' })
-  const updateDialog = ref<'available' | 'downloaded' | null>(null)
+  const updateDialog = ref<'available' | 'downloaded' | 'failed' | null>(null)
   const errorMessage = ref('')
   const pendingImageInputs = ref<ImageInputFile[]>([])
   const pendingVideoPaths = ref<string[]>([])
@@ -59,6 +59,7 @@ export const useAppStore = defineStore('app', () => {
   let unsubscribeUpdates: (() => void) | null = null
   let promptedAvailableVersion = ''
   let promptedDownloadedVersion = ''
+  let promptedFailedVersion = ''
 
   const activeCount = computed(
     () => tasks.value.filter((task) => ['pending', 'processing'].includes(task.status)).length
@@ -91,9 +92,7 @@ export const useAppStore = defineStore('app', () => {
   const updateDescription = computed(() => {
     if (updateState.value.status === 'checking') return '正在检查新版本…'
     if (updateState.value.status === 'available') {
-      return window.api.platform === 'darwin'
-        ? `发现新版本 ${updateState.value.version ?? ''}，请前往 GitHub 下载`
-        : `发现新版本 ${updateState.value.version ?? ''}`
+      return `发现新版本 ${updateState.value.version ?? ''}`
     }
     if (updateState.value.status === 'downloading') {
       return `正在下载新版本：${updateState.value.percent ?? 0}%`
@@ -102,6 +101,7 @@ export const useAppStore = defineStore('app', () => {
       return `新版本 ${updateState.value.version ?? ''} 已下载，重启后安装`
     }
     if (updateState.value.status === 'error') {
+      if (updateState.value.version) return '自动更新失败，可前往 GitHub 手动下载'
       return updateState.value.message
         ? `检查更新失败：${updateState.value.message}`
         : '检查更新失败，请稍后重试'
@@ -112,11 +112,10 @@ export const useAppStore = defineStore('app', () => {
   })
   const updateButtonLabel = computed(() => {
     if (updateState.value.status === 'checking') return '检查中'
-    if (updateState.value.status === 'available') {
-      return window.api.platform === 'darwin' ? '前往 GitHub' : '下载更新'
-    }
+    if (updateState.value.status === 'available') return '下载更新'
     if (updateState.value.status === 'downloading') return `${updateState.value.percent ?? 0}%`
     if (updateState.value.status === 'downloaded') return '重启安装'
+    if (updateState.value.status === 'error' && updateState.value.version) return '手动下载'
     return '检查更新'
   })
 
@@ -292,17 +291,17 @@ export const useAppStore = defineStore('app', () => {
 
   function handleUpdateState(state: UpdateState): void {
     updateState.value = state
-    if (
-      state.status === 'available' &&
-      window.api.platform !== 'darwin' &&
-      state.version !== promptedAvailableVersion
-    ) {
+    if (state.status === 'available' && state.version !== promptedAvailableVersion) {
       promptedAvailableVersion = state.version || 'latest'
       updateDialog.value = 'available'
     }
     if (state.status === 'downloaded' && state.version !== promptedDownloadedVersion) {
       promptedDownloadedVersion = state.version || 'latest'
       updateDialog.value = 'downloaded'
+    }
+    if (state.status === 'error' && state.version && state.version !== promptedFailedVersion) {
+      promptedFailedVersion = state.version
+      updateDialog.value = 'failed'
     }
   }
 
@@ -313,6 +312,10 @@ export const useAppStore = defineStore('app', () => {
     }
     if (updateState.value.status === 'downloaded') {
       updateDialog.value = 'downloaded'
+      return
+    }
+    if (updateState.value.status === 'error' && updateState.value.version) {
+      updateDialog.value = 'failed'
       return
     }
     if (updateState.value.status === 'checking' || updateState.value.status === 'downloading')
@@ -332,10 +335,11 @@ export const useAppStore = defineStore('app', () => {
     updateDialog.value = null
     try {
       if (action === 'available') {
-        if (window.api.platform === 'darwin') await window.api.openReleasePage()
-        else await window.api.downloadUpdate()
+        await window.api.downloadUpdate()
       } else if (action === 'downloaded') {
         await window.api.installUpdate()
+      } else if (action === 'failed') {
+        await window.api.openReleasePage()
       }
     } catch (error) {
       reportError(error)

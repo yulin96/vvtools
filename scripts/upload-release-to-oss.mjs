@@ -30,6 +30,12 @@ const files = entries
   .map((entry) => join(entry.parentPath, entry.name))
 const manifests = files.filter((file) => /(?:^|[/\\])(?:latest.*\.ya?ml|latest\.json)$/.test(file))
 const packages = files.filter((file) => !manifests.includes(file))
+const requiredManifests = [
+  'mac-arm64/latest-mac.yml',
+  'mac-x64/latest-mac.yml',
+  'win-x64/latest.yml',
+  'linux-x64/latest-linux.yml'
+]
 const prefix = process.env.OSS_RELEASE_PREFIX.replace(/^\/+|\/+$/g, '')
 const mode = process.argv[2] ?? '--all'
 const selectedFiles =
@@ -48,6 +54,13 @@ if (!selectedFiles) {
 }
 if (selectedFiles.length === 0) {
   throw new Error(`No release files matched ${mode}`)
+}
+if (mode !== '--packages-only') {
+  const manifestNames = new Set(manifests.map((file) => relative(root, file).replaceAll('\\', '/')))
+  const missingManifests = requiredManifests.filter((name) => !manifestNames.has(name))
+  if (missingManifests.length) {
+    throw new Error(`Missing update manifests: ${missingManifests.join(', ')}`)
+  }
 }
 
 for (const file of selectedFiles) {

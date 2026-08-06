@@ -21,6 +21,30 @@ pnpm install
 pnpm dev
 ```
 
+## 使用 Homebrew 安装
+
+添加本仓库作为自定义 Tap，然后安装 VVTools：
+
+```bash
+brew tap yulin96/apps https://github.com/yulin96/vvtools.git
+brew install --cask yulin96/apps/vvtools
+```
+
+Cask 会自动选择 Apple Silicon 或 Intel 安装包、跟随最新 GitHub Release，并清除已安装
+应用的 quarantine 隔离属性。升级时执行：
+
+```bash
+brew update
+brew upgrade --cask --greedy-latest yulin96/apps/vvtools
+```
+
+普通卸载会保留本地配置；仅在需要一并清除配置时使用 `--zap`：
+
+```bash
+brew uninstall --cask yulin96/apps/vvtools
+brew uninstall --cask --zap yulin96/apps/vvtools
+```
+
 ## 验证
 
 ```bash
@@ -45,9 +69,10 @@ pnpm build:linux
 
 向 `main` 推送 `v*` 标签后，[`.github/workflows/release.yml`](./.github/workflows/release.yml)
 会分别构建 macOS ARM64、macOS x64、Windows x64 和 Linux x64 安装包，随后创建
-GitHub Release，并将安装包与更新元数据上传到 OSS。Windows 和 Linux 从 OSS/CDN 检查、
-下载并安装新版本；当前 macOS 包未签名，因此应用只检查新版本并打开对应架构的 OSS
-DMG 下载地址。
+GitHub Release，并将安装包与更新元数据上传到 OSS。Windows、macOS 和 Linux 均从
+OSS/CDN 检查、下载并安装新版本。macOS 会为 ARM64 和 x64 分别生成 ZIP 更新包、blockmap
+及 `latest-mac.yml`，并使用 Ad-hoc 签名；若自动更新失败，可从界面转到 GitHub Release
+手动下载 DMG。
 
 日常开发把用户可见的功能、界面、行为、兼容性或缺陷修复写入
 [`release-notes.md`](./release-notes.md) 顶部的 `未发布` 章节。发布时执行：
@@ -82,7 +107,7 @@ VVTOOLS_UPDATE_BASE_URL=https://download.example.com/vvtools/releases
 
 OSS Bucket 或绑定的 CDN 域名需要允许匿名 `GET`/`HEAD`，并正确处理 Range 请求。更新清单
 会使用 5 分钟缓存，带版本号的安装包会使用长期不可变缓存。若域名开启 CDN，请不要为
-`latest.json`、`latest.yml` 和 `latest-linux.yml` 设置长期缓存。
+`latest.yml`、`latest-mac.yml` 和 `latest-linux.yml` 设置长期缓存。
 
 建议为 Action 单独创建 RAM 用户，并将写权限限制到发布前缀：
 
@@ -109,6 +134,17 @@ OSS Bucket 或绑定的 CDN 域名需要允许匿名 `GET`/`HEAD`，并正确处
 VVTOOLS_UPDATE_BASE_URL=https://download.example.com/vvtools/releases pnpm build:mac
 ```
 
-GitHub Release 仍使用仓库内置的 `GITHUB_TOKEN`，无需额外 Token。正式对外分发前仍建议
-配置 macOS Developer ID 签名与公证、Windows 代码签名，否则 Gatekeeper 和 SmartScreen
-可能提示风险。完成 macOS 签名后，还需要把当前“跳转下载”策略切换为应用内下载安装。
+GitHub Release 仍使用仓库内置的 `GITHUB_TOKEN`，无需额外 Token。macOS 当前使用 Ad-hoc
+签名，不等同于 Apple Developer ID 签名和公证；直接下载 DMG 时 Gatekeeper 仍可能提示
+风险。Homebrew Cask 安装会自动清除自身安装应用的 quarantine 属性，手动安装可执行：
+
+```bash
+sudo xattr -r -d com.apple.quarantine /Applications/VVTools.app
+```
+
+正式对外分发前仍建议配置 macOS Developer ID 签名与公证、Windows 代码签名。
+
+发布流程会额外生成稳定名称的 `vvtools-latest-arm64.dmg` 和
+`vvtools-latest-x64.dmg`，Cask 始终跟随这两个最新版本别名，不需要每次发布后手动修改版本
+和校验值。Homebrew 默认不会主动升级 `version :latest` Cask，因此升级时需要使用
+`--greedy-latest`。

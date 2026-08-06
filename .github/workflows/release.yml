@@ -22,16 +22,22 @@ jobs:
         include:
           - name: macOS ARM64
             os: macos-15
-            command: pnpm exec electron-builder --mac dmg --arm64 --publish never
+            command: pnpm exec electron-builder --mac dmg zip --arm64 --publish never
             artifact: mac-arm64
             files: |
               dist/*.dmg
+              dist/*.zip
+              dist/*.blockmap
+              dist/latest-mac.yml
           - name: macOS x64
             os: macos-15-intel
-            command: pnpm exec electron-builder --mac dmg --x64 --publish never
+            command: pnpm exec electron-builder --mac dmg zip --x64 --publish never
             artifact: mac-x64
             files: |
               dist/*.dmg
+              dist/*.zip
+              dist/*.blockmap
+              dist/latest-mac.yml
           - name: Windows x64
             os: windows-latest
             command: pnpm exec electron-builder --win nsis zip --x64 --publish never
@@ -100,11 +106,6 @@ jobs:
       - name: Prepare release notes
         run: pnpm release-notes:prepare
 
-      - name: Prepare update configuration
-        env:
-          VVTOOLS_UPDATE_BASE_URL: ${{ vars.VVTOOLS_UPDATE_BASE_URL }}
-        run: pnpm update-config:prepare
-
       - name: Package application
         env:
           VVTOOLS_UPDATE_BASE_URL: ${{ vars.VVTOOLS_UPDATE_BASE_URL }}
@@ -143,12 +144,18 @@ jobs:
           path: release-assets
 
       - name: Prepare release metadata
-        env:
-          VVTOOLS_UPDATE_BASE_URL: ${{ vars.VVTOOLS_UPDATE_BASE_URL }}
         run: |
           pnpm release-notes:prepare
-          node scripts/create-release-manifest.mjs
-          cp .release/latest.json release-assets/latest.json
+          mkdir -p github-assets
+          find release-assets -type f ! -name 'latest-mac.yml' -exec cp {} github-assets/ \;
+          cp release-assets/mac-arm64/latest-mac.yml github-assets/latest-mac.yml
+          cp release-assets/mac-arm64/latest-mac.yml github-assets/latest-mac-arm64.yml
+          cp release-assets/mac-x64/latest-mac.yml github-assets/latest-mac-x64.yml
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          cp -- "github-assets/vvtools-${PACKAGE_VERSION}-arm64.dmg" \
+            "github-assets/vvtools-latest-arm64.dmg"
+          cp -- "github-assets/vvtools-${PACKAGE_VERSION}-x64.dmg" \
+            "github-assets/vvtools-latest-x64.dmg"
 
       - name: Upload packages to OSS
         env:
@@ -165,7 +172,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mapfile -d '' ASSETS < <(find release-assets -type f -print0)
+          mapfile -d '' ASSETS < <(find github-assets -type f -print0)
           if gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
             gh release upload "${GITHUB_REF_NAME}" "${ASSETS[@]}" \
               --repo "${GITHUB_REPOSITORY}" \

@@ -283,12 +283,18 @@ onBeforeUnmount(() => {
 
     <Modal
       :open="store.updateDialog !== null"
-      :title="store.updateDialog === 'downloaded' ? '更新已准备好' : '发现新版本'"
+      :title="
+        store.updateDialog === 'downloaded'
+          ? '更新已准备好'
+          : store.updateDialog === 'failed'
+            ? '自动更新失败'
+            : '发现新版本'
+      "
       :description="
         store.updateDialog === 'downloaded'
           ? '程序将关闭并安装新版本，是否立即重启？'
-          : isMac
-            ? `发现新版本 ${store.updateState.version ?? ''}，请前往 GitHub 下载。`
+          : store.updateDialog === 'failed'
+            ? '自动更新未能完成，可前往 GitHub 手动下载。'
             : `新版本 ${store.updateState.version ?? ''} 已发布，是否现在下载？`
       "
       @update:open="!$event && (store.updateDialog = null)"
@@ -300,6 +306,12 @@ onBeforeUnmount(() => {
         {{ store.updateState.releaseNotes }}
       </div>
       <p
+        v-if="store.updateDialog === 'failed' && store.updateState.message"
+        class="mt-5 whitespace-pre-wrap rounded-xl border border-border bg-muted/35 p-4 text-sm leading-6 text-foreground"
+      >
+        {{ store.updateState.message }}
+      </p>
+      <p
         v-if="store.updateDialog === 'downloaded' && store.activeCount > 0"
         class="mt-5 rounded-xl border border-amber-500/35 bg-amber-500/10 p-3 text-sm text-foreground"
       >
@@ -310,7 +322,11 @@ onBeforeUnmount(() => {
         <Button @click="store.confirmUpdateAction">
           <Download v-if="store.updateDialog === 'available'" class="size-4" />
           {{
-            store.updateDialog === 'downloaded' ? '重启安装' : isMac ? '前往 GitHub' : '下载更新'
+            store.updateDialog === 'downloaded'
+              ? '重启安装'
+              : store.updateDialog === 'failed'
+                ? '手动下载'
+                : '下载更新'
           }}
         </Button>
       </div>
