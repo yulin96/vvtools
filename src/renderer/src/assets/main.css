@@ -1928,19 +1928,15 @@ input {
 }
 
 .batch-task-table-font {
-  min-width: 1080px;
+  min-width: 1000px;
 }
 
 .batch-task-table-font .batch-col-name {
-  width: 23%;
+  width: 24%;
 }
 
 .batch-task-table-font .batch-col-size {
-  width: 13%;
-}
-
-.batch-task-table-font .batch-col-savings {
-  width: 8%;
+  width: 14%;
 }
 
 .batch-task-table-font .batch-col-spec {
@@ -1952,15 +1948,15 @@ input {
 }
 
 .batch-task-table-font .batch-col-progress {
-  width: 16%;
+  width: 17%;
 }
 
 .batch-task-table-font .batch-col-status {
-  width: 8%;
+  width: 12%;
 }
 
 .batch-task-table-font .batch-col-actions {
-  width: 5%;
+  width: 6%;
 }
 
 .batch-task-table thead {
@@ -2000,28 +1996,15 @@ input {
 }
 
 .batch-col-name {
-  width: 27%;
+  width: 29%;
 }
 
 .batch-col-size {
-  width: 15%;
-}
-
-.batch-col-savings {
-  width: 10%;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.batch-col-savings small {
-  display: block;
-  margin-top: 1px;
-  color: var(--muted-foreground);
-  font-size: 10px;
+  width: 18%;
 }
 
 .batch-col-spec {
-  width: 11%;
+  width: 12%;
   color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
 }
@@ -2052,11 +2035,12 @@ input {
 }
 
 .batch-col-progress {
-  width: 19%;
+  width: 21%;
 }
 
 .batch-col-status {
-  width: 11%;
+  width: 13%;
+  white-space: nowrap;
 }
 
 .batch-col-actions {
@@ -2354,8 +2338,7 @@ html[data-theme='dark'] .bg-slate-950 {
     flex-wrap: wrap;
   }
 
-  .batch-task-table:not(.batch-task-table-font) .batch-col-spec,
-  .batch-task-table-font .batch-col-savings {
+  .batch-task-table:not(.batch-task-table-font) .batch-col-spec {
     display: none;
   }
 
@@ -2384,23 +2367,23 @@ html[data-theme='dark'] .bg-slate-950 {
   }
 
   .batch-task-table-font .batch-col-name {
-    width: 32%;
+    width: 24%;
   }
 
   .batch-task-table-font .batch-col-size {
-    width: 14%;
+    width: 13%;
   }
 
   .batch-task-table-font .batch-col-spec {
-    width: 14%;
+    width: 12%;
   }
 
   .batch-task-table-font .batch-col-font-compression {
-    width: 18%;
+    width: 16%;
   }
 
   .batch-task-table-font .batch-col-progress {
-    width: 22%;
+    width: 18%;
   }
 
   .batch-task-table-font .batch-col-status {
@@ -2408,7 +2391,7 @@ html[data-theme='dark'] .bg-slate-950 {
   }
 
   .batch-task-table-font .batch-col-actions {
-    width: 6%;
+    width: 5%;
   }
 
   .video-config-primary,

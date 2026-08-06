@@ -146,14 +146,6 @@ function taskFontCompression(task: MediaTask): string {
   if (options.subsetMode === 'chinese') return `中文 ${options.subsetChineseLevel}`
   return '自定义'
 }
-
-function taskSavings(task: MediaTask): { difference: number; percentage: number } | null {
-  if (task.outputSize === undefined) return null
-
-  const difference = task.sourceSize - task.outputSize
-  const percentage = task.sourceSize > 0 ? (Math.abs(difference) / task.sourceSize) * 100 : 0
-  return { difference, percentage }
-}
 </script>
 
 <template>
@@ -197,7 +189,6 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
           <tr>
             <th class="batch-col-name">名称</th>
             <th class="batch-col-size">转换前 → 转换后</th>
-            <th class="batch-col-savings">节省</th>
             <th class="batch-col-spec">{{ kind === 'font' ? '输出格式' : '规格' }}</th>
             <th v-if="kind === 'font'" class="batch-col-font-compression">压缩</th>
             <th class="batch-col-progress">进度</th>
@@ -225,7 +216,6 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
                 <span>—</span>
               </div>
             </td>
-            <td class="batch-col-savings text-muted-foreground">—</td>
             <td class="batch-col-spec">
               <slot name="pending-spec" :item="item">
                 {{ item.metadataLoading ? '读取中…' : item.spec || extension(item.path) }}
@@ -297,23 +287,6 @@ function taskSavings(task: MediaTask): { difference: number; percentage: number 
                 </span>
                 <span v-if="task.outputSize !== undefined">{{ formatBytes(task.outputSize) }}</span>
               </div>
-            </td>
-            <td class="batch-col-savings">
-              <template v-if="taskSavings(task)">
-                <span
-                  :class="
-                    taskSavings(task)!.difference >= 0 ? 'semantic-success' : 'semantic-warning'
-                  "
-                >
-                  {{
-                    taskSavings(task)!.difference >= 0
-                      ? formatBytes(taskSavings(task)!.difference)
-                      : `+${formatBytes(Math.abs(taskSavings(task)!.difference))}`
-                  }}
-                </span>
-                <small>{{ Math.round(taskSavings(task)!.percentage) }}%</small>
-              </template>
-              <span v-else class="text-muted-foreground">—</span>
             </td>
             <td class="batch-col-spec">{{ taskSpec(task) }}</td>
             <td v-if="kind === 'font'" class="batch-col-font-compression">
