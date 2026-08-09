@@ -1158,12 +1158,11 @@ input {
   min-height: 620px;
   overflow: hidden;
   flex-direction: column;
-  background: var(--background);
-  transition: background-color var(--duration-quick) var(--ease-out);
+  background: transparent;
 }
 
 .video-drop-workspace-active {
-  background: var(--background);
+  background: transparent;
 }
 
 .video-drop-workspace-active .workspace-scroll-content {
@@ -1213,7 +1212,7 @@ input {
   position: relative;
   z-index: 20;
   flex-shrink: 0;
-  margin: 0 var(--shell-gap);
+  margin: 0;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--background);
@@ -1493,14 +1492,13 @@ input {
 .video-config-expanded {
   position: absolute;
   z-index: 10;
-  top: calc(100% + 8px);
+  top: calc(100% + var(--shell-gap));
   right: 0;
   left: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-floating);
+  background: var(--background);
 }
 
 .image-config-expanded {
@@ -1885,7 +1883,7 @@ input {
   flex-direction: column;
   gap: 16px;
   overflow: auto;
-  padding: 16px var(--shell-gap) var(--shell-gap);
+  padding: 16px 0 var(--shell-gap);
 }
 
 .video-workspace-content:has(.batch-task-panel) {

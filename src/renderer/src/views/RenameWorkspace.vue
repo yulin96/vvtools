@@ -756,7 +756,7 @@ onBeforeUnmount(() => {
 .rename-config-expanded {
   position: absolute;
   z-index: 15;
-  top: calc(100% + 8px);
+  top: calc(100% + var(--shell-gap));
   right: 0;
   left: 0;
   display: grid;
@@ -764,9 +764,8 @@ onBeforeUnmount(() => {
   gap: 20px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: var(--surface-raised);
+  background: var(--background);
   padding: 16px;
-  box-shadow: var(--shadow-floating);
 }
 
 .rename-format-fields {
