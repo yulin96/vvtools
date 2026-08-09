@@ -8,7 +8,8 @@ import type {
   FontOperation,
   FontOptions,
   FontSubsetChineseLevel,
-  FontSubsetMode
+  FontSubsetMode,
+  MediaTask
 } from '../../../shared/types'
 import {
   FONT_SUBSET_CHINESE_PRESETS,
@@ -265,6 +266,10 @@ function stageFiles(paths: string[]): void {
   if (quickIgnoredCount > 0) {
     store.errorMessage = '快速转换已忽略 WOFF2、TTC 或 OTC 文件'
   }
+}
+
+function reprocessCompleted(tasks: MediaTask[]): void {
+  stageFiles([...new Set(tasks.map((task) => task.sourcePath))])
 }
 
 function updatePendingFormat(id: string, outputFormat: FontFormat): void {
@@ -603,6 +608,7 @@ onBeforeUnmount(() => {
         :pending-items="pendingTableItems"
         :tasks="fontTasks"
         @remove-pending="removePending"
+        @reprocess-completed="reprocessCompleted"
       >
         <template #pending-spec="{ item }">
           <select

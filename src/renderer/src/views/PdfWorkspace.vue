@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { FileText, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
+  MediaTask,
   PdfCompressionMode,
   PdfImageFormat,
   PdfOptions
@@ -100,6 +101,10 @@ function stageFiles(paths: string[]): void {
     return
   }
   pendingPaths.value = combined
+}
+
+function reprocessCompleted(tasks: MediaTask[]): void {
+  stageFiles([...new Set(tasks.map((task) => task.sourcePath))])
 }
 
 async function chooseFiles(): Promise<void> {
@@ -357,6 +362,7 @@ onBeforeUnmount(() => {
         :pending-items="pendingTableItems"
         :tasks="pdfTasks"
         @remove-pending="pendingPaths = pendingPaths.filter((item) => item !== $event)"
+        @reprocess-completed="reprocessCompleted"
       >
         <template #actions>
           <div class="flex items-center gap-1">

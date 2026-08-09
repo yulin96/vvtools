@@ -6,7 +6,11 @@ import SegmentedControl from './ui/SegmentedControl.vue'
 const store = useAppStore()
 const conflictPolicyOptions = [
   { value: 'rename', label: '自动编号', title: '同名时自动添加编号' },
-  { value: 'overwrite', label: '覆盖旧文件', title: '成功处理后替换已有文件' },
+  {
+    value: 'overwrite',
+    label: '覆盖旧文件',
+    title: '成功处理后将已有文件移到回收站，再写入新文件'
+  },
   { value: 'skip', label: '跳过新文件', title: '同名时不创建任务' }
 ]
 

@@ -6,6 +6,7 @@ import type {
   ImageCompressionMode,
   ImageFormat,
   ImageInputFile,
+  MediaTask,
   ImageOptions,
   ImagePresetOptions,
   ImageResizeMode
@@ -191,6 +192,17 @@ function stageInputs(inputs: ImageInputFile[]): void {
   }
   pendingInputs.value = [...combined.values()]
   queueImageMetadata(pathsToInspect)
+}
+
+function reprocessCompleted(tasks: MediaTask[]): void {
+  const inputs = new Map<string, ImageInputFile>()
+  for (const task of tasks) {
+    inputs.set(task.sourcePath, {
+      path: task.sourcePath,
+      relativeDirectory: task.relativeDirectory ?? ''
+    })
+  }
+  stageInputs([...inputs.values()])
 }
 
 function queueImageMetadata(paths: string[]): void {
@@ -551,6 +563,7 @@ onBeforeUnmount(() => {
         :pending-items="pendingTableItems"
         :tasks="imageTasks"
         @remove-pending="removePending"
+        @reprocess-completed="reprocessCompleted"
       >
         <template #actions>
           <div class="flex items-center gap-1">

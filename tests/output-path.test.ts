@@ -140,6 +140,10 @@ describe('output paths', () => {
       reservedPaths: new Set(),
       conflictPolicy: 'overwrite'
     })
-    expect(existingFolder.directory.path).toBe(join(directory, 'archive_1'))
+    expect(existingFolder.directory).toEqual({
+      path: join(directory, 'archive'),
+      skipped: false,
+      overwritesExisting: true
+    })
   })
 })

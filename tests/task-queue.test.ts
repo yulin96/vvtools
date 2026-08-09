@@ -4,12 +4,13 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   writeFileSync
 } from 'fs'
 import { tmpdir } from 'os'
 import { dirname, join } from 'path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FailureLogService } from '../src/main/services/failure-log'
 import { TaskQueue, type TaskRunner } from '../src/main/services/task-queue'
 import { MediaProcessError, TaskCancelledError, TaskSkippedError } from '../src/main/media/errors'
@@ -370,10 +371,13 @@ describe('TaskQueue', () => {
 
   it('replaces a source file only after processing succeeds', async () => {
     const paths = fixture()
+    const trashedSource = join(dirname(paths.source), 'trashed-source.jpg')
+    const moveToTrash = vi.fn(async (path: string) => renameSync(path, trashedSource))
     const queue = new TaskQueue(
       concurrency(1),
       successfulRunner,
-      new FailureLogService(paths.userData)
+      new FailureLogService(paths.userData),
+      moveToTrash
     )
     const [task] = queue.create({
       kind: 'image',
@@ -387,7 +391,37 @@ describe('TaskQueue', () => {
 
     expect(task.outputPath).toBe(paths.source)
     await waitFor(() => queue.list()[0]?.status === 'completed')
+    expect(moveToTrash).toHaveBeenCalledWith(paths.source)
+    expect(readFileSync(trashedSource, 'utf8')).toBe('fixture')
     expect(readFileSync(paths.source, 'utf8')).toBe('processed')
+    expect(readdirSync(dirname(paths.source)).some((name) => name.includes('.vvtools-'))).toBe(
+      false
+    )
+  })
+
+  it('preserves an existing output when moving it to the trash fails', async () => {
+    const paths = fixture()
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData),
+      async () => {
+        throw new Error('trash unavailable')
+      }
+    )
+    queue.create({
+      kind: 'image',
+      sources: [{ path: paths.source, relativeDirectory: '' }],
+      outputMode: 'source',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      outputConflictPolicy: 'overwrite',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+
+    await waitFor(() => queue.list()[0]?.status === 'failed')
+    expect(readFileSync(paths.source, 'utf8')).toBe('fixture')
+    expect(queue.list()[0]?.failure?.message).toContain('无法将已有输出移入回收站')
     expect(readdirSync(dirname(paths.source)).some((name) => name.includes('.vvtools-'))).toBe(
       false
     )
@@ -554,6 +588,44 @@ describe('TaskQueue', () => {
     ])
   })
 
+  it('moves an existing PDF image folder to the trash before replacing it', async () => {
+    const paths = fixture()
+    const source = join(dirname(paths.source), 'document.pdf')
+    const existingOutput = join(paths.output, 'document')
+    const trashedOutput = join(paths.output, 'trashed-document')
+    writeFileSync(source, '%PDF fixture')
+    mkdirSync(existingOutput, { recursive: true })
+    writeFileSync(join(existingOutput, 'old-page.png'), 'old')
+    const pdfRunner: TaskRunner = async (task) => {
+      mkdirSync(task.outputPath, { recursive: true })
+      for (const outputPath of task.outputPaths ?? []) writeFileSync(outputPath, 'new')
+      return 3
+    }
+    const moveToTrash = vi.fn(async (path: string) => renameSync(path, trashedOutput))
+    const queue = new TaskQueue(
+      concurrency(1),
+      pdfRunner,
+      new FailureLogService(paths.userData),
+      moveToTrash
+    )
+    queue.create({
+      kind: 'pdf',
+      sourcePaths: [source],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      outputNameTemplate: '{name}-page-{page}',
+      outputConflictPolicy: 'overwrite',
+      pageNumbers: [1],
+      options: { operation: 'toImage', imageFormat: 'png', dpi: 144, imageQuality: 90 }
+    })
+
+    await waitFor(() => queue.list()[0]?.status === 'completed')
+    expect(moveToTrash).toHaveBeenCalledWith(existingOutput)
+    expect(readFileSync(join(trashedOutput, 'old-page.png'), 'utf8')).toBe('old')
+    expect(readFileSync(join(existingOutput, 'document-page-001.png'), 'utf8')).toBe('new')
+  })
+
   it('expands selected font collection entries into independent tasks', () => {
     const paths = fixture()
     const source = join(dirname(paths.source), 'collection.ttc')
@@ -636,6 +708,7 @@ describe('TaskQueue', () => {
       options: { ...DEFAULT_IMAGE_OPTIONS, preserveStructure: true }
     })
     expect(task.outputPath).toBe(join(paths.output, 'album', 'day-1', 'source.jpg'))
+    expect(task.relativeDirectory).toBe(join('album', 'day-1'))
   })
 
   it('writes output beside the source and applies a shared suffix', () => {

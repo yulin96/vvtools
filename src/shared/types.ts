@@ -237,6 +237,7 @@ export interface MediaTask {
   id: string
   kind: TaskKind
   sourcePath: string
+  relativeDirectory?: string
   outputPath: string
   status: TaskStatus
   progress: number | null

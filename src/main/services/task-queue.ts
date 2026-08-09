@@ -51,7 +51,10 @@ export class TaskQueue extends EventEmitter {
   constructor(
     private concurrency: TaskConcurrencyLimits,
     private readonly runner: TaskRunner,
-    private readonly failureLogs: FailureLogService
+    private readonly failureLogs: FailureLogService,
+    private readonly moveToTrash: (path: string) => Promise<void> = async () => {
+      throw new Error('回收站处理器不可用')
+    }
   ) {
     super()
   }
@@ -116,6 +119,7 @@ export class TaskQueue extends EventEmitter {
           id: randomUUID(),
           kind: 'pdf',
           sourcePath,
+          relativeDirectory: source.relativeDirectory,
           outputPath: output.directory.path,
           outputPaths: output.paths,
           pageNumbers,
@@ -178,6 +182,7 @@ export class TaskQueue extends EventEmitter {
           id: randomUUID(),
           kind: request.kind,
           sourcePath,
+          relativeDirectory: source.relativeDirectory,
           outputPath: output.path,
           status: 'pending',
           progress: 0,
@@ -392,10 +397,11 @@ export class TaskQueue extends EventEmitter {
         this.progressChanged(task)
       })
       if (controller.signal.aborted) throw new TaskCancelledError()
-      commitStagedOutput(
+      await commitStagedOutput(
         stagingPath,
         task.outputPath,
-        !task.outputPaths?.length && task.outputConflictPolicy === 'overwrite'
+        task.outputConflictPolicy === 'overwrite',
+        this.moveToTrash
       )
       task.outputSize = outputSize
       task.status = 'completed'

@@ -14,10 +14,10 @@ const visible = computed(() => store.settings?.common.outputConflictPolicy === '
     role="status"
     aria-live="polite"
     aria-atomic="true"
-    aria-label="覆盖模式已开启，同名输出将直接覆盖已有文件，包括同路径的源文件"
-    title="输出路径与已有文件相同时将直接替换；与源文件同名时也会替换源文件"
+    aria-label="覆盖模式已开启，处理成功后已有同名文件会移入系统回收站，再写入新文件，包括与源文件同路径的原文件"
+    title="处理成功后，已有同名文件会先移入系统回收站；与源文件同名时，原文件也会移入回收站"
   >
     <TriangleAlert class="size-3.5 shrink-0" aria-hidden="true" />
-    同名输出将直接覆盖
+    同名文件将移到回收站
   </span>
 </template>

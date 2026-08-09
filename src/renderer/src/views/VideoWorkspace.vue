@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { FileVideo2, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
+  MediaTask,
   VideoAudioMode,
   VideoCodec,
   VideoEncoderMode,
@@ -217,6 +218,10 @@ function stageFiles(paths: string[]): void {
   if (ignoredCount > 0) {
     store.errorMessage = `单次最多添加 500 个文件，已忽略 ${ignoredCount} 个`
   }
+}
+
+function reprocessCompleted(tasks: MediaTask[]): void {
+  stageFiles([...new Set(tasks.map((task) => task.sourcePath))])
 }
 
 async function chooseFiles(): Promise<void> {
@@ -552,6 +557,7 @@ onBeforeUnmount(() => {
         :pending-items="pendingTableItems"
         :tasks="videoTasks"
         @remove-pending="removePending"
+        @reprocess-completed="reprocessCompleted"
       >
         <template #actions>
           <div class="flex items-center gap-1">

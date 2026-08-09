@@ -117,7 +117,7 @@ export function resolvePdfImageOutput(
     reservedPaths: options.reservedPaths,
     outputSuffix: options.outputSuffix,
     nameTemplate: '{name}{suffix}',
-    conflictPolicy: options.conflictPolicy === 'skip' ? 'skip' : 'rename'
+    conflictPolicy: options.conflictPolicy
   })
   if (directory.skipped) return { directory, paths: [] }
 

@@ -255,7 +255,8 @@ app.whenReady().then(() => {
             : task.kind === 'font'
               ? processFont(task, signal, onProgress)
               : processImage(task, signal, onProgress),
-    failureLogs
+    failureLogs,
+    (path) => shell.trashItem(path)
   )
   queue.on('changed', handleQueueChanged)
   unregisterIpc = registerIpc(() => mainWindow, queue, settings, updates)

@@ -46,8 +46,9 @@ const props = defineProps<{
   tasks: MediaTask[]
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   removePending: [idOrPath: string]
+  reprocessCompleted: [tasks: MediaTask[]]
 }>()
 
 const store = useAppStore()
@@ -75,6 +76,11 @@ const activeCount = computed(
 )
 const completedCount = computed(
   () => props.tasks.filter((task) => task.status === 'completed').length
+)
+const completedTasks = computed(() => props.tasks.filter((task) => task.status === 'completed'))
+const canReprocessCompleted = computed(
+  () =>
+    completedTasks.value.length > 0 && activeCount.value === 0 && props.pendingItems.length === 0
 )
 const skippedCount = computed(() => props.tasks.filter((task) => task.status === 'skipped').length)
 const failedCount = computed(() => props.tasks.filter((task) => task.status === 'failed').length)
@@ -152,6 +158,10 @@ function taskFontCompression(task: MediaTask): string {
   if (options.subsetMode === 'chinese') return `中文 ${options.subsetChineseLevel}`
   return '自定义'
 }
+
+function reprocessCompleted(): void {
+  emit('reprocessCompleted', completedTasks.value)
+}
 </script>
 
 <template>
@@ -186,6 +196,15 @@ function taskFontCompression(task: MediaTask): string {
       </div>
       <div class="batch-task-actions">
         <slot name="actions" />
+        <Button
+          v-if="canReprocessCompleted"
+          variant="secondary"
+          size="sm"
+          title="将已完成任务的源文件重新加入待处理列表，可修改参数后再次开始"
+          @click="reprocessCompleted"
+        >
+          <RefreshCcw class="size-3.5" />再次处理
+        </Button>
       </div>
     </header>
 

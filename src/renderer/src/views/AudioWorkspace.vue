@@ -5,7 +5,8 @@ import type {
   AudioChannels,
   AudioFormat,
   AudioOptions,
-  CreateTasksRequest
+  CreateTasksRequest,
+  MediaTask
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import Button from '../components/ui/Button.vue'
@@ -88,6 +89,10 @@ function stageFiles(paths: string[]): void {
     return
   }
   pendingPaths.value = combined
+}
+
+function reprocessCompleted(tasks: MediaTask[]): void {
+  stageFiles([...new Set(tasks.map((task) => task.sourcePath))])
 }
 
 async function chooseFiles(): Promise<void> {
@@ -264,6 +269,7 @@ onBeforeUnmount(() => {
         :pending-items="pendingTableItems"
         :tasks="audioTasks"
         @remove-pending="pendingPaths = pendingPaths.filter((item) => item !== $event)"
+        @reprocess-completed="reprocessCompleted"
       >
         <template #actions>
           <div class="flex items-center gap-1">
