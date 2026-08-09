@@ -15,8 +15,6 @@ const api: VVToolsApi = {
   openOutputDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.openOutputDirectory),
   createTasks: (request) => ipcRenderer.invoke(IPC_CHANNELS.createTasks, request),
   inspectTasks: (request) => ipcRenderer.invoke(IPC_CHANNELS.inspectTasks, request),
-  confirmSourceOverwrite: (sourcePaths) =>
-    ipcRenderer.invoke(IPC_CHANNELS.confirmSourceOverwrite, sourcePaths),
   getTasks: () => ipcRenderer.invoke(IPC_CHANNELS.getTasks),
   cancelTask: (taskId) => ipcRenderer.invoke(IPC_CHANNELS.cancelTask, taskId),
   retryTask: (taskId) => ipcRenderer.invoke(IPC_CHANNELS.retryTask, taskId),

@@ -10,6 +10,7 @@ import type {
 import { useAppStore } from '../stores/app'
 import Button from '../components/ui/Button.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
+import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
@@ -173,18 +174,21 @@ onBeforeUnmount(() => {
         </div>
         <div class="video-config-actions">
           <OutputLocationControls />
-          <Button
-            size="sm"
-            :disabled="pendingPaths.length === 0 || starting"
-            @click="startProcessing"
-          >
-            <Play class="size-4" />
-            {{
-              starting
-                ? '正在开始…'
-                : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
-            }}
-          </Button>
+          <div class="start-processing-actions">
+            <SourceOverwriteWarning />
+            <Button
+              size="sm"
+              :disabled="pendingPaths.length === 0 || starting"
+              @click="startProcessing"
+            >
+              <Play class="size-4" />
+              {{
+                starting
+                  ? '正在开始…'
+                  : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+              }}
+            </Button>
+          </div>
         </div>
       </div>
 

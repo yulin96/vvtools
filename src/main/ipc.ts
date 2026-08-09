@@ -1,7 +1,7 @@
 import { app, dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { existsSync, mkdirSync, statSync } from 'fs'
 import { readFile } from 'fs/promises'
-import { basename, dirname, extname, isAbsolute, join, normalize, sep } from 'path'
+import { dirname, extname, isAbsolute, join, normalize, sep } from 'path'
 import type {
   AppSettings,
   AppSettingsPatch,
@@ -627,34 +627,6 @@ export function registerIpc(
       .filter((task) => task.status === 'pending' || task.status === 'processing')
       .map((task) => task.outputPath)
     return inspectTasks(validateCreateRequest(request), new Set(activeOutputPaths))
-  })
-  handle(IPC_CHANNELS.confirmSourceOverwrite, async (event, sourcePaths: unknown) => {
-    assertTrusted(event, window())
-    if (
-      !Array.isArray(sourcePaths) ||
-      sourcePaths.length === 0 ||
-      sourcePaths.length > 500 ||
-      sourcePaths.some((path) => typeof path !== 'string' || !isAbsolute(path))
-    ) {
-      throw new Error('待覆盖源文件参数无效')
-    }
-    const uniquePaths = [...new Set(sourcePaths as string[])]
-    const preview = uniquePaths
-      .slice(0, 5)
-      .map((path) => `• ${basename(path)}`)
-      .join('\n')
-    const remaining = uniquePaths.length - Math.min(uniquePaths.length, 5)
-    const result = await dialog.showMessageBox(window(), {
-      type: 'warning',
-      title: '确认覆盖源文件',
-      message: `处理成功后将替换 ${uniquePaths.length} 个源文件`,
-      detail: `${preview}${remaining > 0 ? `\n• 另外 ${remaining} 个文件` : ''}\n\n此操作无法撤销。`,
-      buttons: ['继续并覆盖', '取消'],
-      defaultId: 1,
-      cancelId: 1,
-      noLink: true
-    })
-    return result.response === 0
   })
   handle(IPC_CHANNELS.getTasks, (event) => {
     assertTrusted(event, window())

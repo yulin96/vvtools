@@ -18,6 +18,7 @@ import { useAppStore } from '../stores/app'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
+import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
@@ -331,18 +332,21 @@ onBeforeUnmount(() => {
             @update:model-value="applyPreset"
           />
           <OutputLocationControls />
-          <Button
-            size="sm"
-            :disabled="pendingPaths.length === 0 || starting"
-            @click="startProcessing"
-          >
-            <Play class="size-4" />
-            {{
-              starting
-                ? '正在开始…'
-                : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
-            }}
-          </Button>
+          <div class="start-processing-actions">
+            <SourceOverwriteWarning />
+            <Button
+              size="sm"
+              :disabled="pendingPaths.length === 0 || starting"
+              @click="startProcessing"
+            >
+              <Play class="size-4" />
+              {{
+                starting
+                  ? '正在开始…'
+                  : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+              }}
+            </Button>
+          </div>
         </div>
       </div>
 

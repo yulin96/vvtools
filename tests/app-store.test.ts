@@ -192,41 +192,6 @@ describe('app store task submission', () => {
     expect(store.errorMessage).toContain('已保留在待处理列表')
   })
 
-  it('requires confirmation before submitting tasks that overwrite source files', async () => {
-    const createTasks = vi.fn()
-    const confirmSourceOverwrite = vi.fn(async () => false)
-    const api = {
-      inspectTasks: vi.fn(async () => [
-        {
-          sourcePath: '/tmp/source.png',
-          outputPath: '/tmp/source.png',
-          overwritesSource: true,
-          valid: true,
-          sourceSize: 10
-        }
-      ]),
-      confirmSourceOverwrite,
-      createTasks
-    } as unknown as VVToolsApi
-    vi.stubGlobal('window', { api })
-    setActivePinia(createPinia())
-
-    const store = useAppStore()
-    const result = await store.submitTasks({
-      kind: 'image',
-      sources: [{ path: '/tmp/source.png', relativeDirectory: '' }],
-      outputMode: 'source',
-      outputDirectory: '/tmp',
-      outputSuffix: '',
-      outputConflictPolicy: 'overwrite',
-      options: { ...DEFAULT_IMAGE_OPTIONS }
-    })
-
-    expect(result).toBeNull()
-    expect(confirmSourceOverwrite).toHaveBeenCalledWith(['/tmp/source.png'])
-    expect(createTasks).not.toHaveBeenCalled()
-  })
-
   it('removes Electron IPC details from errors shown to users', async () => {
     const api = {
       inspectTasks: vi.fn(async () => {

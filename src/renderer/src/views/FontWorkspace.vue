@@ -22,6 +22,7 @@ import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
+import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import { takeRoutedDrop } from '../lib/media-drop'
 
@@ -450,18 +451,21 @@ onBeforeUnmount(() => {
         </div>
         <div class="video-config-actions">
           <OutputLocationControls />
-          <Button
-            size="sm"
-            :disabled="pendingItems.length === 0 || starting"
-            @click="startProcessing"
-          >
-            <Play class="size-4" />
-            {{
-              starting
-                ? '正在开始…'
-                : `开始处理${pendingItems.length ? ` (${pendingItems.length})` : ''}`
-            }}
-          </Button>
+          <div class="start-processing-actions">
+            <SourceOverwriteWarning />
+            <Button
+              size="sm"
+              :disabled="pendingItems.length === 0 || starting"
+              @click="startProcessing"
+            >
+              <Play class="size-4" />
+              {{
+                starting
+                  ? '正在开始…'
+                  : `开始处理${pendingItems.length ? ` (${pendingItems.length})` : ''}`
+              }}
+            </Button>
+          </div>
         </div>
       </div>
 

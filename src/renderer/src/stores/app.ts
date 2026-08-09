@@ -207,16 +207,6 @@ export const useAppStore = defineStore('app', () => {
         return { handledPaths: [] }
       }
 
-      const overwritePaths = processable
-        .filter((item) => item.overwritesSource)
-        .map((item) => item.sourcePath)
-      if (
-        overwritePaths.length > 0 &&
-        !(await window.api.confirmSourceOverwrite([...new Set(overwritePaths)]))
-      ) {
-        return null
-      }
-
       const inputMetadata = [
         ...new Map(
           processable.map((item) => [

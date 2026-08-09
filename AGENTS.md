@@ -6,7 +6,7 @@
 - Run FFmpeg and FFprobe with `child_process.spawn` and argument arrays. Never use `exec`, shell interpolation, base64 media payloads, or whole-file buffering for media work.
 - Keep media processors independent of Electron UI code so they can be unit tested.
 - Keep VVTools single-instance; a second launch must focus the existing main window.
-- When output conflicts are skipped, keep those files in the pending list and explain why they did not start. When an overwrite would resolve to the source path, require confirmation immediately before every submission.
+- When output conflicts are skipped, keep those files in the pending list and explain why they did not start. When overwrite mode is enabled, show a non-blocking warning at the top of every processing workspace; do not interrupt submission with a confirmation dialog.
 - Use Tailwind CSS v4 and local shadcn-vue-style components for renderer styling; use `@lucide/vue` for icons.
 - Run targeted tests, lint, and type checks after changes. Do not run a build unless the user explicitly requests it.
 

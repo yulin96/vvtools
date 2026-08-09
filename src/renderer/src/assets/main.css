@@ -1429,6 +1429,29 @@ input {
   width: 100%;
 }
 
+.source-overwrite-warning {
+  display: inline-flex;
+  height: 32px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid color-mix(in srgb, var(--warning-fg) 30%, transparent);
+  border-radius: 9px;
+  background: var(--warning-bg);
+  padding: 0 9px;
+  color: var(--warning-fg);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.start-processing-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .video-config-primary,
 .image-config-primary,
 .video-config-expanded {

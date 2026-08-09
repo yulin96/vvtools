@@ -181,7 +181,6 @@ export const IPC_CHANNELS = {
   openOutputDirectory: 'directory:open-output',
   createTasks: 'tasks:create',
   inspectTasks: 'tasks:inspect',
-  confirmSourceOverwrite: 'tasks:confirm-source-overwrite',
   getTasks: 'tasks:get',
   cancelTask: 'tasks:cancel',
   retryTask: 'tasks:retry',
