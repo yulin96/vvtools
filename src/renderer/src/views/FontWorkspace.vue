@@ -8,8 +8,7 @@ import type {
   FontOperation,
   FontOptions,
   FontSubsetChineseLevel,
-  FontSubsetMode,
-  MediaTask
+  FontSubsetMode
 } from '../../../shared/types'
 import {
   FONT_SUBSET_CHINESE_PRESETS,
@@ -27,6 +26,7 @@ import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import { takeRoutedDrop } from '../lib/media-drop'
+import { settledBatchSourceItems } from '../lib/batch-sources'
 
 type FontWorkspaceMode = FontOperation | 'quickConvert'
 
@@ -96,6 +96,35 @@ const quickConversionFormats: Partial<Record<FontFormat, FontFormat[]>> = {
 const quickConvert = ref(false)
 
 const operation = computed(() => store.settings?.font.lastOptions.operation ?? mode.value)
+const fontStartItems = computed<PendingFontItem[]>(() => {
+  if (pendingItems.value.length > 0) return pendingItems.value
+  const batchSources = settledBatchSourceItems(fontTasks.value)
+  const paths = batchSources.map((item) => item.path)
+  if (quickConvert.value) {
+    return paths.flatMap((path) =>
+      (quickConversionFormats[pathExtension(path) as FontFormat] ?? []).map((outputFormat) => {
+        const existing = fontTasks.value.find(
+          (task) =>
+            task.sourcePath === path && (task.options as FontOptions).outputFormat === outputFormat
+        )
+        return {
+          id: existing?.batchInputId ?? existing?.batchItemId ?? `${path}:${outputFormat}`,
+          path,
+          outputFormat,
+          subsetPreset: '8105' as const
+        }
+      })
+    )
+  }
+  return batchSources.map((source) => {
+    return {
+      id: source.batchItemId,
+      path: source.path,
+      outputFormat: store.settings?.font.lastOptions.outputFormat ?? 'woff2',
+      subsetPreset: 'none' as const
+    }
+  })
+})
 const selectedMode = computed<FontWorkspaceMode>(() =>
   quickConvert.value ? 'quickConvert' : operation.value
 )
@@ -268,10 +297,6 @@ function stageFiles(paths: string[]): void {
   }
 }
 
-function reprocessCompleted(tasks: MediaTask[]): void {
-  stageFiles([...new Set(tasks.map((task) => task.sourcePath))])
-}
-
 function updatePendingFormat(id: string, outputFormat: FontFormat): void {
   pendingItems.value = pendingItems.value.map((item) =>
     item.id === id ? { ...item, outputFormat } : item
@@ -344,8 +369,9 @@ function withVariable(template: string, variable: '{index}' | '{instance}'): str
 }
 
 async function startProcessing(): Promise<void> {
-  if (!store.settings || pendingItems.value.length === 0 || starting.value) return
+  if (!store.settings || fontStartItems.value.length === 0 || starting.value) return
   const settings = store.settings
+  const startItems = fontStartItems.value
   const selectedOperation = operation.value
   const subsetText = subsetTextDraft.value
   const subsetTextFile = subsetText.trim() ? '' : subsetTextFileDraft.value
@@ -370,11 +396,12 @@ async function startProcessing(): Promise<void> {
   subsetValidationMessage.value = ''
   const request: CreateTasksRequest = {
     kind: 'font',
-    sources: pendingItems.value.map(({ path, outputFormat, subsetPreset }) => ({
+    sources: startItems.map(({ path, outputFormat, subsetPreset }) => ({
       path,
       outputFormat,
       subsetPreset: selectedOperation === 'convert' ? subsetPreset : undefined
     })),
+    batchItemIds: startItems.map((item) => item.id),
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
     outputSuffix: settings.font.outputSuffix,
@@ -461,14 +488,14 @@ onBeforeUnmount(() => {
             <SourceOverwriteWarning />
             <Button
               size="sm"
-              :disabled="pendingItems.length === 0 || starting"
+              :disabled="fontStartItems.length === 0 || starting"
               @click="startProcessing"
             >
               <Play class="size-4" />
               {{
                 starting
                   ? '正在开始…'
-                  : `开始处理${pendingItems.length ? ` (${pendingItems.length})` : ''}`
+                  : `开始处理${fontStartItems.length ? ` (${fontStartItems.length})` : ''}`
               }}
             </Button>
           </div>
@@ -608,7 +635,6 @@ onBeforeUnmount(() => {
         :pending-items="pendingTableItems"
         :tasks="fontTasks"
         @remove-pending="removePending"
-        @reprocess-completed="reprocessCompleted"
       >
         <template #pending-spec="{ item }">
           <select

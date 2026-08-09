@@ -6,7 +6,6 @@ import type {
   ImageCompressionMode,
   ImageFormat,
   ImageInputFile,
-  MediaTask,
   ImageOptions,
   ImagePresetOptions,
   ImageResizeMode
@@ -29,6 +28,7 @@ import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import { takeRoutedDrop } from '../lib/media-drop'
+import { settledBatchSourceItems } from '../lib/batch-sources'
 
 const store = useAppStore()
 const configExpanded = ref(false)
@@ -80,6 +80,16 @@ const imagePresetOptions = [
   ...DEFAULT_IMAGE_PRESETS.map((preset) => ({ value: preset.id, label: preset.name }))
 ]
 const imageTasks = computed(() => store.currentBatchTasks.image)
+const imageStartItems = computed(() => {
+  if (pendingInputs.value.length > 0) {
+    return pendingInputs.value.map((input) => ({
+      path: input.path,
+      relativeDirectory: input.relativeDirectory,
+      batchItemId: input.path
+    }))
+  }
+  return settledBatchSourceItems(imageTasks.value)
+})
 const pendingTableItems = computed(() =>
   pendingInputs.value.map((input) => ({
     path: input.path,
@@ -194,17 +204,6 @@ function stageInputs(inputs: ImageInputFile[]): void {
   queueImageMetadata(pathsToInspect)
 }
 
-function reprocessCompleted(tasks: MediaTask[]): void {
-  const inputs = new Map<string, ImageInputFile>()
-  for (const task of tasks) {
-    inputs.set(task.sourcePath, {
-      path: task.sourcePath,
-      relativeDirectory: task.relativeDirectory ?? ''
-    })
-  }
-  stageInputs([...inputs.values()])
-}
-
 function queueImageMetadata(paths: string[]): void {
   for (const path of paths) {
     if (queuedMetadataPaths.has(path)) continue
@@ -270,14 +269,16 @@ async function chooseDirectory(): Promise<void> {
 }
 
 async function startProcessing(): Promise<void> {
-  if (!store.settings || pendingInputs.value.length === 0 || starting.value) return
+  if (!store.settings || imageStartItems.value.length === 0 || starting.value) return
   const settings = store.settings
+  const startItems = imageStartItems.value
   const request: CreateTasksRequest = {
     kind: 'image',
-    sources: pendingInputs.value.map(({ path, relativeDirectory }) => ({
+    sources: startItems.map(({ path, relativeDirectory }) => ({
       path,
       relativeDirectory
     })),
+    batchItemIds: startItems.map((item) => item.batchItemId),
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
     outputSuffix: settings.image.outputSuffix,
@@ -389,14 +390,14 @@ onBeforeUnmount(() => {
             <SourceOverwriteWarning />
             <Button
               size="sm"
-              :disabled="pendingInputs.length === 0 || starting"
+              :disabled="imageStartItems.length === 0 || starting"
               @click="startProcessing"
             >
               <Play class="size-4" />
               {{
                 starting
                   ? '正在开始…'
-                  : `开始处理${pendingInputs.length ? ` (${pendingInputs.length})` : ''}`
+                  : `开始处理${imageStartItems.length ? ` (${imageStartItems.length})` : ''}`
               }}
             </Button>
           </div>
@@ -563,7 +564,6 @@ onBeforeUnmount(() => {
         :pending-items="pendingTableItems"
         :tasks="imageTasks"
         @remove-pending="removePending"
-        @reprocess-completed="reprocessCompleted"
       >
         <template #actions>
           <div class="flex items-center gap-1">

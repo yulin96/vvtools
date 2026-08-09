@@ -3,7 +3,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { FileVideo2, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
-  MediaTask,
   VideoAudioMode,
   VideoCodec,
   VideoEncoderMode,
@@ -26,6 +25,7 @@ import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import { takeRoutedDrop } from '../lib/media-drop'
+import { settledBatchSourceItems } from '../lib/batch-sources'
 
 const store = useAppStore()
 const configExpanded = ref(false)
@@ -99,6 +99,12 @@ const videoPresetOptions = [
 ]
 
 const videoTasks = computed(() => store.currentBatchTasks.video)
+const videoStartItems = computed(() => {
+  if (pendingPaths.value.length > 0) {
+    return pendingPaths.value.map((path) => ({ path, batchItemId: path }))
+  }
+  return settledBatchSourceItems(videoTasks.value)
+})
 const availableEncoderModeOptions = computed(() =>
   store.settings?.video.lastOptions.codec === 'mpeg4'
     ? encoderModeOptions.filter((option) => option.value !== 'hardware')
@@ -220,10 +226,6 @@ function stageFiles(paths: string[]): void {
   }
 }
 
-function reprocessCompleted(tasks: MediaTask[]): void {
-  stageFiles([...new Set(tasks.map((task) => task.sourcePath))])
-}
-
 async function chooseFiles(): Promise<void> {
   try {
     stageFiles(await window.api.selectFiles('video'))
@@ -233,11 +235,13 @@ async function chooseFiles(): Promise<void> {
 }
 
 async function startProcessing(): Promise<void> {
-  if (!store.settings || pendingPaths.value.length === 0 || starting.value) return
+  if (!store.settings || videoStartItems.value.length === 0 || starting.value) return
   const settings = store.settings
+  const startItems = videoStartItems.value
   const request: CreateTasksRequest = {
     kind: 'video',
-    sourcePaths: [...pendingPaths.value],
+    sourcePaths: startItems.map((item) => item.path),
+    batchItemIds: startItems.map((item) => item.batchItemId),
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
     outputSuffix: settings.video.outputSuffix,
@@ -342,14 +346,14 @@ onBeforeUnmount(() => {
             <SourceOverwriteWarning />
             <Button
               size="sm"
-              :disabled="pendingPaths.length === 0 || starting"
+              :disabled="videoStartItems.length === 0 || starting"
               @click="startProcessing"
             >
               <Play class="size-4" />
               {{
                 starting
                   ? '正在开始…'
-                  : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+                  : `开始处理${videoStartItems.length ? ` (${videoStartItems.length})` : ''}`
               }}
             </Button>
           </div>
@@ -557,7 +561,6 @@ onBeforeUnmount(() => {
         :pending-items="pendingTableItems"
         :tasks="videoTasks"
         @remove-pending="removePending"
-        @reprocess-completed="reprocessCompleted"
       >
         <template #actions>
           <div class="flex items-center gap-1">

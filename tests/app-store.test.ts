@@ -3,13 +3,39 @@ import { reactive } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { CreateTasksRequest, MediaTask, VVToolsApi } from '../src/shared/types'
 import { DEFAULT_FONT_OPTIONS, DEFAULT_IMAGE_OPTIONS } from '../src/shared/constants'
-import { useAppStore } from '../src/renderer/src/stores/app'
+import { reconcileCurrentBatchTaskIds, useAppStore } from '../src/renderer/src/stores/app'
 
 afterEach(() => {
   vi.unstubAllGlobals()
 })
 
 describe('app store task submission', () => {
+  it('keeps current rows attached when a settled batch is submitted again', () => {
+    const previous: MediaTask = {
+      id: 'previous-task',
+      kind: 'image',
+      batchItemId: 'image-row',
+      sourcePath: '/tmp/source.png',
+      outputPath: '/tmp/source_processed.png',
+      status: 'completed',
+      progress: 100,
+      options: { ...DEFAULT_IMAGE_OPTIONS },
+      sourceSize: 10,
+      outputSize: 8,
+      createdAt: new Date().toISOString()
+    }
+    const next: MediaTask = {
+      ...previous,
+      id: 'next-task',
+      status: 'processing',
+      progress: 20
+    }
+
+    expect(reconcileCurrentBatchTaskIds([previous.id], [previous], [next], 'image')).toEqual([
+      next.id
+    ])
+  })
+
   it('keeps staged files in the shared store across workspace consumers', () => {
     setActivePinia(createPinia())
     const store = useAppStore()
@@ -33,6 +59,7 @@ describe('app store task submission', () => {
     const createdTask: MediaTask = {
       id: 'image-task-1',
       kind: 'image',
+      batchItemId: '/tmp/source.png',
       sourcePath: '/tmp/source.png',
       outputPath: '/tmp/source_processed.png',
       status: 'pending',
@@ -68,6 +95,7 @@ describe('app store task submission', () => {
     const request = reactive<CreateTasksRequest>({
       kind: 'image',
       sources: [{ path: '/tmp/source.png', relativeDirectory: '' }],
+      batchItemIds: ['/tmp/source.png'],
       outputMode: 'custom',
       outputDirectory: '/tmp',
       outputSuffix: '_processed',
@@ -85,8 +113,118 @@ describe('app store task submission', () => {
     expect(createTasks).toHaveBeenCalledOnce()
     expect(createTasks.mock.calls[0][0]).toMatchObject({
       kind: 'image',
+      batchItemIds: ['/tmp/source.png'],
       inputMetadata: [{ path: '/tmp/source.png', width: 16, height: 9 }]
     })
+  })
+
+  it('replaces a failed row with its retry instead of appending task history', async () => {
+    const failedTask: MediaTask = {
+      id: 'failed-task',
+      kind: 'image',
+      batchItemId: '/tmp/source.png',
+      sourcePath: '/tmp/source.png',
+      outputPath: '/tmp/source_processed.png',
+      status: 'failed',
+      progress: 30,
+      options: { ...DEFAULT_IMAGE_OPTIONS },
+      sourceSize: 10,
+      createdAt: new Date().toISOString(),
+      failure: { message: 'failed' }
+    }
+    const retriedTask: MediaTask = {
+      ...failedTask,
+      id: 'retried-task',
+      status: 'pending',
+      progress: 0,
+      retryOf: failedTask.id,
+      failure: undefined
+    }
+    const api = {
+      inspectTasks: vi.fn(async () => [
+        {
+          sourcePath: failedTask.sourcePath,
+          outputPath: failedTask.outputPath,
+          valid: true,
+          sourceSize: failedTask.sourceSize
+        }
+      ]),
+      createTasks: vi.fn(async () => [failedTask]),
+      retryTask: vi.fn(async () => retriedTask)
+    } as unknown as VVToolsApi
+    vi.stubGlobal('window', { api })
+    setActivePinia(createPinia())
+
+    const store = useAppStore()
+    await store.submitTasks({
+      kind: 'image',
+      sources: [{ path: failedTask.sourcePath, relativeDirectory: '' }],
+      batchItemIds: [failedTask.batchItemId!],
+      outputMode: 'custom',
+      outputDirectory: '/tmp',
+      outputSuffix: '_processed',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+    await store.retryTask(failedTask.id)
+
+    expect(store.currentBatchTasks.image).toEqual([retriedTask])
+  })
+
+  it('keeps batch row identifiers aligned when inspection rejects an input', async () => {
+    const acceptedTask: MediaTask = {
+      id: 'accepted-task',
+      kind: 'image',
+      batchItemId: '/tmp/accepted.png',
+      sourcePath: '/tmp/accepted.png',
+      outputPath: '/tmp/accepted_processed.png',
+      status: 'pending',
+      progress: 0,
+      options: { ...DEFAULT_IMAGE_OPTIONS },
+      sourceSize: 10,
+      createdAt: new Date().toISOString()
+    }
+    const createTasks = vi.fn(async () => [acceptedTask])
+    const api = {
+      inspectTasks: vi.fn(async () => [
+        {
+          sourcePath: '/tmp/rejected.png',
+          outputPath: '',
+          valid: false,
+          sourceSize: 10,
+          error: '图片损坏'
+        },
+        {
+          sourcePath: acceptedTask.sourcePath,
+          outputPath: acceptedTask.outputPath,
+          valid: true,
+          sourceSize: acceptedTask.sourceSize
+        }
+      ]),
+      createTasks
+    } as unknown as VVToolsApi
+    vi.stubGlobal('window', { api })
+    setActivePinia(createPinia())
+
+    const store = useAppStore()
+    await store.submitTasks({
+      kind: 'image',
+      sources: [
+        { path: '/tmp/rejected.png', relativeDirectory: '' },
+        { path: acceptedTask.sourcePath, relativeDirectory: '' }
+      ],
+      batchItemIds: ['/tmp/rejected.png', acceptedTask.batchItemId!],
+      outputMode: 'custom',
+      outputDirectory: '/tmp',
+      outputSuffix: '_processed',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+
+    expect(createTasks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sources: [{ path: acceptedTask.sourcePath, relativeDirectory: '' }],
+        batchItemIds: [acceptedTask.batchItemId]
+      })
+    )
   })
 
   it('preserves duplicate font sources with per-row formats and omits empty instances', async () => {
@@ -96,6 +234,7 @@ describe('app store task submission', () => {
         ? request.sources.map((source, index) => ({
             id: `font-task-${index}`,
             kind: 'font' as const,
+            batchItemId: request.batchItemIds?.[index],
             sourcePath: source.path,
             outputPath: `/tmp/source.${source.outputFormat}`,
             status: 'pending' as const,
@@ -139,6 +278,7 @@ describe('app store task submission', () => {
         { path: sourcePath, outputFormat: 'woff' },
         { path: sourcePath, outputFormat: 'woff2' }
       ],
+      batchItemIds: ['font-row-woff', 'font-row-woff2'],
       outputMode: 'custom',
       outputDirectory: '/tmp',
       outputSuffix: '',
@@ -149,6 +289,7 @@ describe('app store task submission', () => {
     expect(createTasks).toHaveBeenCalledOnce()
     expect(createTasks.mock.calls[0][0]).toMatchObject({
       kind: 'font',
+      batchItemIds: ['font-row-woff', 'font-row-woff2'],
       sources: [
         { path: sourcePath, outputFormat: 'woff' },
         { path: sourcePath, outputFormat: 'woff2' }

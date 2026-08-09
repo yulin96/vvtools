@@ -236,6 +236,8 @@ export interface TaskFailure {
 export interface MediaTask {
   id: string
   kind: TaskKind
+  batchInputId?: string
+  batchItemId?: string
   sourcePath: string
   relativeDirectory?: string
   outputPath: string
@@ -304,6 +306,7 @@ export type CreateTasksRequest =
   | {
       kind: 'video'
       sourcePaths: string[]
+      batchItemIds?: string[]
       outputMode: OutputMode
       outputDirectory: string
       outputSuffix: string
@@ -316,6 +319,7 @@ export type CreateTasksRequest =
   | {
       kind: 'image'
       sources: ImageInputFile[]
+      batchItemIds?: string[]
       outputMode: OutputMode
       outputDirectory: string
       outputSuffix: string
@@ -328,6 +332,7 @@ export type CreateTasksRequest =
   | {
       kind: 'audio'
       sourcePaths: string[]
+      batchItemIds?: string[]
       outputMode: OutputMode
       outputDirectory: string
       outputSuffix: string
@@ -340,6 +345,7 @@ export type CreateTasksRequest =
   | {
       kind: 'pdf'
       sourcePaths: string[]
+      batchItemIds?: string[]
       outputMode: OutputMode
       outputDirectory: string
       outputSuffix: string
@@ -353,6 +359,7 @@ export type CreateTasksRequest =
   | {
       kind: 'font'
       sources: FontInputFile[]
+      batchItemIds?: string[]
       outputMode: OutputMode
       outputDirectory: string
       outputSuffix: string

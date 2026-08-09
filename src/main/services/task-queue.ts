@@ -38,6 +38,7 @@ interface TaskUnit {
 interface TaskSource {
   path: string
   relativeDirectory: string
+  batchItemId?: string
   fontOutputFormat?: FontFormat
   fontSubsetPreset?: FontConversionSubsetPreset
 }
@@ -77,15 +78,23 @@ export class TaskQueue extends EventEmitter {
     }
     const sources: TaskSource[] =
       request.kind === 'image'
-        ? request.sources
+        ? request.sources.map((source, index) => ({
+            ...source,
+            batchItemId: request.batchItemIds?.[index]
+          }))
         : request.kind === 'font'
-          ? request.sources.map((source) => ({
+          ? request.sources.map((source, index) => ({
               path: source.path,
               relativeDirectory: '',
+              batchItemId: request.batchItemIds?.[index],
               fontOutputFormat: source.outputFormat,
               fontSubsetPreset: source.subsetPreset
             }))
-          : request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
+          : request.sourcePaths.map((path, index) => ({
+              path,
+              relativeDirectory: '',
+              batchItemId: request.batchItemIds?.[index]
+            }))
     const metadata = new Map(request.inputMetadata?.map((item) => [item.path, item]))
     const created = sources.flatMap((source) => {
       const sourcePath = source.path
@@ -118,6 +127,8 @@ export class TaskQueue extends EventEmitter {
         const task: MediaTask = {
           id: randomUUID(),
           kind: 'pdf',
+          batchInputId: source.batchItemId,
+          batchItemId: source.batchItemId,
           sourcePath,
           relativeDirectory: source.relativeDirectory,
           outputPath: output.directory.path,
@@ -142,7 +153,7 @@ export class TaskQueue extends EventEmitter {
       const sourceTaskIds: string[] = []
       const sourceReservedPaths: string[] = []
       let skippedSource = false
-      const sourceCreated = units.flatMap((unit) => {
+      const sourceCreated = units.flatMap((unit, unitIndex) => {
         mkdirSync(outputDirectory, { recursive: true })
         const extension = getOutputExtension(
           request.kind,
@@ -181,6 +192,13 @@ export class TaskQueue extends EventEmitter {
         const task: MediaTask = {
           id: randomUUID(),
           kind: request.kind,
+          batchInputId: source.batchItemId,
+          batchItemId:
+            source.batchItemId === undefined
+              ? undefined
+              : units.length === 1
+                ? source.batchItemId
+                : `${source.batchItemId}:${unitIndex + 1}`,
           sourcePath,
           relativeDirectory: source.relativeDirectory,
           outputPath: output.path,
@@ -341,10 +359,15 @@ export class TaskQueue extends EventEmitter {
                   fontInstances: original.fontInstance ? [original.fontInstance] : undefined,
                   options: structuredClone(original.options) as FontOptions
                 }
+    if (original.batchItemId) request.batchItemIds = [original.batchItemId]
     const task = this.createInternal(request, false)[0]
     if (!task) return null
     const stored = this.tasks.get(task.id)
-    if (stored) stored.retryOf = original.id
+    if (stored) {
+      stored.retryOf = original.id
+      stored.batchInputId = original.batchInputId
+      stored.batchItemId = original.batchItemId
+    }
     this.changed()
     return stored ? structuredClone(stored) : null
   }

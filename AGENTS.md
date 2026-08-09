@@ -7,7 +7,7 @@
 - Keep media processors independent of Electron UI code so they can be unit tested.
 - Keep VVTools single-instance; a second launch must focus the existing main window.
 - When output conflicts are skipped, keep those files in the pending list and explain why they did not start. When overwrite mode is enabled, show a non-blocking warning at the top of every processing workspace; after processing succeeds, move the existing output to the system trash before committing the new output, and do not interrupt submission with a confirmation dialog.
-- Let a settled batch place its completed source files back into the pending list so users can change parameters and process them again.
+- Keep one stable row per current-batch item: staged, queued, processing, retried, and settled states update in place and preserve input order; do not expose a task-history list or a separate reprocess action. A settled batch stays in the list, and the main start button resubmits its source files with current settings when no new files are staged. Adding files after the whole batch settles starts a new batch and clears the previous results.
 - Keep output suffix settings independent for image, video, audio, PDF, and font processing. Migrate a legacy global suffix into every processing workspace.
 - Use Tailwind CSS v4 and local shadcn-vue-style components for renderer styling; use `@lucide/vue` for icons.
 - Run targeted tests, lint, and type checks after changes. Do not run a build unless the user explicitly requests it.

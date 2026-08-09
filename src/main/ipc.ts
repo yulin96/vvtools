@@ -165,8 +165,24 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
     request.kind === 'image' || request.kind === 'font'
       ? request.sources.map((source) => source.path)
       : request.sourcePaths
+  request.batchItemIds = sanitizeBatchItemIds(request.batchItemIds, sourcePaths.length)
   request.inputMetadata = sanitizeInputMetadata(request.inputMetadata, new Set(sourcePaths))
   return structuredClone(request)
+}
+
+function sanitizeBatchItemIds(value: unknown, sourceCount: number): string[] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.length !== sourceCount) {
+    throw new Error('批次任务标识与源文件不匹配')
+  }
+  const ids = value.map((item) => {
+    if (typeof item !== 'string' || !item || item.length > 8192) {
+      throw new Error('批次任务标识无效')
+    }
+    return item
+  })
+  if (new Set(ids).size !== ids.length) throw new Error('批次任务标识不能重复')
+  return ids
 }
 
 function sanitizeOutputSuffix(value: unknown): string {

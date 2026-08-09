@@ -223,6 +223,7 @@ describe('TaskQueue', () => {
     const [original] = queue.create({
       kind: 'image',
       sources: [{ path: paths.source, relativeDirectory: '' }],
+      batchItemIds: ['image-row-1'],
       outputMode: 'custom',
       outputDirectory: paths.output,
       outputSuffix: '',
@@ -234,6 +235,8 @@ describe('TaskQueue', () => {
     shouldFail = false
     const retry = queue.retry(original.id)
     expect(retry?.retryOf).toBe(original.id)
+    expect(retry?.batchInputId).toBe('image-row-1')
+    expect(retry?.batchItemId).toBe('image-row-1')
     await waitFor(() =>
       queue.list().some((task) => task.id === retry?.id && task.status === 'completed')
     )
@@ -638,6 +641,7 @@ describe('TaskQueue', () => {
     const tasks = queue.create({
       kind: 'font',
       sources: [{ path: source, outputFormat: 'woff2' }],
+      batchItemIds: ['font-row-1'],
       outputMode: 'custom',
       outputDirectory: paths.output,
       outputSuffix: '',
@@ -651,6 +655,8 @@ describe('TaskQueue', () => {
     })
 
     expect(tasks.map((task) => task.fontIndex)).toEqual([0, 2])
+    expect(tasks.map((task) => task.batchInputId)).toEqual(['font-row-1', 'font-row-1'])
+    expect(tasks.map((task) => task.batchItemId)).toEqual(['font-row-1:1', 'font-row-1:2'])
     expect(tasks.map((task) => task.outputPath)).toEqual([
       join(paths.output, 'collection-font-1.woff2'),
       join(paths.output, 'collection-font-3.woff2')
@@ -672,6 +678,7 @@ describe('TaskQueue', () => {
         { path: source, outputFormat: 'woff' },
         { path: source, outputFormat: 'woff2' }
       ],
+      batchItemIds: ['font-row-woff', 'font-row-woff2'],
       outputMode: 'custom',
       outputDirectory: paths.output,
       outputSuffix: '',
@@ -690,6 +697,7 @@ describe('TaskQueue', () => {
       'woff',
       'woff2'
     ])
+    expect(tasks.map((task) => task.batchItemId)).toEqual(['font-row-woff', 'font-row-woff2'])
   })
 
   it('preserves image directory structure when requested', () => {

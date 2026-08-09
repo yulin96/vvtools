@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { FileText, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
-  MediaTask,
   PdfCompressionMode,
   PdfImageFormat,
   PdfOptions
@@ -17,6 +16,7 @@ import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import { takeRoutedDrop } from '../lib/media-drop'
+import { settledBatchSourceItems } from '../lib/batch-sources'
 
 const store = useAppStore()
 const dragging = ref(false)
@@ -26,6 +26,12 @@ const pendingPaths = computed<string[]>({
   set: (value) => (store.pendingPdfPaths = value)
 })
 const pdfTasks = computed(() => store.currentBatchTasks.pdf)
+const pdfStartItems = computed(() => {
+  if (pendingPaths.value.length > 0) {
+    return pendingPaths.value.map((path) => ({ path, batchItemId: path }))
+  }
+  return settledBatchSourceItems(pdfTasks.value)
+})
 const pendingTableItems = computed(() => pendingPaths.value.map((path) => ({ path })))
 type PdfWorkspaceMode = 'toImage' | PdfCompressionMode
 
@@ -103,10 +109,6 @@ function stageFiles(paths: string[]): void {
   pendingPaths.value = combined
 }
 
-function reprocessCompleted(tasks: MediaTask[]): void {
-  stageFiles([...new Set(tasks.map((task) => task.sourcePath))])
-}
-
 async function chooseFiles(): Promise<void> {
   try {
     stageFiles(await window.api.selectFiles('pdf'))
@@ -120,12 +122,14 @@ function withPageVariable(template: string): string {
 }
 
 async function startProcessing(): Promise<void> {
-  if (!store.settings || pendingPaths.value.length === 0 || starting.value) return
+  if (!store.settings || pdfStartItems.value.length === 0 || starting.value) return
   const settings = store.settings
+  const startItems = pdfStartItems.value
   const options = { ...settings.pdf.lastOptions }
   const request: CreateTasksRequest = {
     kind: 'pdf',
-    sourcePaths: [...pendingPaths.value],
+    sourcePaths: startItems.map((item) => item.path),
+    batchItemIds: startItems.map((item) => item.batchItemId),
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
     outputSuffix: settings.pdf.outputSuffix,
@@ -209,14 +213,14 @@ onBeforeUnmount(() => {
             <SourceOverwriteWarning />
             <Button
               size="sm"
-              :disabled="pendingPaths.length === 0 || starting"
+              :disabled="pdfStartItems.length === 0 || starting"
               @click="startProcessing"
             >
               <Play class="size-4" />
               {{
                 starting
                   ? '正在开始…'
-                  : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+                  : `开始处理${pdfStartItems.length ? ` (${pdfStartItems.length})` : ''}`
               }}
             </Button>
           </div>
@@ -362,7 +366,6 @@ onBeforeUnmount(() => {
         :pending-items="pendingTableItems"
         :tasks="pdfTasks"
         @remove-pending="pendingPaths = pendingPaths.filter((item) => item !== $event)"
-        @reprocess-completed="reprocessCompleted"
       >
         <template #actions>
           <div class="flex items-center gap-1">

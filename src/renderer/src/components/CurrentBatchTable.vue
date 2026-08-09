@@ -40,15 +40,20 @@ export interface PendingBatchItem {
   metadataError?: string
 }
 
+interface BatchRow {
+  key: string
+  pending?: PendingBatchItem
+  task?: MediaTask
+}
+
 const props = defineProps<{
   kind: TaskKind
   pendingItems: PendingBatchItem[]
   tasks: MediaTask[]
 }>()
 
-const emit = defineEmits<{
+defineEmits<{
   removePending: [idOrPath: string]
-  reprocessCompleted: [tasks: MediaTask[]]
 }>()
 
 const store = useAppStore()
@@ -70,39 +75,37 @@ const statusMeta: Record<
   cancelled: { label: '已取消', tone: 'warning', icon: Ban }
 }
 
-const totalCount = computed(() => props.pendingItems.length + props.tasks.length)
+const rows = computed<BatchRow[]>(() => {
+  const result: BatchRow[] = props.pendingItems.map((pending) => ({
+    key: pending.id ?? pending.path,
+    pending
+  }))
+  const indexes = new Map(result.map((row, index) => [row.key, index]))
+  for (const task of props.tasks) {
+    const key = task.batchItemId ?? task.id
+    const index = indexes.get(key)
+    if (index === undefined) {
+      indexes.set(key, result.length)
+      result.push({ key, task })
+    } else {
+      result[index] = { ...result[index], task }
+    }
+  }
+  return result
+})
+const totalCount = computed(() => rows.value.length)
+const pendingCount = computed(() => rows.value.filter((row) => !row.task).length)
 const activeCount = computed(
   () => props.tasks.filter((task) => ['pending', 'processing'].includes(task.status)).length
 )
 const completedCount = computed(
   () => props.tasks.filter((task) => task.status === 'completed').length
 )
-const completedTasks = computed(() => props.tasks.filter((task) => task.status === 'completed'))
-const canReprocessCompleted = computed(
-  () =>
-    completedTasks.value.length > 0 && activeCount.value === 0 && props.pendingItems.length === 0
-)
 const skippedCount = computed(() => props.tasks.filter((task) => task.status === 'skipped').length)
 const failedCount = computed(() => props.tasks.filter((task) => task.status === 'failed').length)
 const cancelledCount = computed(
   () => props.tasks.filter((task) => task.status === 'cancelled').length
 )
-const orderedTasks = computed(() => {
-  const priority: Record<TaskStatus, number> = {
-    processing: 0,
-    pending: 1,
-    failed: 2,
-    skipped: 3,
-    cancelled: 4,
-    completed: 5
-  }
-
-  return [...props.tasks].sort(
-    (left, right) =>
-      priority[left.status] - priority[right.status] ||
-      left.createdAt.localeCompare(right.createdAt)
-  )
-})
 const batchSavings = computed(() => {
   const completedTasks = props.tasks.filter(
     (task) => task.status === 'completed' && task.outputSize !== undefined
@@ -121,7 +124,7 @@ const kindLabel = computed(
 )
 const summary = computed(() => {
   const parts: string[] = []
-  if (props.pendingItems.length) parts.push(`${props.pendingItems.length} 个待开始`)
+  if (pendingCount.value) parts.push(`${pendingCount.value} 个待开始`)
   if (activeCount.value) parts.push(`${activeCount.value} 个处理中或等待`)
   if (completedCount.value) parts.push(`${completedCount.value} 个已完成`)
   if (skippedCount.value) parts.push(`${skippedCount.value} 个已跳过`)
@@ -150,6 +153,12 @@ function taskSpec(task: MediaTask): string {
   return extension(task.sourcePath)
 }
 
+function taskLabel(task: MediaTask): string {
+  return task.relativeDirectory
+    ? `${task.relativeDirectory}/${fileName(task.sourcePath)}`
+    : fileName(task.sourcePath)
+}
+
 function taskFontCompression(task: MediaTask): string {
   if (task.kind !== 'font') return '—'
   const options = task.options as FontOptions
@@ -157,10 +166,6 @@ function taskFontCompression(task: MediaTask): string {
   if (options.subsetMode === 'latin') return '西文基础'
   if (options.subsetMode === 'chinese') return `中文 ${options.subsetChineseLevel}`
   return '自定义'
-}
-
-function reprocessCompleted(): void {
-  emit('reprocessCompleted', completedTasks.value)
 }
 </script>
 
@@ -196,15 +201,6 @@ function reprocessCompleted(): void {
       </div>
       <div class="batch-task-actions">
         <slot name="actions" />
-        <Button
-          v-if="canReprocessCompleted"
-          variant="secondary"
-          size="sm"
-          title="将已完成任务的源文件重新加入待处理列表，可修改参数后再次开始"
-          @click="reprocessCompleted"
-        >
-          <RefreshCcw class="size-3.5" />再次处理
-        </Button>
       </div>
     </header>
 
@@ -222,155 +218,171 @@ function reprocessCompleted(): void {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in pendingItems" :key="`pending:${item.id ?? item.path}`">
+          <tr
+            v-for="row in rows"
+            :key="row.key"
+            :class="{ 'batch-task-row-skipped': row.task?.status === 'skipped' }"
+          >
             <td class="batch-col-name">
               <div class="batch-file-cell">
-                <Circle class="batch-status-icon text-muted-foreground" />
+                <component
+                  :is="
+                    row.task?.status === 'completed'
+                      ? Check
+                      : row.task
+                        ? statusMeta[row.task.status].icon
+                        : Circle
+                  "
+                  class="batch-status-icon"
+                  :class="{
+                    'text-muted-foreground': !row.task,
+                    'semantic-success': row.task?.status === 'completed',
+                    'text-signal-strong': row.task?.status === 'processing',
+                    'semantic-warning': row.task?.status === 'skipped',
+                    'semantic-danger': row.task?.status === 'failed'
+                  }"
+                />
                 <div class="min-w-0">
-                  <p class="truncate font-medium" :title="item.path">
-                    {{ item.label || fileName(item.path) }}
+                  <p
+                    class="truncate font-medium"
+                    :title="row.task?.sourcePath ?? row.pending?.path"
+                  >
+                    {{
+                      row.task
+                        ? taskLabel(row.task)
+                        : row.pending?.label || fileName(row.pending?.path ?? '')
+                    }}
                   </p>
-                  <p class="batch-file-path truncate" :title="item.path">{{ item.path }}</p>
+                  <p
+                    class="batch-file-path truncate"
+                    :title="row.task?.sourcePath ?? row.pending?.path"
+                  >
+                    {{ row.task?.sourcePath ?? row.pending?.path }}
+                  </p>
                 </div>
               </div>
             </td>
-            <td class="batch-col-size text-muted-foreground">
-              <div class="batch-size-cell" :title="item.metadataError">
-                <span>{{ item.metadataLoading ? '读取中…' : formatBytes(item.sourceSize) }}</span>
+            <td class="batch-col-size" :class="{ 'text-muted-foreground': !row.task }">
+              <div v-if="row.task" class="batch-size-cell">
+                <span
+                  :class="{
+                    'line-through text-muted-foreground':
+                      row.task.status === 'completed' && row.task.outputSize !== undefined
+                  }"
+                >
+                  {{ formatBytes(row.task.sourceSize) }}
+                </span>
+                <span v-if="row.task.outputSize !== undefined">
+                  {{ formatBytes(row.task.outputSize) }}
+                </span>
+              </div>
+              <div
+                v-else-if="row.pending"
+                class="batch-size-cell"
+                :title="row.pending.metadataError"
+              >
+                <span>
+                  {{
+                    row.pending.metadataLoading ? '读取中…' : formatBytes(row.pending.sourceSize)
+                  }}
+                </span>
                 <ArrowRight class="size-3.5" />
                 <span>—</span>
               </div>
             </td>
             <td class="batch-col-spec">
-              <slot name="pending-spec" :item="item">
-                {{ item.metadataLoading ? '读取中…' : item.spec || extension(item.path) }}
+              <template v-if="row.task">{{ taskSpec(row.task) }}</template>
+              <slot v-else-if="row.pending" name="pending-spec" :item="row.pending">
+                {{
+                  row.pending.metadataLoading
+                    ? '读取中…'
+                    : row.pending.spec || extension(row.pending.path)
+                }}
               </slot>
             </td>
             <td v-if="kind === 'font'" class="batch-col-font-compression">
-              <slot name="pending-font-compression" :item="item">
-                {{ item.compression || '—' }}
+              <template v-if="row.task">{{ taskFontCompression(row.task) }}</template>
+              <slot v-else-if="row.pending" name="pending-font-compression" :item="row.pending">
+                {{ row.pending.compression || '—' }}
               </slot>
             </td>
             <td class="batch-col-progress">
-              <div class="batch-progress-cell">
+              <div v-if="row.task" class="batch-progress-cell">
+                <Progress :value="taskProgressValue(row.task)" />
+                <span>{{ taskProgressText(row.task) }}</span>
+              </div>
+              <div v-else class="batch-progress-cell">
                 <Progress :value="0" />
                 <span>0%</span>
               </div>
-            </td>
-            <td class="batch-col-status">
-              <Badge tone="neutral"><Clock3 class="mr-1 size-3" />待开始</Badge>
-            </td>
-            <td class="batch-col-actions">
-              <Button
-                variant="ghost"
-                size="icon"
-                title="移除"
-                :aria-label="`移除 ${item.label || fileName(item.path)}${item.spec ? `（${item.spec}）` : ''}`"
-                @click="$emit('removePending', item.id ?? item.path)"
+              <p
+                v-if="row.task?.failure"
+                class="batch-failure-message"
+                :title="row.task.failure.message"
               >
-                <X class="size-4" />
-              </Button>
-            </td>
-          </tr>
-
-          <tr
-            v-for="task in orderedTasks"
-            :key="task.id"
-            :class="{ 'batch-task-row-skipped': task.status === 'skipped' }"
-          >
-            <td class="batch-col-name">
-              <div class="batch-file-cell">
-                <component
-                  :is="task.status === 'completed' ? Check : statusMeta[task.status].icon"
-                  class="batch-status-icon"
-                  :class="{
-                    'semantic-success': task.status === 'completed',
-                    'text-signal-strong': task.status === 'processing',
-                    'semantic-warning': task.status === 'skipped',
-                    'semantic-danger': task.status === 'failed'
-                  }"
-                />
-                <div class="min-w-0">
-                  <p class="truncate font-medium" :title="task.sourcePath">
-                    {{ fileName(task.sourcePath) }}
-                  </p>
-                  <p class="batch-file-path truncate" :title="task.sourcePath">
-                    {{ task.sourcePath }}
-                  </p>
-                </div>
-              </div>
-            </td>
-            <td class="batch-col-size">
-              <div class="batch-size-cell">
-                <span
-                  :class="{
-                    'line-through text-muted-foreground':
-                      task.status === 'completed' && task.outputSize !== undefined
-                  }"
-                >
-                  {{ formatBytes(task.sourceSize) }}
-                </span>
-                <span v-if="task.outputSize !== undefined">{{ formatBytes(task.outputSize) }}</span>
-              </div>
-            </td>
-            <td class="batch-col-spec">{{ taskSpec(task) }}</td>
-            <td v-if="kind === 'font'" class="batch-col-font-compression">
-              {{ taskFontCompression(task) }}
-            </td>
-            <td class="batch-col-progress">
-              <div class="batch-progress-cell">
-                <Progress :value="taskProgressValue(task)" />
-                <span>{{ taskProgressText(task) }}</span>
-              </div>
-              <p v-if="task.failure" class="batch-failure-message" :title="task.failure.message">
-                {{ task.failure.message }}
+                {{ row.task.failure.message }}
               </p>
             </td>
             <td class="batch-col-status">
-              <Badge :tone="statusMeta[task.status].tone" :title="task.skippedReason">
-                <component :is="statusMeta[task.status].icon" class="mr-1 size-3" />
-                {{ statusMeta[task.status].label }}
+              <Badge
+                v-if="row.task"
+                :tone="statusMeta[row.task.status].tone"
+                :title="row.task.skippedReason"
+              >
+                <component :is="statusMeta[row.task.status].icon" class="mr-1 size-3" />
+                {{ statusMeta[row.task.status].label }}
               </Badge>
+              <Badge v-else tone="neutral"><Clock3 class="mr-1 size-3" />待开始</Badge>
             </td>
             <td class="batch-col-actions">
-              <div class="flex justify-end gap-1">
+              <div v-if="row.task" class="flex justify-end gap-1">
                 <Button
-                  v-if="task.status === 'pending' || task.status === 'processing'"
+                  v-if="row.task.status === 'pending' || row.task.status === 'processing'"
                   variant="ghost"
                   size="icon"
                   title="取消任务"
-                  @click="store.cancelTask(task.id)"
+                  @click="store.cancelTask(row.task.id)"
                 >
                   <XCircle class="size-4" />
                 </Button>
                 <Button
-                  v-if="task.status === 'failed'"
+                  v-if="row.task.status === 'failed'"
                   variant="ghost"
                   size="icon"
                   title="查看失败原因"
-                  @click="selectedFailure = task"
+                  @click="selectedFailure = row.task"
                 >
                   <TriangleAlert class="size-4" />
                 </Button>
                 <Button
-                  v-if="task.status === 'failed'"
+                  v-if="row.task.status === 'failed'"
                   variant="ghost"
                   size="icon"
                   title="重试任务"
-                  @click="store.retryTask(task.id)"
+                  @click="store.retryTask(row.task.id)"
                 >
                   <RefreshCcw class="size-4" />
                 </Button>
                 <Button
-                  v-if="task.status === 'completed'"
+                  v-if="row.task.status === 'completed'"
                   variant="ghost"
                   size="icon"
                   title="打开输出位置"
-                  @click="store.openTaskOutput(task.id)"
+                  @click="store.openTaskOutput(row.task.id)"
                 >
                   <FolderOpen class="size-4" />
                 </Button>
               </div>
+              <Button
+                v-else-if="row.pending"
+                variant="ghost"
+                size="icon"
+                title="移除"
+                :aria-label="`移除 ${row.pending.label || fileName(row.pending.path)}${row.pending.spec ? `（${row.pending.spec}）` : ''}`"
+                @click="$emit('removePending', row.pending.id ?? row.pending.path)"
+              >
+                <X class="size-4" />
+              </Button>
             </td>
           </tr>
         </tbody>

@@ -48,6 +48,33 @@ function submissionNotice(
   return parts.join('；') || '没有可处理的文件'
 }
 
+export function reconcileCurrentBatchTaskIds(
+  currentIds: string[],
+  previousTasks: MediaTask[],
+  nextTasks: MediaTask[],
+  kind: TaskKind
+): string[] {
+  const previousById = new Map(previousTasks.map((task) => [task.id, task]))
+  const nextById = new Map(nextTasks.map((task) => [task.id, task]))
+  const nextByBatchItemId = new Map<string, string[]>()
+  for (const task of nextTasks) {
+    if (task.kind !== kind || !task.batchItemId) continue
+    nextByBatchItemId.set(task.batchItemId, [
+      ...(nextByBatchItemId.get(task.batchItemId) ?? []),
+      task.id
+    ])
+  }
+  return [
+    ...new Set(
+      currentIds.flatMap((id) => {
+        if (nextById.get(id)?.kind === kind) return [id]
+        const batchItemId = previousById.get(id)?.batchItemId
+        return batchItemId ? (nextByBatchItemId.get(batchItemId) ?? []) : []
+      })
+    )
+  ]
+}
+
 export const useAppStore = defineStore('app', () => {
   const tasks = ref<MediaTask[]>([])
   const settings = ref<AppSettings | null>(null)
@@ -152,6 +179,19 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  function applyTasksSnapshot(nextTasks: MediaTask[]): void {
+    const previousTasks = tasks.value
+    for (const kind of ['image', 'video', 'audio', 'pdf', 'font'] as const) {
+      currentBatchTaskIds.value[kind] = reconcileCurrentBatchTaskIds(
+        currentBatchTaskIds.value[kind],
+        previousTasks,
+        nextTasks,
+        kind
+      )
+    }
+    tasks.value = nextTasks
+  }
+
   async function initialize(): Promise<void> {
     try {
       const [initialTasks, initialSettings, version, releaseNotes, recoveryNotice] =
@@ -171,7 +211,7 @@ export const useAppStore = defineStore('app', () => {
       currentReleaseNotes.value = releaseNotes
       if (recoveryNotice) errorMessage.value = recoveryNotice
       unsubscribe?.()
-      unsubscribe = window.api.onTasksChanged((nextTasks) => (tasks.value = nextTasks))
+      unsubscribe = window.api.onTasksChanged(applyTasksSnapshot)
       unsubscribeProgress?.()
       unsubscribeProgress = window.api.onTaskProgressChanged(({ id, progress }) => {
         const index = tasks.value.findIndex((task) => task.id === id)
@@ -227,17 +267,26 @@ export const useAppStore = defineStore('app', () => {
           ? {
               ...inspectedRequest,
               sources: inspectedRequest.sources.filter((_, index) => inspections[index]?.valid),
+              batchItemIds: inspectedRequest.batchItemIds?.filter(
+                (_, index) => inspections[index]?.valid
+              ),
               inputMetadata
             }
           : inspectedRequest.kind === 'font'
             ? {
                 ...inspectedRequest,
                 sources: inspectedRequest.sources.filter((_, index) => inspections[index]?.valid),
+                batchItemIds: inspectedRequest.batchItemIds?.filter(
+                  (_, index) => inspections[index]?.valid
+                ),
                 inputMetadata
               }
             : {
                 ...inspectedRequest,
                 sourcePaths: inspectedRequest.sourcePaths.filter(
+                  (_, index) => inspections[index]?.valid
+                ),
+                batchItemIds: inspectedRequest.batchItemIds?.filter(
                   (_, index) => inspections[index]?.valid
                 ),
                 inputMetadata
@@ -288,7 +337,12 @@ export const useAppStore = defineStore('app', () => {
       const task = await window.api.retryTask(id)
       if (task) {
         tasks.value = [...tasks.value.filter((item) => item.id !== task.id), task]
-        appendCurrentBatchTasks([task])
+        const currentIds = currentBatchTaskIds.value[task.kind]
+        currentBatchTaskIds.value[task.kind] = currentIds.includes(task.id)
+          ? currentIds
+          : currentIds.includes(id)
+            ? currentIds.map((taskId) => (taskId === id ? task.id : taskId))
+            : [...currentIds, task.id]
       }
     } catch (error) {
       reportError(error)

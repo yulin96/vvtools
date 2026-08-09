@@ -5,8 +5,7 @@ import type {
   AudioChannels,
   AudioFormat,
   AudioOptions,
-  CreateTasksRequest,
-  MediaTask
+  CreateTasksRequest
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import Button from '../components/ui/Button.vue'
@@ -18,6 +17,7 @@ import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import { takeRoutedDrop } from '../lib/media-drop'
+import { settledBatchSourceItems } from '../lib/batch-sources'
 
 const store = useAppStore()
 const dragging = ref(false)
@@ -57,6 +57,12 @@ const supportedExtensions = new Set([
 ])
 
 const audioTasks = computed(() => store.currentBatchTasks.audio)
+const audioStartItems = computed(() => {
+  if (pendingPaths.value.length > 0) {
+    return pendingPaths.value.map((path) => ({ path, batchItemId: path }))
+  }
+  return settledBatchSourceItems(audioTasks.value)
+})
 const pendingTableItems = computed(() => pendingPaths.value.map((path) => ({ path })))
 const formatLabel = computed(() => store.settings?.audio.lastOptions.format.toUpperCase() ?? '')
 const bitrateLabel = computed(() => {
@@ -91,10 +97,6 @@ function stageFiles(paths: string[]): void {
   pendingPaths.value = combined
 }
 
-function reprocessCompleted(tasks: MediaTask[]): void {
-  stageFiles([...new Set(tasks.map((task) => task.sourcePath))])
-}
-
 async function chooseFiles(): Promise<void> {
   try {
     stageFiles(await window.api.selectFiles('audio'))
@@ -104,11 +106,13 @@ async function chooseFiles(): Promise<void> {
 }
 
 async function startProcessing(): Promise<void> {
-  if (!store.settings || pendingPaths.value.length === 0 || starting.value) return
+  if (!store.settings || audioStartItems.value.length === 0 || starting.value) return
   const settings = store.settings
+  const startItems = audioStartItems.value
   const request: CreateTasksRequest = {
     kind: 'audio',
-    sourcePaths: [...pendingPaths.value],
+    sourcePaths: startItems.map((item) => item.path),
+    batchItemIds: startItems.map((item) => item.batchItemId),
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
     outputSuffix: settings.audio.outputSuffix,
@@ -184,14 +188,14 @@ onBeforeUnmount(() => {
             <SourceOverwriteWarning />
             <Button
               size="sm"
-              :disabled="pendingPaths.length === 0 || starting"
+              :disabled="audioStartItems.length === 0 || starting"
               @click="startProcessing"
             >
               <Play class="size-4" />
               {{
                 starting
                   ? '正在开始…'
-                  : `开始处理${pendingPaths.length ? ` (${pendingPaths.length})` : ''}`
+                  : `开始处理${audioStartItems.length ? ` (${audioStartItems.length})` : ''}`
               }}
             </Button>
           </div>
@@ -269,7 +273,6 @@ onBeforeUnmount(() => {
         :pending-items="pendingTableItems"
         :tasks="audioTasks"
         @remove-pending="pendingPaths = pendingPaths.filter((item) => item !== $event)"
-        @reprocess-completed="reprocessCompleted"
       >
         <template #actions>
           <div class="flex items-center gap-1">
