@@ -68,6 +68,15 @@ describe('SettingsStore', () => {
 
     expect(store.get().video).not.toHaveProperty('presets')
     expect(store.get().image).not.toHaveProperty('presets')
+    expect(store.get().rename).toMatchObject({
+      mode: 'sequence',
+      baseMode: 'original',
+      sequenceEnabled: true,
+      sequenceStart: 1,
+      sequencePadding: 3,
+      sortField: 'name',
+      sortDirection: 'asc'
+    })
   })
 
   it('persists edited processing settings', () => {
@@ -106,6 +115,15 @@ describe('SettingsStore', () => {
           channels: 'stereo',
           normalizeLoudness: true
         }
+      },
+      rename: {
+        mode: 'custom',
+        baseMode: 'custom',
+        customName: '产品图',
+        prefix: '项目_',
+        sequenceStart: 10,
+        sortField: 'modifiedAt',
+        sortDirection: 'desc'
       }
     })
 
@@ -137,6 +155,15 @@ describe('SettingsStore', () => {
           channels: 'stereo',
           normalizeLoudness: true
         }
+      },
+      rename: {
+        mode: 'custom',
+        baseMode: 'custom',
+        customName: '产品图',
+        prefix: '项目_',
+        sequenceStart: 10,
+        sortField: 'modifiedAt',
+        sortDirection: 'desc'
       }
     })
   })

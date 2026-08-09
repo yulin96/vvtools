@@ -1,6 +1,6 @@
 # VVTools
 
-VVTools 是一款面向公开用户的跨平台桌面媒体批处理工具，支持视频、图片、音频、PDF 和字体处理，以及任务队列、取消与重试、失败日志和输出目录管理。
+VVTools 是一款面向公开用户的跨平台桌面文件批处理工具，支持视频、图片、音频、PDF、字体处理和批量重命名，以及任务队列、取消与重试、失败日志和输出目录管理。
 
 项目代码公开托管于 [GitHub](https://github.com/yulin96/vvtools)，可从
 [Releases](https://github.com/yulin96/vvtools/releases) 下载已发布版本。

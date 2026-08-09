@@ -171,13 +171,39 @@ export const PDF_EXTENSIONS = new Set(['.pdf'])
 export const FONT_EXTENSIONS = new Set(['.ttf', '.otf', '.woff', '.woff2', '.ttc', '.otc'])
 export const TEXT_EXTENSIONS = new Set(['.txt'])
 
+export const DEFAULT_RENAME_SETTINGS = {
+  mode: 'sequence',
+  baseMode: 'original',
+  customName: '文件',
+  prefix: '',
+  suffix: '',
+  findText: '',
+  replaceText: '',
+  caseMode: 'unchanged',
+  sequenceEnabled: true,
+  sequencePosition: 'suffix',
+  sequenceStart: 1,
+  sequenceStep: 1,
+  sequencePadding: 3,
+  separator: '_',
+  dateSource: 'none',
+  datePosition: 'prefix',
+  dateFormat: 'YYYYMMDD',
+  sortField: 'name',
+  sortDirection: 'asc'
+} as const
+
 export const IPC_CHANNELS = {
   selectFiles: 'files:select',
+  selectRenameFiles: 'files:select-rename',
   selectOutputDirectory: 'directory:select-output',
   selectImageDirectory: 'directory:select-images',
   selectTextFile: 'file:select-text',
   expandImageInputs: 'images:expand-inputs',
   inspectImageInput: 'images:inspect-input',
+  inspectRenameFiles: 'rename:inspect-files',
+  inspectRenamePlan: 'rename:inspect-plan',
+  renameFiles: 'rename:execute',
   openOutputDirectory: 'directory:open-output',
   createTasks: 'tasks:create',
   inspectTasks: 'tasks:inspect',

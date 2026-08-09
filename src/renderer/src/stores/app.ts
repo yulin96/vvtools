@@ -9,6 +9,7 @@ import type {
   ImageInputFile,
   MediaInspection,
   MediaTask,
+  RenameFileInfo,
   RuntimeCapabilities,
   TaskKind,
   UpdateState
@@ -89,6 +90,7 @@ export const useAppStore = defineStore('app', () => {
   const pendingAudioPaths = ref<string[]>([])
   const pendingPdfPaths = ref<string[]>([])
   const pendingFontItems = ref<PendingFontItem[]>([])
+  const pendingRenameFiles = ref<RenameFileInfo[]>([])
   const currentBatchTaskIds = ref<Record<TaskKind, string[]>>({
     image: [],
     video: [],
@@ -451,6 +453,7 @@ export const useAppStore = defineStore('app', () => {
     pendingAudioPaths,
     pendingPdfPaths,
     pendingFontItems,
+    pendingRenameFiles,
     currentBatchTasks,
     prepareCurrentBatch,
     activeCount,

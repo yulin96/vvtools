@@ -11,6 +11,8 @@ import type {
   ImageFormat,
   ImageOptions,
   PdfOptions,
+  RenameFileRequest,
+  RenameSettings,
   RuntimeCapabilities,
   TaskProgressUpdate,
   TaskKind,
@@ -34,6 +36,7 @@ import { collectImageInputs } from './media/image-inputs'
 import { inspectImageMetadata } from './media/image-metadata'
 import { inspectTasks } from './media/preflight'
 import { SettingsStore } from './services/settings-store'
+import { inspectRenameFiles, inspectRenamePlan, renameFiles } from './services/file-renamer'
 import { TaskQueue } from './services/task-queue'
 import { isConcurrencySettings, resolveTaskConcurrency } from './services/task-concurrency'
 import { UpdateService } from './services/update-service'
@@ -535,11 +538,101 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
     result.font = font
   }
 
+  if (input.rename !== undefined) {
+    if (!isRecord(input.rename)) throw new Error('批量重命名设置无效')
+    const rename = input.rename
+    const next: Partial<RenameSettings> = {}
+    const enumValue = <T extends string>(
+      key: keyof RenameSettings,
+      values: readonly T[]
+    ): T | undefined => {
+      const value = rename[key]
+      if (value === undefined) return undefined
+      if (typeof value !== 'string' || !values.includes(value as T)) {
+        throw new Error(`批量重命名设置无效：${String(key)}`)
+      }
+      return value as T
+    }
+    const textValue = (key: keyof RenameSettings, maxLength = 200): string | undefined => {
+      const value = rename[key]
+      if (value === undefined) return undefined
+      if (typeof value !== 'string' || value.length > maxLength) {
+        throw new Error(`批量重命名设置无效：${String(key)}`)
+      }
+      return value
+    }
+    const integerValue = (
+      key: keyof RenameSettings,
+      minimum: number,
+      maximum: number
+    ): number | undefined => {
+      const value = rename[key]
+      if (value === undefined) return undefined
+      if (
+        typeof value !== 'number' ||
+        !Number.isInteger(value) ||
+        value < minimum ||
+        value > maximum
+      ) {
+        throw new Error(`批量重命名设置无效：${String(key)}`)
+      }
+      return value
+    }
+    next.mode = enumValue('mode', ['sequence', 'custom'])
+    next.baseMode = enumValue('baseMode', ['original', 'custom'])
+    next.customName = textValue('customName')
+    next.prefix = textValue('prefix')
+    next.suffix = textValue('suffix')
+    next.findText = textValue('findText')
+    next.replaceText = textValue('replaceText')
+    next.caseMode = enumValue('caseMode', ['unchanged', 'lower', 'upper', 'title'])
+    if (rename.sequenceEnabled !== undefined) {
+      if (typeof rename.sequenceEnabled !== 'boolean') throw new Error('批量重命名顺序设置无效')
+      next.sequenceEnabled = rename.sequenceEnabled
+    }
+    next.sequencePosition = enumValue('sequencePosition', ['prefix', 'suffix'])
+    next.sequenceStart = integerValue('sequenceStart', 0, 999_999)
+    next.sequenceStep = integerValue('sequenceStep', 1, 9_999)
+    next.sequencePadding = integerValue('sequencePadding', 1, 8)
+    next.separator = textValue('separator', 10)
+    next.dateSource = enumValue('dateSource', ['none', 'createdAt', 'modifiedAt'])
+    next.datePosition = enumValue('datePosition', ['prefix', 'suffix'])
+    next.dateFormat = enumValue('dateFormat', ['YYYYMMDD', 'YYYY-MM-DD', 'YYYYMMDD-HHmmss'])
+    next.sortField = enumValue('sortField', [
+      'name',
+      'createdAt',
+      'modifiedAt',
+      'size',
+      'extension'
+    ])
+    next.sortDirection = enumValue('sortDirection', ['asc', 'desc'])
+    result.rename = Object.fromEntries(
+      Object.entries(next).filter(([, value]) => value !== undefined)
+    ) as Partial<RenameSettings>
+  }
+
   return result
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function sanitizeRenameRequests(input: unknown): RenameFileRequest[] {
+  if (!Array.isArray(input) || input.length > 500) throw new Error('批量重命名参数无效')
+  return input.map((item): RenameFileRequest => {
+    if (
+      !isRecord(item) ||
+      typeof item.sourcePath !== 'string' ||
+      !isAbsolute(item.sourcePath) ||
+      item.sourcePath.length > 8192 ||
+      typeof item.targetName !== 'string' ||
+      item.targetName.length > 255
+    ) {
+      throw new Error('批量重命名参数无效')
+    }
+    return { sourcePath: item.sourcePath, targetName: item.targetName }
+  })
 }
 
 export function registerIpc(
@@ -557,6 +650,13 @@ export function registerIpc(
     channel: string,
     listener: (event: IpcMainInvokeEvent, ...args: T) => unknown
   ): void => ipcMain.handle(channel, listener)
+  const activeFilePaths = (): Set<string> =>
+    new Set(
+      queue
+        .list()
+        .filter((task) => task.status === 'pending' || task.status === 'processing')
+        .flatMap((task) => [task.sourcePath, task.outputPath, ...(task.outputPaths ?? [])])
+    )
 
   handle(IPC_CHANNELS.selectFiles, async (event, kind: TaskKind) => {
     assertTrusted(event, window())
@@ -601,6 +701,14 @@ export function registerIpc(
     return result.canceled ? [] : result.filePaths
   })
 
+  handle(IPC_CHANNELS.selectRenameFiles, async (event) => {
+    assertTrusted(event, window())
+    const result = await dialog.showOpenDialog(window(), {
+      properties: ['openFile', 'multiSelections']
+    })
+    return result.canceled ? [] : result.filePaths
+  })
+
   handle(IPC_CHANNELS.selectTextFile, async (event) => {
     assertTrusted(event, window())
     const result = await dialog.showOpenDialog(window(), {
@@ -634,6 +742,28 @@ export function registerIpc(
     assertTrusted(event, window())
     validateSourcePath(path, 'image')
     return inspectImageMetadata(path)
+  })
+
+  handle(IPC_CHANNELS.inspectRenameFiles, (event, input: unknown) => {
+    assertTrusted(event, window())
+    if (!Array.isArray(input) || input.length > 500) throw new Error('批量重命名文件列表无效')
+    const paths = input.map((path) => {
+      if (typeof path !== 'string' || !isAbsolute(path) || path.length > 8192) {
+        throw new Error('批量重命名文件路径无效')
+      }
+      return path
+    })
+    return inspectRenameFiles(paths)
+  })
+
+  handle(IPC_CHANNELS.inspectRenamePlan, (event, input: unknown) => {
+    assertTrusted(event, window())
+    return inspectRenamePlan(sanitizeRenameRequests(input), { blockedPaths: activeFilePaths() })
+  })
+
+  handle(IPC_CHANNELS.renameFiles, (event, input: unknown) => {
+    assertTrusted(event, window())
+    return renameFiles(sanitizeRenameRequests(input), { blockedPaths: activeFilePaths() })
   })
 
   handle(IPC_CHANNELS.openOutputDirectory, async (event) => {

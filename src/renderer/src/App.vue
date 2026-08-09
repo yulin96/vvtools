@@ -4,6 +4,7 @@ import {
   Images,
   Download,
   FileText,
+  FilePenLine,
   Monitor,
   Moon,
   Music,
@@ -63,6 +64,7 @@ const navigation = [
   { to: '/audio', label: '音频处理', icon: Music },
   { to: '/pdf', label: 'PDF 处理', icon: FileText },
   { to: '/font', label: '字体处理', icon: Type },
+  { to: '/rename', label: '批量重命名', icon: FilePenLine },
   { to: '/settings', label: '设置', icon: Settings }
 ]
 const currentPageLabel = computed(
@@ -181,7 +183,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="sidebar-label brand-copy">
           <p class="brand-name">VVTools</p>
-          <p class="brand-caption">媒体工作台</p>
+          <p class="brand-caption">文件工作台</p>
         </div>
       </div>
 

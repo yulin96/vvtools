@@ -186,6 +186,78 @@ export interface FontSettings {
   lastOptions: FontOptions
 }
 
+export type RenameBaseMode = 'original' | 'custom'
+export type RenameMode = 'sequence' | 'custom'
+export type RenameCaseMode = 'unchanged' | 'lower' | 'upper' | 'title'
+export type RenameSequencePosition = 'prefix' | 'suffix'
+export type RenameDateSource = 'none' | 'createdAt' | 'modifiedAt'
+export type RenameDatePosition = 'prefix' | 'suffix'
+export type RenameDateFormat = 'YYYYMMDD' | 'YYYY-MM-DD' | 'YYYYMMDD-HHmmss'
+export type RenameSortField = 'name' | 'createdAt' | 'modifiedAt' | 'size' | 'extension'
+export type RenameSortDirection = 'asc' | 'desc'
+
+export interface RenameSettings {
+  mode: RenameMode
+  baseMode: RenameBaseMode
+  customName: string
+  prefix: string
+  suffix: string
+  findText: string
+  replaceText: string
+  caseMode: RenameCaseMode
+  sequenceEnabled: boolean
+  sequencePosition: RenameSequencePosition
+  sequenceStart: number
+  sequenceStep: number
+  sequencePadding: number
+  separator: string
+  dateSource: RenameDateSource
+  datePosition: RenameDatePosition
+  dateFormat: RenameDateFormat
+  sortField: RenameSortField
+  sortDirection: RenameSortDirection
+}
+
+export interface RenameFileInfo {
+  path: string
+  name: string
+  stem: string
+  extension: string
+  size: number
+  createdAt: string
+  modifiedAt: string
+}
+
+export interface RenameRejectedFile {
+  path: string
+  reason: string
+}
+
+export interface InspectRenameFilesResult {
+  files: RenameFileInfo[]
+  rejected: RenameRejectedFile[]
+}
+
+export interface RenameFileRequest {
+  sourcePath: string
+  targetName: string
+}
+
+export interface RenameFileResult {
+  sourcePath: string
+  targetPath: string
+  targetName: string
+  renamed: boolean
+}
+
+export interface RenamePlanInspection {
+  sourcePath: string
+  targetPath: string
+  valid: boolean
+  changed: boolean
+  error?: string
+}
+
 export interface AppSettings {
   common: CommonSettings
   image: ImageSettings
@@ -193,6 +265,7 @@ export interface AppSettings {
   audio: AudioSettings
   pdf: PdfSettings
   font: FontSettings
+  rename: RenameSettings
 }
 
 export interface AppSettingsPatch {
@@ -217,6 +290,7 @@ export interface AppSettingsPatch {
     outputSuffix?: string
     lastOptions?: FontOptions
   }
+  rename?: Partial<RenameSettings>
 }
 
 export interface TaskCommand {
@@ -404,11 +478,15 @@ export interface VVToolsApi {
   platform: 'darwin' | 'win32' | 'linux'
   selectFiles: (kind: TaskKind) => Promise<string[]>
   selectTextFile: () => Promise<string | null>
+  selectRenameFiles: () => Promise<string[]>
   getDroppedFilePath: (file: File) => string
   selectOutputDirectory: (current?: string) => Promise<string | null>
   selectImageDirectory: () => Promise<ImageInputFile[]>
   expandImageInputs: (paths: string[]) => Promise<ImageInputFile[]>
   inspectImageInput: (path: string) => Promise<ImageSourceMetadata>
+  inspectRenameFiles: (paths: string[]) => Promise<InspectRenameFilesResult>
+  inspectRenamePlan: (items: RenameFileRequest[]) => Promise<RenamePlanInspection[]>
+  renameFiles: (items: RenameFileRequest[]) => Promise<RenameFileResult[]>
   openOutputDirectory: () => Promise<void>
   createTasks: (request: CreateTasksRequest) => Promise<MediaTask[]>
   inspectTasks: (request: CreateTasksRequest) => Promise<MediaInspection[]>

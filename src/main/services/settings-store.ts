@@ -7,6 +7,7 @@ import type {
   CommonSettings,
   FontOptions,
   PdfOptions,
+  RenameSettings,
   VideoOptions
 } from '../../shared/types'
 import {
@@ -15,6 +16,7 @@ import {
   DEFAULT_FONT_OPTIONS,
   DEFAULT_IMAGE_OPTIONS,
   DEFAULT_PDF_OPTIONS,
+  DEFAULT_RENAME_SETTINGS,
   DEFAULT_VIDEO_OPTIONS
 } from '../../shared/constants'
 import { normalizeConcurrencySettings } from './task-concurrency'
@@ -54,7 +56,8 @@ export class SettingsStore {
       font: {
         outputSuffix: '_c',
         lastOptions: { ...DEFAULT_FONT_OPTIONS }
-      }
+      },
+      rename: { ...DEFAULT_RENAME_SETTINGS }
     }
     this.settings = this.read(defaults)
   }
@@ -146,7 +149,8 @@ export class SettingsStore {
         lastOptions: input.font?.lastOptions
           ? { ...this.settings.font.lastOptions, ...input.font.lastOptions }
           : this.settings.font.lastOptions
-      }
+      },
+      rename: normalizeRenameSettings(input.rename, this.settings.rename)
     }
     this.persist(nextSettings)
     this.settings = nextSettings
@@ -247,7 +251,84 @@ function migrateSettings(value: unknown, defaults: AppSettings): AppSettings {
         asRecord(font?.lastOptions ?? value.font) as Partial<FontOptions>,
         defaults.font.lastOptions
       )
-    }
+    },
+    rename: normalizeRenameSettings(asRecord(value.rename), defaults.rename)
+  }
+}
+
+export function normalizeRenameSettings(
+  value: Partial<RenameSettings> | undefined,
+  fallback: RenameSettings
+): RenameSettings {
+  const stringValue = (input: unknown, current: string, maxLength = 200): string =>
+    typeof input === 'string' ? input.slice(0, maxLength) : current
+  const integerValue = (
+    input: unknown,
+    current: number,
+    minimum: number,
+    maximum: number
+  ): number =>
+    typeof input === 'number' && Number.isFinite(input)
+      ? Math.min(maximum, Math.max(minimum, Math.trunc(input)))
+      : current
+  return {
+    mode: value?.mode === 'sequence' || value?.mode === 'custom' ? value.mode : fallback.mode,
+    baseMode:
+      value?.baseMode === 'original' || value?.baseMode === 'custom'
+        ? value.baseMode
+        : fallback.baseMode,
+    customName: stringValue(value?.customName, fallback.customName),
+    prefix: stringValue(value?.prefix, fallback.prefix),
+    suffix: stringValue(value?.suffix, fallback.suffix),
+    findText: stringValue(value?.findText, fallback.findText),
+    replaceText: stringValue(value?.replaceText, fallback.replaceText),
+    caseMode:
+      value?.caseMode === 'unchanged' ||
+      value?.caseMode === 'lower' ||
+      value?.caseMode === 'upper' ||
+      value?.caseMode === 'title'
+        ? value.caseMode
+        : fallback.caseMode,
+    sequenceEnabled:
+      typeof value?.sequenceEnabled === 'boolean'
+        ? value.sequenceEnabled
+        : fallback.sequenceEnabled,
+    sequencePosition:
+      value?.sequencePosition === 'prefix' || value?.sequencePosition === 'suffix'
+        ? value.sequencePosition
+        : fallback.sequencePosition,
+    sequenceStart: integerValue(value?.sequenceStart, fallback.sequenceStart, 0, 999_999),
+    sequenceStep: integerValue(value?.sequenceStep, fallback.sequenceStep, 1, 9_999),
+    sequencePadding: integerValue(value?.sequencePadding, fallback.sequencePadding, 1, 8),
+    separator: stringValue(value?.separator, fallback.separator, 10),
+    dateSource:
+      value?.dateSource === 'none' ||
+      value?.dateSource === 'createdAt' ||
+      value?.dateSource === 'modifiedAt'
+        ? value.dateSource
+        : fallback.dateSource,
+    datePosition:
+      value?.datePosition === 'prefix' || value?.datePosition === 'suffix'
+        ? value.datePosition
+        : fallback.datePosition,
+    dateFormat:
+      value?.dateFormat === 'YYYYMMDD' ||
+      value?.dateFormat === 'YYYY-MM-DD' ||
+      value?.dateFormat === 'YYYYMMDD-HHmmss'
+        ? value.dateFormat
+        : fallback.dateFormat,
+    sortField:
+      value?.sortField === 'name' ||
+      value?.sortField === 'createdAt' ||
+      value?.sortField === 'modifiedAt' ||
+      value?.sortField === 'size' ||
+      value?.sortField === 'extension'
+        ? value.sortField
+        : fallback.sortField,
+    sortDirection:
+      value?.sortDirection === 'asc' || value?.sortDirection === 'desc'
+        ? value.sortDirection
+        : fallback.sortDirection
   }
 }
 

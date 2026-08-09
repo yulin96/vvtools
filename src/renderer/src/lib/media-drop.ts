@@ -6,9 +6,11 @@ import {
   VIDEO_EXTENSIONS
 } from '../../../shared/constants'
 
-export type MediaWorkspacePath = '/image' | '/video' | '/audio' | '/pdf' | '/font'
+export type MediaWorkspacePath = '/image' | '/video' | '/audio' | '/pdf' | '/font' | '/rename'
 
-const workspaceExtensions: Array<[MediaWorkspacePath, ReadonlySet<string>]> = [
+type ProcessingWorkspacePath = Exclude<MediaWorkspacePath, '/rename'>
+
+const workspaceExtensions: Array<[ProcessingWorkspacePath, ReadonlySet<string>]> = [
   ['/image', IMAGE_EXTENSIONS],
   ['/video', VIDEO_EXTENSIONS],
   ['/audio', AUDIO_EXTENSIONS],
@@ -34,6 +36,7 @@ export function detectMediaWorkspacePath(paths: string[]): MediaWorkspacePath | 
 
 export function workspaceAcceptsDrop(path: MediaWorkspacePath, paths: string[]): boolean {
   if (paths.length === 0) return false
+  if (path === '/rename') return true
   const acceptedExtensions =
     path === '/audio'
       ? new Set([...AUDIO_EXTENSIONS, ...VIDEO_EXTENSIONS])

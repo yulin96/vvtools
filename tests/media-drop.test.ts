@@ -10,4 +10,8 @@ describe('media drop routing', () => {
   it('does not claim unsupported files for the current workspace', () => {
     expect(workspaceAcceptsDrop('/audio', ['/tmp/document.pdf'])).toBe(false)
   })
+
+  it('keeps every file type on the rename workspace', () => {
+    expect(workspaceAcceptsDrop('/rename', ['/tmp/archive.unknown'])).toBe(true)
+  })
 })
