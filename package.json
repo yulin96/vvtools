@@ -1,6 +1,6 @@
 {
   "name": "vvtools",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "跨平台桌面媒体批处理工具，支持视频、图片和音频的批量转换与压缩",
   "packageManager": "pnpm@11.17.0",
   "main": "./out/main/index.js",
