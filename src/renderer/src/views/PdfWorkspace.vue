@@ -12,6 +12,7 @@ import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
+import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import { takeRoutedDrop } from '../lib/media-drop'
@@ -122,7 +123,7 @@ async function startProcessing(): Promise<void> {
     sourcePaths: [...pendingPaths.value],
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
-    outputSuffix: settings.common.outputSuffix,
+    outputSuffix: settings.pdf.outputSuffix,
     outputNameTemplate:
       options.operation === 'toImage'
         ? withPageVariable(settings.common.outputNameTemplate)
@@ -279,6 +280,13 @@ onBeforeUnmount(() => {
             </label>
           </div>
         </fieldset>
+
+        <fieldset class="config-group">
+          <legend class="sr-only">输出命名</legend>
+          <div class="config-group-fields config-group-fields-single">
+            <OutputSuffixField kind="pdf" />
+          </div>
+        </fieldset>
       </div>
 
       <div
@@ -322,6 +330,22 @@ onBeforeUnmount(() => {
           <p class="pdf-lossy-note">
             页面将重建为 JPEG 图片，可显著缩小图片型 PDF，但文字将无法选择，矢量内容也会被栅格化。
           </p>
+        </fieldset>
+
+        <fieldset class="config-group">
+          <legend class="sr-only">输出命名</legend>
+          <div class="config-group-fields config-group-fields-single">
+            <OutputSuffixField kind="pdf" />
+          </div>
+        </fieldset>
+      </div>
+
+      <div v-else class="image-config-primary pdf-lossless-config">
+        <fieldset class="config-group">
+          <legend class="sr-only">输出命名</legend>
+          <div class="config-group-fields config-group-fields-single">
+            <OutputSuffixField kind="pdf" />
+          </div>
         </fieldset>
       </div>
     </section>

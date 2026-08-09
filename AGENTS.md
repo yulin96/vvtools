@@ -7,6 +7,7 @@
 - Keep media processors independent of Electron UI code so they can be unit tested.
 - Keep VVTools single-instance; a second launch must focus the existing main window.
 - When output conflicts are skipped, keep those files in the pending list and explain why they did not start. When overwrite mode is enabled, show a non-blocking warning at the top of every processing workspace; do not interrupt submission with a confirmation dialog.
+- Keep output suffix settings independent for image, video, audio, PDF, and font processing. Migrate a legacy global suffix into every processing workspace.
 - Use Tailwind CSS v4 and local shadcn-vue-style components for renderer styling; use `@lucide/vue` for icons.
 - Run targeted tests, lint, and type checks after changes. Do not run a build unless the user explicitly requests it.
 

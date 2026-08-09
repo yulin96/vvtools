@@ -157,28 +157,32 @@ export interface CommonSettings {
   closeBehavior: CloseBehavior
   outputMode: OutputMode
   outputDirectory: string
-  outputSuffix: string
   outputNameTemplate: string
   outputConflictPolicy: OutputConflictPolicy
 }
 
 export interface ImageSettings {
+  outputSuffix: string
   lastOptions: ImageOptions
 }
 
 export interface VideoSettings {
+  outputSuffix: string
   lastOptions: VideoOptions
 }
 
 export interface AudioSettings {
+  outputSuffix: string
   lastOptions: AudioOptions
 }
 
 export interface PdfSettings {
+  outputSuffix: string
   lastOptions: PdfOptions
 }
 
 export interface FontSettings {
+  outputSuffix: string
   lastOptions: FontOptions
 }
 
@@ -194,18 +198,23 @@ export interface AppSettings {
 export interface AppSettingsPatch {
   common?: Partial<CommonSettings>
   image?: {
+    outputSuffix?: string
     lastOptions?: ImageOptions
   }
   video?: {
+    outputSuffix?: string
     lastOptions?: VideoOptions
   }
   audio?: {
+    outputSuffix?: string
     lastOptions?: AudioOptions
   }
   pdf?: {
+    outputSuffix?: string
     lastOptions?: PdfOptions
   }
   font?: {
+    outputSuffix?: string
     lastOptions?: FontOptions
   }
 }

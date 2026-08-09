@@ -32,23 +32,27 @@ export class SettingsStore {
         closeBehavior: 'ask',
         outputMode: 'custom',
         outputDirectory: join(downloadsPath, 'VVTools'),
-        outputSuffix: '_c',
         outputNameTemplate: '{name}{suffix}',
         outputConflictPolicy: 'rename'
       },
       image: {
+        outputSuffix: '_c',
         lastOptions: { ...DEFAULT_IMAGE_OPTIONS }
       },
       video: {
+        outputSuffix: '_c',
         lastOptions: { ...DEFAULT_VIDEO_OPTIONS }
       },
       audio: {
+        outputSuffix: '_c',
         lastOptions: { ...DEFAULT_AUDIO_OPTIONS }
       },
       pdf: {
+        outputSuffix: '_c',
         lastOptions: { ...DEFAULT_PDF_OPTIONS }
       },
       font: {
+        outputSuffix: '_c',
         lastOptions: { ...DEFAULT_FONT_OPTIONS }
       }
     }
@@ -83,10 +87,6 @@ export class SettingsStore {
           typeof common?.outputDirectory === 'string' && common.outputDirectory.trim()
             ? common.outputDirectory
             : this.settings.common.outputDirectory,
-        outputSuffix:
-          typeof common?.outputSuffix === 'string'
-            ? common.outputSuffix
-            : this.settings.common.outputSuffix,
         outputNameTemplate:
           typeof common?.outputNameTemplate === 'string'
             ? common.outputNameTemplate
@@ -99,6 +99,10 @@ export class SettingsStore {
             : this.settings.common.outputConflictPolicy
       },
       image: {
+        outputSuffix:
+          typeof input.image?.outputSuffix === 'string'
+            ? input.image.outputSuffix
+            : this.settings.image.outputSuffix,
         lastOptions: imageOptions
           ? {
               ...this.settings.image.lastOptions,
@@ -108,21 +112,37 @@ export class SettingsStore {
           : this.settings.image.lastOptions
       },
       video: {
+        outputSuffix:
+          typeof input.video?.outputSuffix === 'string'
+            ? input.video.outputSuffix
+            : this.settings.video.outputSuffix,
         lastOptions: input.video?.lastOptions
           ? { ...this.settings.video.lastOptions, ...input.video.lastOptions }
           : this.settings.video.lastOptions
       },
       audio: {
+        outputSuffix:
+          typeof input.audio?.outputSuffix === 'string'
+            ? input.audio.outputSuffix
+            : this.settings.audio.outputSuffix,
         lastOptions: input.audio?.lastOptions
           ? { ...this.settings.audio.lastOptions, ...input.audio.lastOptions }
           : this.settings.audio.lastOptions
       },
       pdf: {
+        outputSuffix:
+          typeof input.pdf?.outputSuffix === 'string'
+            ? input.pdf.outputSuffix
+            : this.settings.pdf.outputSuffix,
         lastOptions: input.pdf?.lastOptions
           ? { ...this.settings.pdf.lastOptions, ...input.pdf.lastOptions }
           : this.settings.pdf.lastOptions
       },
       font: {
+        outputSuffix:
+          typeof input.font?.outputSuffix === 'string'
+            ? input.font.outputSuffix
+            : this.settings.font.outputSuffix,
         lastOptions: input.font?.lastOptions
           ? { ...this.settings.font.lastOptions, ...input.font.lastOptions }
           : this.settings.font.lastOptions
@@ -188,40 +208,56 @@ function migrateSettings(value: unknown, defaults: AppSettings): AppSettings {
   const audio = isNamespacedSettings(value.audio) ? value.audio : undefined
   const pdf = isNamespacedSettings(value.pdf) ? value.pdf : undefined
   const font = isNamespacedSettings(value.font) ? value.font : undefined
+  const legacyOutputSuffix =
+    typeof common.outputSuffix === 'string' ? common.outputSuffix : undefined
 
   return {
     common: migrateCommonSettings(common, defaults.common),
     image: {
+      outputSuffix: migrateOutputSuffix(image, defaults.image.outputSuffix, legacyOutputSuffix),
       lastOptions: {
         ...defaults.image.lastOptions,
         ...asRecord(image?.lastOptions ?? value.image)
       }
     },
     video: {
+      outputSuffix: migrateOutputSuffix(video, defaults.video.outputSuffix, legacyOutputSuffix),
       lastOptions: migrateVideoOptions(
         asRecord(video?.lastOptions ?? value.video) as LegacyVideoOptions,
         defaults.video.lastOptions
       )
     },
     audio: {
+      outputSuffix: migrateOutputSuffix(audio, defaults.audio.outputSuffix, legacyOutputSuffix),
       lastOptions: {
         ...defaults.audio.lastOptions,
         ...(asRecord(audio?.lastOptions ?? value.audio) as Partial<AudioOptions>)
       }
     },
     pdf: {
+      outputSuffix: migrateOutputSuffix(pdf, defaults.pdf.outputSuffix, legacyOutputSuffix),
       lastOptions: {
         ...defaults.pdf.lastOptions,
         ...(asRecord(pdf?.lastOptions ?? value.pdf) as Partial<PdfOptions>)
       }
     },
     font: {
+      outputSuffix: migrateOutputSuffix(font, defaults.font.outputSuffix, legacyOutputSuffix),
       lastOptions: migrateFontOptions(
         asRecord(font?.lastOptions ?? value.font) as Partial<FontOptions>,
         defaults.font.lastOptions
       )
     }
   }
+}
+
+function migrateOutputSuffix(
+  settings: Record<string, unknown> | undefined,
+  fallback: string,
+  legacy: string | undefined
+): string {
+  if (typeof settings?.outputSuffix === 'string') return settings.outputSuffix
+  return legacy ?? fallback
 }
 
 function migrateFontOptions(value: Partial<FontOptions>, fallback: FontOptions): FontOptions {
@@ -250,8 +286,6 @@ function migrateCommonSettings(
       typeof value.outputDirectory === 'string' && isAbsolute(value.outputDirectory)
         ? value.outputDirectory
         : fallback.outputDirectory,
-    outputSuffix:
-      typeof value.outputSuffix === 'string' ? value.outputSuffix : fallback.outputSuffix,
     outputNameTemplate:
       typeof value.outputNameTemplate === 'string'
         ? value.outputNameTemplate

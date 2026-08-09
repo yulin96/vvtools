@@ -18,6 +18,7 @@ import { useAppStore } from '../stores/app'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
+import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
@@ -234,7 +235,7 @@ async function startProcessing(): Promise<void> {
     sourcePaths: [...pendingPaths.value],
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
-    outputSuffix: settings.common.outputSuffix,
+    outputSuffix: settings.video.outputSuffix,
     outputNameTemplate: settings.common.outputNameTemplate,
     outputConflictPolicy: settings.common.outputConflictPolicy,
     presetName: activePresetName.value,
@@ -538,6 +539,7 @@ onBeforeUnmount(() => {
                 <option :value="256">256 kbps</option>
               </select>
             </label>
+            <OutputSuffixField kind="video" />
           </div>
         </fieldset>
       </AdvancedSettingsPanel>

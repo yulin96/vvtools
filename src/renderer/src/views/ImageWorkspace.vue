@@ -20,6 +20,7 @@ import { fileName } from '../lib/utils'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
+import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
@@ -267,7 +268,7 @@ async function startProcessing(): Promise<void> {
     })),
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
-    outputSuffix: settings.common.outputSuffix,
+    outputSuffix: settings.image.outputSuffix,
     outputNameTemplate: settings.common.outputNameTemplate,
     outputConflictPolicy: settings.common.outputConflictPolicy,
     presetName: activePresetName.value,
@@ -537,6 +538,7 @@ onBeforeUnmount(() => {
               disabled-text="保持原尺寸"
               @update:model-value="updateImage({ allowEnlargement: $event })"
             />
+            <OutputSuffixField kind="image" />
           </div>
         </fieldset>
       </AdvancedSettingsPanel>

@@ -22,6 +22,7 @@ import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
+import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import { takeRoutedDrop } from '../lib/media-drop'
@@ -371,7 +372,7 @@ async function startProcessing(): Promise<void> {
     })),
     outputMode: settings.common.outputMode,
     outputDirectory: settings.common.outputDirectory,
-    outputSuffix: settings.common.outputSuffix,
+    outputSuffix: settings.font.outputSuffix,
     outputNameTemplate:
       selectedOperation === 'splitCollection'
         ? withVariable(settings.common.outputNameTemplate, '{index}')
@@ -506,6 +507,7 @@ onBeforeUnmount(() => {
                 updateFont({ variableInstanceMode: $event as 'named' | 'default' })
               "
             />
+            <OutputSuffixField kind="font" />
           </div>
         </fieldset>
 

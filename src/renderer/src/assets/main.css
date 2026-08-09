@@ -1466,13 +1466,20 @@ input {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.pdf-config-primary,
+.pdf-config-primary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .font-config-primary {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .pdf-lossy-config {
-  grid-template-columns: minmax(0, 640px);
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+}
+
+.pdf-lossless-config {
+  grid-template-columns: minmax(220px, 360px);
 }
 
 .pdf-lossy-note {
@@ -1613,11 +1620,11 @@ input {
 }
 
 .image-advanced-settings-list .config-group-fields {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .video-advanced-settings-list .config-group-fields {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .compact-field {

@@ -2,7 +2,6 @@
 import { Cpu, ExternalLink, FileOutput, RefreshCw } from '@lucide/vue'
 import type { AppSettings, TaskKind } from '../../../shared/types'
 import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
-import OutputSuffixField from '../components/OutputSuffixField.vue'
 import Badge from '../components/ui/Badge.vue'
 import Button from '../components/ui/Button.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
@@ -220,11 +219,10 @@ function openSourcePage(): void {
           <FileOutput class="size-4" />
           <div>
             <h2>文件与输出</h2>
-            <p>统一设置文件名和同名文件处理方式。</p>
+            <p>统一设置文件名规则和同名文件处理方式；具体后缀在各处理页面配置。</p>
           </div>
         </div>
         <div class="settings-card-controls settings-output-controls">
-          <OutputSuffixField />
           <OutputConflictPolicyField />
           <label class="field-label settings-template-field">
             <span>文件名规则</span>

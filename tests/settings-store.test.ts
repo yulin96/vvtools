@@ -26,7 +26,6 @@ describe('SettingsStore', () => {
     expect(store.get()).toMatchObject({
       common: {
         outputMode: 'custom',
-        outputSuffix: '_c',
         outputNameTemplate: '{name}{suffix}',
         outputConflictPolicy: 'rename',
         closeBehavior: 'ask',
@@ -36,6 +35,14 @@ describe('SettingsStore', () => {
         }
       }
     })
+    expect({
+      image: store.get().image.outputSuffix,
+      video: store.get().video.outputSuffix,
+      audio: store.get().audio.outputSuffix,
+      pdf: store.get().pdf.outputSuffix,
+      font: store.get().font.outputSuffix
+    }).toEqual({ image: '_c', video: '_c', audio: '_c', pdf: '_c', font: '_c' })
+    expect(store.get().common).not.toHaveProperty('outputSuffix')
     expect(store.get().image.lastOptions).toMatchObject({
       compressionMode: 'quality',
       resizeMode: 'source',
@@ -74,11 +81,11 @@ describe('SettingsStore', () => {
       common: {
         outputMode: 'source',
         closeBehavior: 'minimizeToTray',
-        outputSuffix: '-compressed',
         outputNameTemplate: '{name}_{preset}_{date}',
         outputConflictPolicy: 'skip'
       },
       image: {
+        outputSuffix: '-image',
         lastOptions: {
           ...current.image.lastOptions,
           compressionMode: 'targetSize',
@@ -92,6 +99,7 @@ describe('SettingsStore', () => {
         }
       },
       audio: {
+        outputSuffix: '-audio',
         lastOptions: {
           format: 'flac',
           bitrateKbps: 256,
@@ -106,10 +114,10 @@ describe('SettingsStore', () => {
         outputMode: 'source',
         closeBehavior: 'minimizeToTray',
         outputNameTemplate: '{name}_{preset}_{date}',
-        outputConflictPolicy: 'skip',
-        outputSuffix: '-compressed'
+        outputConflictPolicy: 'skip'
       },
       image: {
+        outputSuffix: '-image',
         lastOptions: {
           compressionMode: 'targetSize',
           targetSizeKb: 512,
@@ -122,6 +130,7 @@ describe('SettingsStore', () => {
         }
       },
       audio: {
+        outputSuffix: '-audio',
         lastOptions: {
           format: 'flac',
           bitrateKbps: 256,
@@ -129,6 +138,36 @@ describe('SettingsStore', () => {
           normalizeLoudness: true
         }
       }
+    })
+  })
+
+  it('migrates the former global output suffix to every processing workspace', () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-settings-'))
+    directories.push(root)
+    writeFileSync(
+      join(root, 'settings.json'),
+      JSON.stringify({
+        common: {
+          outputSuffix: '-legacy'
+        }
+      })
+    )
+
+    const settings = new SettingsStore(root, join(root, 'downloads')).get()
+
+    expect(settings.common).not.toHaveProperty('outputSuffix')
+    expect({
+      image: settings.image.outputSuffix,
+      video: settings.video.outputSuffix,
+      audio: settings.audio.outputSuffix,
+      pdf: settings.pdf.outputSuffix,
+      font: settings.font.outputSuffix
+    }).toEqual({
+      image: '-legacy',
+      video: '-legacy',
+      audio: '-legacy',
+      pdf: '-legacy',
+      font: '-legacy'
     })
   })
 
@@ -244,7 +283,7 @@ describe('SettingsStore', () => {
     const previous = store.get()
     mkdirSync(join(root, 'settings.json'))
 
-    expect(() => store.update({ common: { outputSuffix: '-new' } })).toThrow()
+    expect(() => store.update({ image: { outputSuffix: '-new' } })).toThrow()
     expect(store.get()).toEqual(previous)
     expect(existsSync(join(root, 'settings.json.tmp'))).toBe(false)
   })

@@ -441,9 +441,6 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
       }
       common.outputDirectory = value.outputDirectory
     }
-    if (value.outputSuffix !== undefined) {
-      common.outputSuffix = sanitizeOutputSuffix(value.outputSuffix)
-    }
     if (value.outputNameTemplate !== undefined) {
       common.outputNameTemplate = sanitizeOutputNameTemplate(value.outputNameTemplate)
     }
@@ -460,6 +457,9 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
   if (input.video !== undefined) {
     if (!isRecord(input.video)) throw new Error('视频设置参数无效')
     const video: NonNullable<AppSettingsPatch['video']> = {}
+    if (input.video.outputSuffix !== undefined) {
+      video.outputSuffix = sanitizeOutputSuffix(input.video.outputSuffix)
+    }
     if (input.video.lastOptions !== undefined) {
       validateVideoOptions(input.video.lastOptions as VideoOptions, '视频参数无效')
       video.lastOptions = structuredClone(input.video.lastOptions) as VideoOptions
@@ -470,6 +470,9 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
   if (input.image !== undefined) {
     if (!isRecord(input.image)) throw new Error('图片设置参数无效')
     const image: NonNullable<AppSettingsPatch['image']> = {}
+    if (input.image.outputSuffix !== undefined) {
+      image.outputSuffix = sanitizeOutputSuffix(input.image.outputSuffix)
+    }
     if (input.image.lastOptions !== undefined) {
       validateImageOptions(input.image.lastOptions as ImageOptions, '图片参数无效')
       image.lastOptions = structuredClone(input.image.lastOptions) as ImageOptions
@@ -480,6 +483,9 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
   if (input.audio !== undefined) {
     if (!isRecord(input.audio)) throw new Error('音频设置参数无效')
     const audio: NonNullable<AppSettingsPatch['audio']> = {}
+    if (input.audio.outputSuffix !== undefined) {
+      audio.outputSuffix = sanitizeOutputSuffix(input.audio.outputSuffix)
+    }
     if (input.audio.lastOptions !== undefined) {
       validateAudioOptions(input.audio.lastOptions as AudioOptions, '音频参数无效')
       audio.lastOptions = structuredClone(input.audio.lastOptions) as AudioOptions
@@ -490,6 +496,9 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
   if (input.pdf !== undefined) {
     if (!isRecord(input.pdf)) throw new Error('PDF 设置参数无效')
     const pdf: NonNullable<AppSettingsPatch['pdf']> = {}
+    if (input.pdf.outputSuffix !== undefined) {
+      pdf.outputSuffix = sanitizeOutputSuffix(input.pdf.outputSuffix)
+    }
     if (input.pdf.lastOptions !== undefined) {
       validatePdfOptions(input.pdf.lastOptions as PdfOptions, 'PDF 参数无效')
       pdf.lastOptions = structuredClone(input.pdf.lastOptions) as PdfOptions
@@ -500,6 +509,9 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
   if (input.font !== undefined) {
     if (!isRecord(input.font)) throw new Error('字体设置参数无效')
     const font: NonNullable<AppSettingsPatch['font']> = {}
+    if (input.font.outputSuffix !== undefined) {
+      font.outputSuffix = sanitizeOutputSuffix(input.font.outputSuffix)
+    }
     if (input.font.lastOptions !== undefined) {
       validateFontOptions(input.font.lastOptions as FontOptions, '字体参数无效', false)
       font.lastOptions = structuredClone(input.font.lastOptions) as FontOptions
