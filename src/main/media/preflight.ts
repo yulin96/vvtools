@@ -1,5 +1,5 @@
 import { accessSync, constants, existsSync, statSync } from 'fs'
-import { dirname, join } from 'path'
+import { dirname, join, resolve } from 'path'
 import type {
   CreateTasksRequest,
   FontFormat,
@@ -175,7 +175,8 @@ export async function inspectTasks(
       return {
         ...inspection,
         outputPath: output.directory.path,
-        outputPaths: output.paths
+        outputPaths: output.paths,
+        overwritesSource: false
       }
     }
     const outputPaths: string[] = []
@@ -227,9 +228,20 @@ export async function inspectTasks(
     return {
       ...inspection,
       outputPath: outputPaths[0] ?? '',
-      outputPaths
+      outputPaths,
+      overwritesSource:
+        request.outputConflictPolicy === 'overwrite' &&
+        outputPaths.some((outputPath) => samePath(outputPath, source.path))
     }
   })
+}
+
+function samePath(left: string, right: string): boolean {
+  const leftPath = resolve(left)
+  const rightPath = resolve(right)
+  return process.platform === 'win32'
+    ? leftPath.toLowerCase() === rightPath.toLowerCase()
+    : leftPath === rightPath
 }
 
 interface TaskUnit {

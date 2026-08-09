@@ -87,7 +87,8 @@ describe('media preflight', () => {
 
     expect(inspection).toMatchObject({
       valid: true,
-      outputPath: source
+      outputPath: source,
+      overwritesSource: true
     })
   })
 })

@@ -21,7 +21,12 @@ import appIcon from '../../../resources/icon.png'
 import SegmentedControl from './components/ui/SegmentedControl.vue'
 import Button from './components/ui/Button.vue'
 import Modal from './components/ui/Modal.vue'
-import { detectMediaWorkspacePath, queueRoutedDrop } from './lib/media-drop'
+import {
+  detectMediaWorkspacePath,
+  queueRoutedDrop,
+  workspaceAcceptsDrop,
+  type MediaWorkspacePath
+} from './lib/media-drop'
 
 const store = useAppStore()
 const route = useRoute()
@@ -101,6 +106,7 @@ function handleWorkspaceDrop(event: DragEvent): void {
   const paths = [...(event.dataTransfer?.files || [])].map((file) =>
     window.api.getDroppedFilePath(file)
   )
+  if (workspaceAcceptsDrop(route.path as MediaWorkspacePath, paths)) return
   const targetPath = detectMediaWorkspacePath(paths)
   if (!targetPath || targetPath === route.path) return
 

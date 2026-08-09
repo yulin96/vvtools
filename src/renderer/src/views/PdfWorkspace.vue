@@ -13,7 +13,6 @@ import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
-import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import { takeRoutedDrop } from '../lib/media-drop'
 
 const store = useAppStore()
@@ -199,7 +198,6 @@ onBeforeUnmount(() => {
         </div>
         <div class="video-config-actions">
           <OutputLocationControls />
-          <SourceOverwriteWarning />
           <Button
             size="sm"
             :disabled="pendingPaths.length === 0 || starting"

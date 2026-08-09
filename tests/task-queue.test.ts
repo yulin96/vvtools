@@ -238,6 +238,62 @@ describe('TaskQueue', () => {
     )
   })
 
+  it('retries one failed task without deleting other settled tasks', async () => {
+    const paths = fixture()
+    const secondSource = join(dirname(paths.source), 'second.jpg')
+    writeFileSync(secondSource, 'fixture')
+    let shouldFail = true
+    const runner: TaskRunner = async (task) => {
+      if (shouldFail) throw new Error('failed')
+      writeFileSync(task.outputPath, 'processed')
+      return 2
+    }
+    const queue = new TaskQueue(concurrency(2), runner, new FailureLogService(paths.userData))
+    const originals = queue.create({
+      kind: 'image',
+      sources: [paths.source, secondSource].map((path) => ({ path, relativeDirectory: '' })),
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '_processed',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+    await waitFor(() => queue.list().every((task) => task.status === 'failed'))
+
+    shouldFail = false
+    const retry = queue.retry(originals[0].id)
+
+    expect(retry?.retryOf).toBe(originals[0].id)
+    expect(queue.list().map((task) => task.id)).toEqual(
+      expect.arrayContaining([originals[0].id, originals[1].id, retry!.id])
+    )
+    await waitFor(() => queue.list().find((task) => task.id === retry?.id)?.status === 'completed')
+    expect(queue.list().find((task) => task.id === originals[1].id)?.status).toBe('failed')
+  })
+
+  it('does not commit partial task state when batch creation fails', () => {
+    const paths = fixture()
+    const missingSource = join(dirname(paths.source), 'missing.jpg')
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
+    const request = {
+      kind: 'image' as const,
+      sources: [paths.source, missingSource].map((path) => ({ path, relativeDirectory: '' })),
+      outputMode: 'custom' as const,
+      outputDirectory: paths.output,
+      outputSuffix: '_processed',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    }
+
+    expect(() => queue.create(request)).toThrow()
+    expect(queue.list()).toEqual([])
+
+    const [task] = queue.create({ ...request, sources: [request.sources[0]] })
+    expect(task.outputPath).toBe(join(paths.output, 'source_processed.jpg'))
+  })
+
   it('marks larger image output as skipped without committing the staged file', async () => {
     const paths = fixture()
     const runner: TaskRunner = async (task) => {

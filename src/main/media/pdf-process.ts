@@ -84,6 +84,7 @@ class PdfProcessSession {
   private current: QueueItem<unknown> | null = null
   private idleTimer: NodeJS.Timeout | null = null
   private disposed = false
+  private stopping = false
 
   constructor(private readonly onIdle: () => void) {}
 
@@ -125,7 +126,7 @@ class PdfProcessSession {
   }
 
   private pump(): void {
-    if (this.disposed || this.current || !this.queue.length) return
+    if (this.disposed || this.stopping || this.current || !this.queue.length) return
     const item = this.queue.shift()!
     if (item.signal.aborted) {
       this.settle(item, () => item.reject(new TaskCancelledError()))
@@ -151,9 +152,9 @@ class PdfProcessSession {
     child.stdin.on('error', () => undefined)
     child.stdout.on('data', (chunk: Buffer) => this.handleStdout(chunk))
     child.stderr.on('data', (chunk: Buffer) => console.error(`PDF 处理进程：${chunk.toString()}`))
-    child.once('error', (error) => this.handleChildExit(error))
+    child.once('error', (error) => this.handleChildExit(child, error))
     child.once('close', (code) =>
-      this.handleChildExit(new Error(`PDF 处理进程异常退出（${code ?? '未知'}）`))
+      this.handleChildExit(child, new Error(`PDF 处理进程异常退出（${code ?? '未知'}）`))
     )
     return child
   }
@@ -190,6 +191,7 @@ class PdfProcessSession {
     if (this.current === item) {
       this.current = null
       this.settle(item, () => item.reject(new TaskCancelledError()))
+      this.stopping = true
       this.child?.kill()
       return
     }
@@ -200,9 +202,10 @@ class PdfProcessSession {
     if (!this.current && !this.queue.length) this.scheduleIdle()
   }
 
-  private handleChildExit(error: Error): void {
-    if (!this.child) return
+  private handleChildExit(child: ChildProcessWithoutNullStreams, error: Error): void {
+    if (this.child !== child) return
     this.child = null
+    this.stopping = false
     if (this.current) {
       const item = this.current
       this.current = null

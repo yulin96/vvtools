@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -221,6 +221,32 @@ describe('SettingsStore', () => {
       subsetIncludeLatin: true,
       subsetChineseLevel: '3500'
     })
+  })
+
+  it('backs up a corrupt settings file and reports recovery', () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-settings-'))
+    directories.push(root)
+    writeFileSync(join(root, 'settings.json'), '{invalid json')
+
+    const store = new SettingsStore(root, join(root, 'downloads'))
+
+    expect(store.getRecoveryNotice()).toContain('设置文件损坏，已恢复默认设置')
+    expect(existsSync(join(root, 'settings.json'))).toBe(false)
+    expect(
+      readdirSync(root).filter((name) => name.startsWith('settings.json.corrupt-'))
+    ).toHaveLength(1)
+  })
+
+  it('keeps the previous in-memory settings when persistence fails', () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-settings-'))
+    directories.push(root)
+    const store = new SettingsStore(root, join(root, 'downloads'))
+    const previous = store.get()
+    mkdirSync(join(root, 'settings.json'))
+
+    expect(() => store.update({ common: { outputSuffix: '-new' } })).toThrow()
+    expect(store.get()).toEqual(previous)
+    expect(existsSync(join(root, 'settings.json.tmp'))).toBe(false)
   })
 
   it('resolves automatic concurrency by media type', () => {

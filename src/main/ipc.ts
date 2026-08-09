@@ -1,7 +1,7 @@
 import { app, dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { existsSync, mkdirSync, statSync } from 'fs'
 import { readFile } from 'fs/promises'
-import { dirname, extname, isAbsolute, join, normalize, sep } from 'path'
+import { basename, dirname, extname, isAbsolute, join, normalize, sep } from 'path'
 import type {
   AppSettings,
   AppSettingsPatch,
@@ -57,7 +57,9 @@ const FONT_SUBSET_MODES = new Set(['latin', 'chinese', 'custom'])
 const FONT_SUBSET_CHINESE_LEVELS = new Set(['3500', '6500', '8105'])
 
 function assertTrusted(event: IpcMainInvokeEvent, window: BrowserWindow): void {
-  if (event.sender !== window.webContents) throw new Error('拒绝来自未知页面的请求')
+  if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) {
+    throw new Error('拒绝来自未知页面的请求')
+  }
 }
 
 function validateSourcePath(path: string, kind: TaskKind): void {
@@ -626,6 +628,34 @@ export function registerIpc(
       .map((task) => task.outputPath)
     return inspectTasks(validateCreateRequest(request), new Set(activeOutputPaths))
   })
+  handle(IPC_CHANNELS.confirmSourceOverwrite, async (event, sourcePaths: unknown) => {
+    assertTrusted(event, window())
+    if (
+      !Array.isArray(sourcePaths) ||
+      sourcePaths.length === 0 ||
+      sourcePaths.length > 500 ||
+      sourcePaths.some((path) => typeof path !== 'string' || !isAbsolute(path))
+    ) {
+      throw new Error('待覆盖源文件参数无效')
+    }
+    const uniquePaths = [...new Set(sourcePaths as string[])]
+    const preview = uniquePaths
+      .slice(0, 5)
+      .map((path) => `• ${basename(path)}`)
+      .join('\n')
+    const remaining = uniquePaths.length - Math.min(uniquePaths.length, 5)
+    const result = await dialog.showMessageBox(window(), {
+      type: 'warning',
+      title: '确认覆盖源文件',
+      message: `处理成功后将替换 ${uniquePaths.length} 个源文件`,
+      detail: `${preview}${remaining > 0 ? `\n• 另外 ${remaining} 个文件` : ''}\n\n此操作无法撤销。`,
+      buttons: ['继续并覆盖', '取消'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true
+    })
+    return result.response === 0
+  })
   handle(IPC_CHANNELS.getTasks, (event) => {
     assertTrusted(event, window())
     return queue.list()
@@ -658,6 +688,10 @@ export function registerIpc(
   handle(IPC_CHANNELS.getSettings, (event) => {
     assertTrusted(event, window())
     return settings.get()
+  })
+  handle(IPC_CHANNELS.getSettingsRecoveryNotice, (event) => {
+    assertTrusted(event, window())
+    return settings.getRecoveryNotice()
   })
   handle(IPC_CHANNELS.updateSettings, (event, input: unknown) => {
     assertTrusted(event, window())

@@ -32,6 +32,17 @@ export function detectMediaWorkspacePath(paths: string[]): MediaWorkspacePath | 
   return matches.size === 1 ? [...matches][0] : null
 }
 
+export function workspaceAcceptsDrop(path: MediaWorkspacePath, paths: string[]): boolean {
+  if (paths.length === 0) return false
+  const acceptedExtensions =
+    path === '/audio'
+      ? new Set([...AUDIO_EXTENSIONS, ...VIDEO_EXTENSIONS])
+      : workspaceExtensions.find(([workspacePath]) => workspacePath === path)?.[1]
+  return Boolean(
+    acceptedExtensions && paths.some((filePath) => acceptedExtensions.has(fileExtension(filePath)))
+  )
+}
+
 export function queueRoutedDrop(path: MediaWorkspacePath, paths: string[]): void {
   routedDropPaths.set(path, [...(routedDropPaths.get(path) ?? []), ...paths])
 }

@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
 import { dirname, isAbsolute, join } from 'path'
 import type {
   AppSettings,
@@ -22,6 +22,7 @@ import { normalizeConcurrencySettings } from './task-concurrency'
 export class SettingsStore {
   private readonly path: string
   private settings: AppSettings
+  private recoveryNotice: string | null = null
 
   constructor(userDataPath: string, downloadsPath: string) {
     this.path = join(userDataPath, 'settings.json')
@@ -58,10 +59,14 @@ export class SettingsStore {
     return structuredClone(this.settings)
   }
 
+  getRecoveryNotice(): string | null {
+    return this.recoveryNotice
+  }
+
   update(input: AppSettingsPatch): AppSettings {
     const common = input.common
     const imageOptions = input.image?.lastOptions
-    this.settings = {
+    const nextSettings: AppSettings = {
       common: {
         concurrency: normalizeConcurrencySettings(
           common?.concurrency,
@@ -123,24 +128,50 @@ export class SettingsStore {
           : this.settings.font.lastOptions
       }
     }
-    this.persist()
+    this.persist(nextSettings)
+    this.settings = nextSettings
     return this.get()
   }
 
   private read(defaults: AppSettings): AppSettings {
+    if (!existsSync(this.path)) return defaults
+    let content: string
     try {
-      const saved = JSON.parse(readFileSync(this.path, 'utf8')) as unknown
+      content = readFileSync(this.path, 'utf8')
+    } catch (error) {
+      console.error('读取设置文件失败，将使用默认设置', error)
+      this.recoveryNotice = '无法读取设置文件，已使用默认设置；原设置文件未改动。'
+      return defaults
+    }
+    try {
+      const saved = JSON.parse(content) as unknown
+      if (!isRecord(saved)) throw new Error('设置文件的根节点必须是对象')
       return migrateSettings(saved, defaults)
-    } catch {
+    } catch (error) {
+      const timestamp = new Date().toISOString().replace(/[:.]/gu, '-')
+      const backupPath = `${this.path}.corrupt-${timestamp}.json`
+      try {
+        renameSync(this.path, backupPath)
+        this.recoveryNotice = `设置文件损坏，已恢复默认设置；原文件已备份为 ${backupPath}`
+      } catch (backupError) {
+        console.error('备份损坏的设置文件失败', backupError)
+        this.recoveryNotice = '设置文件损坏，已恢复默认设置；原文件备份失败，请检查文件权限。'
+      }
+      console.error('解析设置文件失败，将使用默认设置', error)
       return defaults
     }
   }
 
-  private persist(): void {
+  private persist(settings: AppSettings): void {
     mkdirSync(dirname(this.path), { recursive: true })
     const temporaryPath = `${this.path}.tmp`
-    writeFileSync(temporaryPath, JSON.stringify(this.settings, null, 2), 'utf8')
-    renameSync(temporaryPath, this.path)
+    try {
+      writeFileSync(temporaryPath, JSON.stringify(settings, null, 2), 'utf8')
+      renameSync(temporaryPath, this.path)
+    } catch (error) {
+      rmSync(temporaryPath, { force: true })
+      throw error
+    }
   }
 }
 

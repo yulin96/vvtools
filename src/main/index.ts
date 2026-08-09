@@ -2,6 +2,7 @@ import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { app, BrowserWindow, dialog, Menu, screen, shell, Tray } from 'electron'
 import { availableParallelism } from 'os'
 import { join } from 'path'
+import { pathToFileURL } from 'url'
 import icon from '../../resources/icon.png?asset'
 import { registerIpc } from './ipc'
 import { processAudio } from './media/audio-processor'
@@ -42,6 +43,25 @@ const windowsTitleBarOverlay = {
 
 app.setName('VVTools')
 configureOverlayScrollbars(app.commandLine, process.platform)
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
+if (!hasSingleInstanceLock) app.quit()
+
+app.on('second-instance', () => {
+  if (hasSingleInstanceLock) showMainWindow()
+})
+
+function isTrustedRendererUrl(url: string): boolean {
+  try {
+    const candidate = new URL(url)
+    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+      return candidate.origin === new URL(process.env['ELECTRON_RENDERER_URL']).origin
+    }
+    const expected = new URL(pathToFileURL(join(__dirname, '../renderer/index.html')).href)
+    return candidate.protocol === 'file:' && candidate.pathname === expected.pathname
+  } catch {
+    return false
+  }
+}
 
 function createWindow(): void {
   let storedState: WindowState | undefined
@@ -85,8 +105,19 @@ function createWindow(): void {
   })
 
   window.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    try {
+      const url = new URL(details.url)
+      if (url.protocol === 'https:' || url.protocol === 'http:') {
+        void shell.openExternal(url.href).catch((error) => console.error('打开外部链接失败', error))
+      }
+    } catch {
+      console.error('拒绝打开无效的外部链接', details.url)
+    }
     return { action: 'deny' }
+  })
+
+  window.webContents.on('will-navigate', (event, url) => {
+    if (!isTrustedRendererUrl(url)) event.preventDefault()
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -198,6 +229,7 @@ async function confirmActiveTaskClose(): Promise<void> {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  if (!hasSingleInstanceLock) return
   electronApp.setAppUserModelId('com.vvtools.app')
 
   // Default open or close DevTools by F12 in development

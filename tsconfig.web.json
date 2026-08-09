@@ -8,11 +8,6 @@
     "src/shared/**/*"
   ],
   "compilerOptions": {
-    "composite": true,
-    "paths": {
-      "@renderer/*": [
-        "/src/renderer/src/*"
-      ],
-    }
+    "composite": true
   }
 }

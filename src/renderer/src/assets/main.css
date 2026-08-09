@@ -1429,46 +1429,6 @@ input {
   width: 100%;
 }
 
-.source-overwrite-warning {
-  display: inline-flex;
-  height: 32px;
-  max-width: 160px;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 5px;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--warning-fg) 30%, transparent);
-  border-radius: 9px;
-  background: var(--warning-bg);
-  padding: 0 9px;
-  color: var(--warning-fg);
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.source-overwrite-enter-active,
-.source-overwrite-leave-active {
-  transition:
-    max-width var(--duration-fast) var(--ease-smooth-out),
-    margin-left var(--duration-fast) var(--ease-smooth-out),
-    padding-inline var(--duration-fast) var(--ease-smooth-out),
-    border-color var(--duration-quick) var(--ease-out),
-    opacity var(--duration-quick) var(--ease-out),
-    transform var(--duration-quick) var(--ease-out);
-  will-change: max-width, opacity, transform;
-}
-
-.source-overwrite-enter-from,
-.source-overwrite-leave-to {
-  max-width: 0;
-  margin-left: -8px;
-  border-color: transparent;
-  padding-inline: 0;
-  opacity: 0;
-  transform: translateX(4px);
-}
-
 .video-config-primary,
 .image-config-primary,
 .video-config-expanded {
@@ -2554,9 +2514,7 @@ html[data-theme='dark'] .bg-slate-950 {
   .sidebar-footer-swap-enter-active,
   .sidebar-footer-swap-leave-active,
   .alert-slide-enter-active,
-  .alert-slide-leave-active,
-  .source-overwrite-enter-active,
-  .source-overwrite-leave-active {
+  .alert-slide-leave-active {
     transition: none !important;
   }
 

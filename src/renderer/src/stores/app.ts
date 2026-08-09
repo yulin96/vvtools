@@ -7,6 +7,7 @@ import type {
   FontConversionSubsetPreset,
   FontFormat,
   ImageInputFile,
+  MediaInspection,
   MediaTask,
   RuntimeCapabilities,
   TaskKind,
@@ -31,6 +32,20 @@ function serializable<T>(value: T): T {
 function friendlyErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
   return message.replace(/^Error invoking remote method '[^']+': Error: /u, '')
+}
+
+function submissionNotice(
+  skippedCount: number,
+  rejected: Pick<MediaInspection, 'error'>[]
+): string {
+  const parts: string[] = []
+  if (skippedCount > 0) {
+    parts.push(`${skippedCount} 个文件因输出已存在而未开始，已保留在待处理列表`)
+  }
+  if (rejected.length === 1) parts.push(rejected[0].error ?? '1 个文件无法处理')
+  else if (rejected.length > 1)
+    parts.push(`${rejected.length} 个文件无法处理，请检查源文件和输出设置`)
+  return parts.join('；') || '没有可处理的文件'
 }
 
 export const useAppStore = defineStore('app', () => {
@@ -139,12 +154,14 @@ export const useAppStore = defineStore('app', () => {
 
   async function initialize(): Promise<void> {
     try {
-      const [initialTasks, initialSettings, version, releaseNotes] = await Promise.all([
-        window.api.getTasks(),
-        window.api.getSettings(),
-        window.api.getVersion(),
-        window.api.getReleaseNotes()
-      ])
+      const [initialTasks, initialSettings, version, releaseNotes, recoveryNotice] =
+        await Promise.all([
+          window.api.getTasks(),
+          window.api.getSettings(),
+          window.api.getVersion(),
+          window.api.getReleaseNotes(),
+          window.api.getSettingsRecoveryNotice()
+        ])
       tasks.value = initialTasks
       appendCurrentBatchTasks(
         initialTasks.filter((task) => ['pending', 'processing'].includes(task.status))
@@ -152,6 +169,7 @@ export const useAppStore = defineStore('app', () => {
       settings.value = initialSettings
       appVersion.value = version
       currentReleaseNotes.value = releaseNotes
+      if (recoveryNotice) errorMessage.value = recoveryNotice
       unsubscribe?.()
       unsubscribe = window.api.onTasksChanged((nextTasks) => (tasks.value = nextTasks))
       unsubscribeProgress?.()
@@ -181,21 +199,27 @@ export const useAppStore = defineStore('app', () => {
     try {
       const inspectedRequest = serializable(request)
       const inspections = await window.api.inspectTasks(inspectedRequest)
-      const handled = inspections.filter((item) => item.valid || item.skipped)
+      const processable = inspections.filter((item) => item.valid)
+      const skipped = inspections.filter((item) => item.skipped)
       const rejected = inspections.filter((item) => !item.valid && !item.skipped)
-      if (handled.length === 0) {
-        errorMessage.value =
-          rejected.length === 1
-            ? (rejected[0].error ?? '文件无法处理')
-            : `${rejected.length} 个文件无法处理，请检查源文件和输出设置`
+      if (processable.length === 0) {
+        errorMessage.value = submissionNotice(skipped.length, rejected)
+        return { handledPaths: [] }
+      }
+
+      const overwritePaths = processable
+        .filter((item) => item.overwritesSource)
+        .map((item) => item.sourcePath)
+      if (
+        overwritePaths.length > 0 &&
+        !(await window.api.confirmSourceOverwrite([...new Set(overwritePaths)]))
+      ) {
         return null
       }
 
-      const handledPaths = handled.map((item) => item.sourcePath)
-      const handledPathSet = new Set(handledPaths)
       const inputMetadata = [
         ...new Map(
-          handled.map((item) => [
+          processable.map((item) => [
             item.sourcePath,
             {
               path: item.sourcePath,
@@ -212,31 +236,39 @@ export const useAppStore = defineStore('app', () => {
         inspectedRequest.kind === 'image'
           ? {
               ...inspectedRequest,
-              sources: inspectedRequest.sources.filter((source) => handledPathSet.has(source.path)),
+              sources: inspectedRequest.sources.filter((_, index) => inspections[index]?.valid),
               inputMetadata
             }
           : inspectedRequest.kind === 'font'
             ? {
                 ...inspectedRequest,
-                sources: inspectedRequest.sources.filter((source) =>
-                  handledPathSet.has(source.path)
-                ),
+                sources: inspectedRequest.sources.filter((_, index) => inspections[index]?.valid),
                 inputMetadata
               }
             : {
                 ...inspectedRequest,
-                sourcePaths: inspectedRequest.sourcePaths.filter((path) =>
-                  handledPathSet.has(path)
+                sourcePaths: inspectedRequest.sourcePaths.filter(
+                  (_, index) => inspections[index]?.valid
                 ),
                 inputMetadata
               }
 
       const createdTasks = await window.api.createTasks(serializable(submission))
+      const handledInspections = processable.filter((inspection) =>
+        createdTasks.some(
+          (task) =>
+            task.sourcePath === inspection.sourcePath &&
+            (task.outputPath === inspection.outputPath ||
+              inspection.outputPaths?.includes(task.outputPath))
+        )
+      )
+      const handledPaths = handledInspections.map((item) => item.sourcePath)
       const createdIds = new Set(createdTasks.map((task) => task.id))
       tasks.value = [...tasks.value.filter((task) => !createdIds.has(task.id)), ...createdTasks]
       appendCurrentBatchTasks(createdTasks)
-      if (rejected.length > 0) {
-        errorMessage.value = `${rejected.length} 个文件未加入任务：${rejected[0].error ?? '文件无法处理'}`
+      const skippedCount = skipped.length + (processable.length - handledInspections.length)
+      if (skippedCount > 0 || rejected.length > 0) {
+        errorMessage.value = submissionNotice(skippedCount, rejected)
       }
       return { handledPaths }
     } catch (error) {

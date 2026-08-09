@@ -18,7 +18,6 @@ import { useAppStore } from '../stores/app'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
-import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
@@ -207,12 +206,23 @@ function applyPreset(value: string | number): void {
 
 function stageFiles(paths: string[]): void {
   if (paths.length === 0) return
-  if (pendingPaths.value.length === 0) store.prepareCurrentBatch('video')
-  pendingPaths.value = [...new Set([...pendingPaths.value, ...paths])]
+  const existing = new Set(pendingPaths.value)
+  const incoming = [...new Set(paths)].filter((path) => !existing.has(path))
+  const accepted = incoming.slice(0, Math.max(0, 500 - pendingPaths.value.length))
+  if (accepted.length > 0 && pendingPaths.value.length === 0) store.prepareCurrentBatch('video')
+  pendingPaths.value = [...pendingPaths.value, ...accepted]
+  const ignoredCount = incoming.length - accepted.length
+  if (ignoredCount > 0) {
+    store.errorMessage = `单次最多添加 500 个文件，已忽略 ${ignoredCount} 个`
+  }
 }
 
 async function chooseFiles(): Promise<void> {
-  stageFiles(await window.api.selectFiles('video'))
+  try {
+    stageFiles(await window.api.selectFiles('video'))
+  } catch (error) {
+    store.errorMessage = error instanceof Error ? error.message : String(error)
+  }
 }
 
 async function startProcessing(): Promise<void> {
@@ -321,7 +331,6 @@ onBeforeUnmount(() => {
             @update:model-value="applyPreset"
           />
           <OutputLocationControls />
-          <SourceOverwriteWarning />
           <Button
             size="sm"
             :disabled="pendingPaths.length === 0 || starting"

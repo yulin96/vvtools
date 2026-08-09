@@ -61,7 +61,17 @@ export class TaskQueue extends EventEmitter {
   }
 
   create(request: CreateTasksRequest): MediaTask[] {
-    this.discardSettledBatch(request.kind)
+    return this.createInternal(request, true)
+  }
+
+  private createInternal(request: CreateTasksRequest, replaceSettledBatch: boolean): MediaTask[] {
+    const discardedTaskIds = replaceSettledBatch ? this.settledBatchTaskIds(request.kind) : []
+    const stagedTasks = new Map<string, MediaTask>()
+    const stagedReservedPaths = new Set(this.reservedPaths)
+    for (const taskId of discardedTaskIds) {
+      const task = this.tasks.get(taskId)
+      if (task) stagedReservedPaths.delete(task.outputPath)
+    }
     const sources: TaskSource[] =
       request.kind === 'image'
         ? request.sources
@@ -93,7 +103,7 @@ export class TaskQueue extends EventEmitter {
           outputDirectory,
           imageFormat: request.options.imageFormat,
           pageNumbers,
-          reservedPaths: this.reservedPaths,
+          reservedPaths: stagedReservedPaths,
           outputSuffix: request.outputSuffix,
           nameTemplate: request.outputNameTemplate,
           conflictPolicy: request.outputConflictPolicy,
@@ -121,7 +131,7 @@ export class TaskQueue extends EventEmitter {
           sourceSize: statSync(sourcePath).size,
           createdAt: new Date().toISOString()
         }
-        this.tasks.set(task.id, task)
+        stagedTasks.set(task.id, task)
         return [structuredClone(task)]
       }
       const units = expandTaskUnits(request, sourceMetadata)
@@ -147,7 +157,7 @@ export class TaskQueue extends EventEmitter {
           sourcePath,
           outputDirectory,
           extension,
-          reservedPaths: this.reservedPaths,
+          reservedPaths: stagedReservedPaths,
           outputSuffix: request.outputSuffix,
           nameTemplate: request.outputNameTemplate,
           conflictPolicy: request.outputConflictPolicy,
@@ -160,8 +170,8 @@ export class TaskQueue extends EventEmitter {
         })
         if (output.skipped) {
           skippedSource = true
-          for (const taskId of sourceTaskIds) this.tasks.delete(taskId)
-          for (const path of sourceReservedPaths) this.reservedPaths.delete(path)
+          for (const taskId of sourceTaskIds) stagedTasks.delete(taskId)
+          for (const path of sourceReservedPaths) stagedReservedPaths.delete(path)
           return []
         }
         const task: MediaTask = {
@@ -187,17 +197,21 @@ export class TaskQueue extends EventEmitter {
           sourceSize: statSync(sourcePath).size,
           createdAt: new Date().toISOString()
         }
-        this.tasks.set(task.id, task)
+        stagedTasks.set(task.id, task)
         sourceTaskIds.push(task.id)
         sourceReservedPaths.push(output.path)
         return [structuredClone(task)]
       })
       return skippedSource ? [] : sourceCreated
     })
+    for (const taskId of discardedTaskIds) this.tasks.delete(taskId)
+    for (const task of stagedTasks.values()) this.tasks.set(task.id, task)
+    this.reservedPaths.clear()
+    for (const path of stagedReservedPaths) this.reservedPaths.add(path)
     this.changed()
     this.dispatch()
     return created.flatMap((createdTask) => {
-      const latest = this.tasks.get(createdTask.id)
+      const latest = stagedTasks.get(createdTask.id)
       return latest ? [structuredClone(latest)] : []
     })
   }
@@ -322,7 +336,7 @@ export class TaskQueue extends EventEmitter {
                   fontInstances: original.fontInstance ? [original.fontInstance] : undefined,
                   options: structuredClone(original.options) as FontOptions
                 }
-    const task = this.create(request)[0]
+    const task = this.createInternal(request, false)[0]
     if (!task) return null
     const stored = this.tasks.get(task.id)
     if (stored) stored.retryOf = original.id
@@ -431,17 +445,14 @@ export class TaskQueue extends EventEmitter {
     this.emit('progress', update)
   }
 
-  private discardSettledBatch(kind: MediaTask['kind']): void {
+  private settledBatchTaskIds(kind: MediaTask['kind']): string[] {
     const hasActiveBatch = [...this.tasks.values()].some(
       (task) => task.kind === kind && (task.status === 'pending' || task.status === 'processing')
     )
-    if (hasActiveBatch) return
-
-    for (const [taskId, task] of this.tasks) {
-      if (task.kind !== kind) continue
-      this.tasks.delete(taskId)
-      this.reservedPaths.delete(task.outputPath)
-    }
+    if (hasActiveBatch) return []
+    return [...this.tasks.entries()].flatMap(([taskId, task]) =>
+      task.kind === kind ? [taskId] : []
+    )
   }
 }
 

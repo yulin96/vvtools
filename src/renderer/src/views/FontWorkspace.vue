@@ -23,7 +23,6 @@ import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
-import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import { takeRoutedDrop } from '../lib/media-drop'
 
 type FontWorkspaceMode = FontOperation | 'quickConvert'
@@ -386,8 +385,16 @@ async function startProcessing(): Promise<void> {
   try {
     const result = await store.submitTasks(request)
     if (!result) return
-    const handledPaths = new Set(result.handledPaths)
-    pendingItems.value = pendingItems.value.filter((item) => !handledPaths.has(item.path))
+    const handledCounts = new Map<string, number>()
+    for (const path of result.handledPaths) {
+      handledCounts.set(path, (handledCounts.get(path) ?? 0) + 1)
+    }
+    pendingItems.value = pendingItems.value.filter((item) => {
+      const count = handledCounts.get(item.path) ?? 0
+      if (count === 0) return true
+      handledCounts.set(item.path, count - 1)
+      return false
+    })
   } finally {
     starting.value = false
   }
@@ -443,7 +450,6 @@ onBeforeUnmount(() => {
         </div>
         <div class="video-config-actions">
           <OutputLocationControls />
-          <SourceOverwriteWarning />
           <Button
             size="sm"
             :disabled="pendingItems.length === 0 || starting"

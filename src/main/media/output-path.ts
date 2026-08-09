@@ -157,7 +157,7 @@ export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOu
   while (true) {
     const numberedSuffix = index === 0 ? '' : `_${index}`
     const candidate = join(outputDirectory, `${baseName}${numberedSuffix}${extension}`)
-    if (reservedPaths.has(candidate)) {
+    if (hasReservedPath(reservedPaths, candidate)) {
       if (conflictPolicy === 'skip') {
         return { path: candidate, skipped: true, overwritesExisting: false }
       }
@@ -177,6 +177,13 @@ export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOu
     }
     index += 1
   }
+}
+
+function hasReservedPath(reservedPaths: ReadonlySet<string>, candidate: string): boolean {
+  if (reservedPaths.has(candidate)) return true
+  if (process.platform !== 'win32') return false
+  const normalizedCandidate = candidate.toLowerCase()
+  return [...reservedPaths].some((path) => path.toLowerCase() === normalizedCandidate)
 }
 
 export function renderOutputBaseName(

@@ -77,6 +77,10 @@ const completedCount = computed(
   () => props.tasks.filter((task) => task.status === 'completed').length
 )
 const skippedCount = computed(() => props.tasks.filter((task) => task.status === 'skipped').length)
+const failedCount = computed(() => props.tasks.filter((task) => task.status === 'failed').length)
+const cancelledCount = computed(
+  () => props.tasks.filter((task) => task.status === 'cancelled').length
+)
 const orderedTasks = computed(() => {
   const priority: Record<TaskStatus, number> = {
     processing: 0,
@@ -114,7 +118,9 @@ const summary = computed(() => {
   if (props.pendingItems.length) parts.push(`${props.pendingItems.length} 个待开始`)
   if (activeCount.value) parts.push(`${activeCount.value} 个处理中或等待`)
   if (completedCount.value) parts.push(`${completedCount.value} 个已完成`)
-  if (skippedCount.value) parts.push(`${skippedCount.value} 个未变小已跳过`)
+  if (skippedCount.value) parts.push(`${skippedCount.value} 个已跳过`)
+  if (failedCount.value) parts.push(`${failedCount.value} 个失败`)
+  if (cancelledCount.value) parts.push(`${cancelledCount.value} 个已取消`)
   return parts.join(' · ') || '当前批次暂无任务'
 })
 

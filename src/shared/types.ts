@@ -262,6 +262,7 @@ export interface MediaInspection {
   sourcePath: string
   outputPath: string
   outputPaths?: string[]
+  overwritesSource?: boolean
   valid: boolean
   skipped?: boolean
   sourceSize: number
@@ -395,11 +396,13 @@ export interface VVToolsApi {
   openOutputDirectory: () => Promise<void>
   createTasks: (request: CreateTasksRequest) => Promise<MediaTask[]>
   inspectTasks: (request: CreateTasksRequest) => Promise<MediaInspection[]>
+  confirmSourceOverwrite: (sourcePaths: string[]) => Promise<boolean>
   getTasks: () => Promise<MediaTask[]>
   cancelTask: (taskId: string) => Promise<boolean>
   retryTask: (taskId: string) => Promise<MediaTask | null>
   openTaskOutput: (taskId: string) => Promise<void>
   getSettings: () => Promise<AppSettings>
+  getSettingsRecoveryNotice: () => Promise<string | null>
   updateSettings: (settings: AppSettingsPatch) => Promise<AppSettings>
   getCapabilities: () => Promise<RuntimeCapabilities>
   getVersion: () => Promise<string>
