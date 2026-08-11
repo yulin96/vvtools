@@ -158,15 +158,23 @@ export interface VideoProbe {
   width?: number
   height?: number
   format?: string
+  frameCount?: number
 }
 
-export function probeVideo(sourcePath: string, signal: AbortSignal): Promise<VideoProbe> {
+export function probeVideo(
+  sourcePath: string,
+  signal: AbortSignal,
+  frameRange?: { start: number; end?: number }
+): Promise<VideoProbe> {
   const executable = getFfprobePath()
   const args = [
     '-v',
     'error',
+    ...(frameRange ? ['-select_streams', 'v:0', '-read_intervals', `${frameRange.start}%`] : []),
     '-show_entries',
-    'format=duration,format_name:stream=codec_type,codec_name,width,height',
+    `format=duration,format_name:stream=codec_type,codec_name,width,height${
+      frameRange ? ':frame=best_effort_timestamp_time' : ''
+    }`,
     '-of',
     'json',
     sourcePath
@@ -205,18 +213,33 @@ export function probeVideo(sourcePath: string, signal: AbortSignal): Promise<Vid
             width?: number
             height?: number
           }>
+          frames?: Array<{ best_effort_timestamp_time?: string }>
         }
         const duration = Number(result.format?.duration)
         const videoStream = result.streams?.find((stream) => stream.codec_type === 'video')
         const videoCodec = videoStream?.codec_name
+        const frameCount = frameRange
+          ? result.frames?.filter((frame) => {
+              const timestamp = Number(frame.best_effort_timestamp_time)
+              return (
+                Number.isFinite(timestamp) &&
+                timestamp + 1e-6 >= frameRange.start &&
+                timestamp < (frameRange.end ?? duration)
+              )
+            }).length
+          : undefined
         if (!Number.isFinite(duration) || duration <= 0) throw new Error('无有效时长')
         if (!videoCodec) throw new Error('无有效视频编码')
+        if (frameRange && (!Number.isInteger(frameCount) || (frameCount ?? 0) < 1)) {
+          throw new Error('无法读取视频帧数')
+        }
         resolve({
           duration,
           videoCodec,
           width: videoStream?.width,
           height: videoStream?.height,
-          format: result.format?.format_name?.split(',')[0]
+          format: result.format?.format_name?.split(',')[0],
+          frameCount
         })
       } catch {
         reject(

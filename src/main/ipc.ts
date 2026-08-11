@@ -49,7 +49,7 @@ const VIDEO_CODECS = new Set(['source', 'h264', 'h265', 'mpeg4'])
 const VIDEO_RATE_CONTROLS = new Set(['quality', 'bitrate'])
 const VIDEO_FRAME_RATES = new Set(['source', '24', '30', '60', 'custom'])
 const VIDEO_AUDIO_MODES = new Set(['aac', 'copy', 'none'])
-const SPRITE_SAMPLING_MODES = new Set(['interval', 'count'])
+const SPRITE_SAMPLING_MODES = new Set(['interval', 'count', 'frame'])
 const SPRITE_EXPORT_MODES = new Set(['single', 'batch'])
 const SPRITE_IMAGE_FORMATS = new Set(['png', 'jpeg', 'webp'])
 const IMAGE_FORMATS = new Set<ImageFormat>(['original', 'jpeg', 'png', 'webp', 'avif'])
@@ -252,6 +252,7 @@ function sanitizeInputMetadata(
       height?: unknown
       pageCount?: unknown
       frameCount?: unknown
+      sourceFrameCount?: unknown
       sheetCount?: unknown
       fontCount?: unknown
       fontInstances?: unknown
@@ -273,18 +274,23 @@ function sanitizeInputMetadata(
         throw new Error('媒体尺寸信息无效')
       }
     }
-    for (const count of [
-      metadata.pageCount,
-      metadata.fontCount,
-      metadata.frameCount,
-      metadata.sheetCount
-    ]) {
+    for (const count of [metadata.pageCount, metadata.fontCount, metadata.sheetCount]) {
       if (
         count !== undefined &&
         (!Number.isInteger(count) || (count as number) < 1 || (count as number) > 100_000)
       ) {
         throw new Error('媒体数量信息无效')
       }
+    }
+    for (const frameCount of [metadata.frameCount, metadata.sourceFrameCount]) {
+      if (
+        frameCount === undefined ||
+        (Number.isInteger(frameCount) &&
+          (frameCount as number) >= 1 &&
+          (frameCount as number) <= 10_000_000)
+      )
+        continue
+      throw new Error('视频帧数信息无效')
     }
     paths.add(metadata.path)
     return {
@@ -293,6 +299,7 @@ function sanitizeInputMetadata(
       height: metadata.height as number | undefined,
       pageCount: metadata.pageCount as number | undefined,
       frameCount: metadata.frameCount as number | undefined,
+      sourceFrameCount: metadata.sourceFrameCount as number | undefined,
       sheetCount: metadata.sheetCount as number | undefined,
       fontCount: metadata.fontCount as number | undefined,
       fontInstances: sanitizeFontInstances(metadata.fontInstances)
@@ -358,6 +365,9 @@ function validateSpriteOptions(options: SpriteOptions, message: string): void {
     !Number.isInteger(options.frameCount) ||
     options.frameCount < 1 ||
     options.frameCount > 10_000 ||
+    !Number.isInteger(options.frameStep) ||
+    options.frameStep < 1 ||
+    options.frameStep > 10_000 ||
     !Number.isFinite(options.startTimeSeconds) ||
     options.startTimeSeconds < 0 ||
     options.startTimeSeconds > 864_000 ||

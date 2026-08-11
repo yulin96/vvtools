@@ -248,11 +248,7 @@ function migrateSettings(value: unknown, defaults: AppSettings): AppSettings {
       )
     },
     sprite: {
-      outputSuffix: migrateOutputSuffix(
-        sprite,
-        defaults.sprite.outputSuffix,
-        legacyOutputSuffix
-      ),
+      outputSuffix: migrateOutputSuffix(sprite, defaults.sprite.outputSuffix, legacyOutputSuffix),
       lastOptions: {
         ...defaults.sprite.lastOptions,
         ...(asRecord(sprite?.lastOptions ?? value.sprite) as Partial<SpriteOptions>)

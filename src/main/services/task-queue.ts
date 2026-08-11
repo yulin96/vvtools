@@ -188,6 +188,8 @@ export class TaskQueue extends EventEmitter {
           presetName: request.presetName,
           sourceWidth: sourceMetadata?.width,
           sourceHeight: sourceMetadata?.height,
+          frameCount: sourceMetadata?.frameCount,
+          sourceFrameCount: sourceMetadata?.sourceFrameCount,
           sourceSize: statSync(sourcePath).size,
           createdAt: new Date().toISOString()
         }
@@ -337,7 +339,9 @@ export class TaskQueue extends EventEmitter {
                   path: original.sourcePath,
                   width: original.sourceWidth,
                   height: original.sourceHeight,
-                  sheetCount: original.outputPaths?.length ?? 1
+                  sheetCount: original.outputPaths?.length ?? 1,
+                  frameCount: original.frameCount,
+                  sourceFrameCount: original.sourceFrameCount
                 }
               ],
               options: structuredClone(original.options) as SpriteOptions

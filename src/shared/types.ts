@@ -9,7 +9,7 @@ export type VideoRateControl = 'quality' | 'bitrate'
 export type VideoFrameRate = 'source' | '24' | '30' | '60' | 'custom'
 export type VideoAudioMode = 'aac' | 'copy' | 'none'
 export type VideoEncoderMode = 'auto' | 'software' | 'hardware'
-export type SpriteSamplingMode = 'interval' | 'count'
+export type SpriteSamplingMode = 'interval' | 'count' | 'frame'
 export type SpriteExportMode = 'single' | 'batch'
 export type SpriteImageFormat = 'png' | 'jpeg' | 'webp'
 export type ImageFormat = 'original' | 'jpeg' | 'png' | 'webp' | 'avif'
@@ -65,6 +65,7 @@ export interface SpriteOptions {
   samplingMode: SpriteSamplingMode
   intervalSeconds: number
   frameCount: number
+  frameStep: number
   startTimeSeconds: number
   endTimeSeconds: number
   frameWidth: number
@@ -361,6 +362,8 @@ export interface MediaTask {
   presetName?: string
   sourceWidth?: number
   sourceHeight?: number
+  frameCount?: number
+  sourceFrameCount?: number
   pageNumber?: number
   pageNumbers?: number[]
   outputPaths?: string[]
@@ -389,6 +392,7 @@ export interface MediaInspection {
   outputHeight?: number
   duration?: number
   frameCount?: number
+  sourceFrameCount?: number
   sheetCount?: number
   videoCodec?: string
   audioCodec?: string
@@ -405,6 +409,7 @@ export interface MediaInputMetadata {
   width?: number
   height?: number
   frameCount?: number
+  sourceFrameCount?: number
   sheetCount?: number
   pageCount?: number
   fontCount?: number

@@ -24,13 +24,26 @@ export function createSpritePlan(options: SpriteOptions, probe: VideoProbe): Spr
   const duration = rangeEnd - options.startTimeSeconds
   if (duration <= 0) throw new Error('采样开始时间超出视频时长')
 
+  const sourceFrameCount = probe.frameCount
+  if (options.samplingMode === 'frame' && !sourceFrameCount) {
+    throw new Error('无法读取视频帧数，不能按帧抽取')
+  }
   const intervalSeconds =
-    options.samplingMode === 'count' ? duration / options.frameCount : options.intervalSeconds
+    options.samplingMode === 'count'
+      ? duration / options.frameCount
+      : options.samplingMode === 'frame'
+        ? (duration / sourceFrameCount!) * options.frameStep
+        : options.intervalSeconds
   const frameCount =
     options.samplingMode === 'count'
       ? options.frameCount
-      : Math.max(1, Math.ceil(duration / intervalSeconds))
-  if (frameCount > 10_000) throw new Error('采样帧数超过 10000，请增大采样间隔或缩短时间范围')
+      : options.samplingMode === 'frame'
+        ? Math.ceil(sourceFrameCount! / options.frameStep)
+        : Math.max(1, Math.ceil(duration / intervalSeconds))
+  const maximumFrameCount = options.samplingMode === 'frame' ? 100_000 : 10_000
+  if (frameCount > maximumFrameCount) {
+    throw new Error(`采样帧数超过 ${maximumFrameCount}，请增大抽帧步长、采样间隔或缩短时间范围`)
+  }
 
   const framesPerSheet =
     options.exportMode === 'single' ? frameCount : Math.min(frameCount, options.framesPerSheet)
@@ -84,13 +97,19 @@ export function buildSpriteArgs(
   const frames = Math.min(plan.framesPerSheet, plan.frameCount - firstFrame)
   const columns = Math.min(options.columns, frames)
   const rows = Math.ceil(frames / columns)
-  const start = options.startTimeSeconds + firstFrame * plan.intervalSeconds
-  const duration = Math.min(
-    plan.duration - firstFrame * plan.intervalSeconds,
-    frames * plan.intervalSeconds
-  )
+  const samplesByFrame = options.samplingMode === 'frame'
+  const start = samplesByFrame
+    ? options.startTimeSeconds
+    : options.startTimeSeconds + firstFrame * plan.intervalSeconds
+  const duration = samplesByFrame
+    ? plan.duration
+    : Math.min(plan.duration - firstFrame * plan.intervalSeconds, frames * plan.intervalSeconds)
+  const firstSourceFrame = firstFrame * options.frameStep
+  const lastSourceFrame = firstSourceFrame + (frames - 1) * options.frameStep
   const filter = [
-    `fps=1/${plan.intervalSeconds}`,
+    samplesByFrame
+      ? `select='between(n\\,${firstSourceFrame}\\,${lastSourceFrame})*not(mod(n\\,${options.frameStep}))',setpts=N/FRAME_RATE/TB`
+      : `fps=1/${plan.intervalSeconds}`,
     `scale=${plan.frameWidth}:-1:flags=lanczos`,
     `tile=${columns}x${rows}:nb_frames=${frames}:padding=${options.padding}:margin=${options.margin}:color=0x${options.backgroundColor.slice(1)}`
   ].join(',')
@@ -101,7 +120,7 @@ export function buildSpriteArgs(
     '-ss',
     String(start),
     '-t',
-    String(Math.max(plan.intervalSeconds, duration)),
+    String(samplesByFrame ? duration : Math.max(plan.intervalSeconds, duration)),
     '-i',
     task.sourcePath,
     '-vf',
@@ -201,6 +220,7 @@ export async function processSprite(
   const options = task.options as SpriteOptions
   const outputPaths = task.outputPaths ?? []
   const probe = await probeVideo(task.sourcePath, signal)
+  probe.frameCount = task.sourceFrameCount
   const plan = createSpritePlan(options, probe)
   if (outputPaths.length !== plan.sheetCount) throw new Error('雪碧图输出数量与采样计划不匹配')
   mkdirSync(task.outputPath, { recursive: true })

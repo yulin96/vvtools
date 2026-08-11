@@ -42,6 +42,7 @@ export const DEFAULT_SPRITE_OPTIONS: SpriteOptions = {
   samplingMode: 'interval',
   intervalSeconds: 2,
   frameCount: 100,
+  frameStep: 1,
   startTimeSeconds: 0,
   endTimeSeconds: 0,
   frameWidth: 240,

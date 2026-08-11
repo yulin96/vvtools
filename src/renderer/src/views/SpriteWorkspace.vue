@@ -39,7 +39,8 @@ const pendingTableItems = computed(() => pendingPaths.value.map((path) => ({ pat
 const options = computed(() => store.settings?.sprite.lastOptions)
 const samplingOptions = [
   { value: 'interval', label: '按时间间隔' },
-  { value: 'count', label: '按总帧数' }
+  { value: 'count', label: '按总帧数' },
+  { value: 'frame', label: '按帧抽取' }
 ]
 const exportOptions = [
   { value: 'batch', label: '分批导出', title: '按指定帧数拆成多张雪碧图' },
@@ -57,7 +58,11 @@ const summary = computed(() => {
   const sampling =
     value.samplingMode === 'interval'
       ? `每 ${value.intervalSeconds} 秒 1 帧`
-      : `均匀 ${value.frameCount} 帧`
+      : value.samplingMode === 'frame'
+        ? value.frameStep === 1
+          ? '提取所有帧'
+          : `每 ${value.frameStep} 帧取 1 帧（跳过 ${value.frameStep - 1} 帧）`
+        : `均匀 ${value.frameCount} 帧`
   const output = value.exportMode === 'batch' ? `每张 ${value.framesPerSheet} 帧` : '单张总图'
   return `${sampling} · ${value.columns} 列 · ${output} · ${value.imageFormat.toUpperCase()}`
 })
@@ -210,7 +215,15 @@ onBeforeUnmount(() => {
               @update:model-value="updateSprite({ samplingMode: $event as SpriteSamplingMode })"
             />
             <label class="compact-field">
-              <span>{{ options?.samplingMode === 'interval' ? '采样间隔' : '采样总帧数' }}</span>
+              <span>
+                {{
+                  options?.samplingMode === 'interval'
+                    ? '采样间隔'
+                    : options?.samplingMode === 'frame'
+                      ? '抽帧步长'
+                      : '采样总帧数'
+                }}
+              </span>
               <div class="number-field">
                 <input
                   v-if="options?.samplingMode === 'interval'"
@@ -221,14 +234,24 @@ onBeforeUnmount(() => {
                   step="0.1"
                   @change="updateSprite({ intervalSeconds: numberValue($event) })"
                 /><input
-                  v-else
+                  v-else-if="options?.samplingMode === 'count'"
                   :value="options?.frameCount"
                   type="number"
                   min="1"
                   max="10000"
                   @change="updateSprite({ frameCount: numberValue($event) })"
+                /><input
+                  v-else
+                  :value="options?.frameStep"
+                  type="number"
+                  min="1"
+                  max="10000"
+                  @change="updateSprite({ frameStep: numberValue($event) })"
                 /><span>{{ options?.samplingMode === 'interval' ? '秒' : '帧' }}</span>
               </div>
+              <small v-if="options?.samplingMode === 'frame'" class="compact-field-hint">
+                1 = 所有帧；2 = 跳过 1 帧；3 = 跳过 2 帧
+              </small>
             </label>
           </div>
         </fieldset>
@@ -273,7 +296,7 @@ onBeforeUnmount(() => {
               @update:model-value="updateSprite({ exportMode: $event as SpriteExportMode })"
             />
             <label class="compact-field" :class="{ 'opacity-45': options?.exportMode !== 'batch' }">
-              <span>每张雪碧图</span>
+              <span>每张雪碧图容纳</span>
               <div class="number-field">
                 <input
                   :value="options?.framesPerSheet"

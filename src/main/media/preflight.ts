@@ -65,7 +65,16 @@ export async function inspectTasks(
         }
       }
       if (request.kind === 'sprite') {
-        const probe = await probeVideo(source.path, new AbortController().signal)
+        const probe = await probeVideo(
+          source.path,
+          new AbortController().signal,
+          request.options.samplingMode === 'frame'
+            ? {
+                start: request.options.startTimeSeconds,
+                end: request.options.endTimeSeconds > 0 ? request.options.endTimeSeconds : undefined
+              }
+            : undefined
+        )
         const plan = createSpritePlan(request.options, probe)
         return {
           sourcePath: source.path,
@@ -79,6 +88,7 @@ export async function inspectTasks(
           outputHeight: plan.sheetHeight,
           duration: probe.duration,
           frameCount: plan.frameCount,
+          sourceFrameCount: probe.frameCount,
           sheetCount: plan.sheetCount,
           videoCodec: probe.videoCodec
         }
