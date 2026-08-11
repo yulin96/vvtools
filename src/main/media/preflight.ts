@@ -8,8 +8,14 @@ import type {
   MediaInspection,
   VideoOptions
 } from '../../shared/types'
-import { getOutputExtension, resolveOutputPath, resolvePdfImageOutput } from './output-path'
+import {
+  getOutputExtension,
+  resolveOutputPath,
+  resolvePdfImageOutput,
+  resolveSpriteOutput
+} from './output-path'
 import { getVideoResolutionBounds, probeVideo } from './video-processor'
+import { createSpritePlan } from './sprite-processor'
 import { probeAudio } from './audio-processor'
 import { probeFont } from './font-processor'
 import { inspectImageMetadata } from './image-metadata'
@@ -55,6 +61,25 @@ export async function inspectTasks(
           outputWidth: outputDimensions.width,
           outputHeight: outputDimensions.height,
           duration: probe.duration,
+          videoCodec: probe.videoCodec
+        }
+      }
+      if (request.kind === 'sprite') {
+        const probe = await probeVideo(source.path, new AbortController().signal)
+        const plan = createSpritePlan(request.options, probe)
+        return {
+          sourcePath: source.path,
+          outputPath: '',
+          valid: true,
+          sourceSize,
+          format: probe.format,
+          width: probe.width,
+          height: probe.height,
+          outputWidth: plan.sheetWidth,
+          outputHeight: plan.sheetHeight,
+          duration: probe.duration,
+          frameCount: plan.frameCount,
+          sheetCount: plan.sheetCount,
           videoCodec: probe.videoCodec
         }
       }
@@ -147,6 +172,32 @@ export async function inspectTasks(
   return inspections.map((inspection, index) => {
     const source = sources[index]
     if (!inspection.valid) return inspection
+    if (request.kind === 'sprite') {
+      const output = resolveSpriteOutput({
+        sourcePath: source.path,
+        outputDirectory: outputDirectoryFor(request, source),
+        imageFormat: request.options.imageFormat,
+        sheetCount: inspection.sheetCount ?? 1,
+        reservedPaths,
+        outputSuffix: request.outputSuffix,
+        nameTemplate: request.outputNameTemplate,
+        conflictPolicy: request.outputConflictPolicy,
+        presetName: request.presetName,
+        width: inspection.outputWidth,
+        height: inspection.outputHeight
+      })
+      if (output.directory.skipped) {
+        return {
+          ...inspection,
+          outputPath: output.directory.path,
+          outputPaths: [],
+          valid: false,
+          skipped: true,
+          error: '输出文件夹已存在，当前冲突策略为跳过'
+        }
+      }
+      return { ...inspection, outputPath: output.directory.path, outputPaths: output.paths }
+    }
     if (request.kind === 'pdf' && request.options.operation === 'toImage') {
       const pageNumbers = request.pageNumbers ?? range(1, inspection.pageCount ?? 0)
       const output = resolvePdfImageOutput({

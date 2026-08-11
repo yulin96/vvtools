@@ -10,7 +10,7 @@ import { useAppStore } from '../stores/app'
 const store = useAppStore()
 const concurrencyModeOptions = [
   { value: 'auto', label: '自动调度', title: '根据任务类型和处理器核心数分配并发' },
-  { value: 'custom', label: '自定义', title: '分别设置图片、视频、音频、PDF 和字体并发数' }
+  { value: 'custom', label: '自定义', title: '分别设置各类处理任务的并发数' }
 ]
 const closeBehaviorOptions = [
   { value: 'ask', label: '每次询问', title: '关闭时询问继续后台处理还是取消任务' },
@@ -20,14 +20,16 @@ const closeBehaviorOptions = [
 const concurrencyOptions: Record<TaskKind, number> = {
   image: 16,
   video: 2,
+  sprite: 2,
   audio: 4,
   pdf: 2,
   font: 4
 }
-const concurrencyKinds = ['image', 'video', 'audio', 'pdf', 'font'] as const
+const concurrencyKinds = ['image', 'video', 'sprite', 'audio', 'pdf', 'font'] as const
 const concurrencyLabels: Record<TaskKind, string> = {
   image: '同时处理的图片数',
   video: '同时处理的视频数',
+  sprite: '同时生成的雪碧图数',
   audio: '同时处理的音频数',
   pdf: '同时处理的 PDF 数',
   font: '同时处理的字体数'

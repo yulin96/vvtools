@@ -18,6 +18,7 @@ import type {
   FontOptions,
   MediaTask,
   PdfOptions,
+  SpriteOptions,
   TaskKind,
   TaskStatus
 } from '../../../shared/types'
@@ -120,7 +121,10 @@ const batchSavings = computed(() => {
   return { sourceSize, outputSize, difference, percentage }
 })
 const kindLabel = computed(
-  () => ({ image: '图片', video: '视频', audio: '音频', pdf: 'PDF', font: '字体' })[props.kind]
+  () =>
+    ({ image: '图片', video: '视频', sprite: '雪碧图', audio: '音频', pdf: 'PDF', font: '字体' })[
+      props.kind
+    ]
 )
 const summary = computed(() => {
   const parts: string[] = []
@@ -138,6 +142,10 @@ function extension(path: string): string {
 }
 
 function taskSpec(task: MediaTask): string {
+  if (task.kind === 'sprite') {
+    const options = task.options as SpriteOptions
+    return `${task.outputPaths?.length ?? 1} 张 · ${options.imageFormat.toUpperCase()} · ${options.frameWidth}px`
+  }
   if (task.kind === 'font') {
     const format = (task.options as FontOptions).outputFormat.toUpperCase()
     if (task.fontIndex !== undefined) return `${format} · 集合字体 ${task.fontIndex + 1}`

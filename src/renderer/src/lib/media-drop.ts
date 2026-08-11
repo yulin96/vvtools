@@ -6,13 +6,15 @@ import {
   VIDEO_EXTENSIONS
 } from '../../../shared/constants'
 
-export type MediaWorkspacePath = '/image' | '/video' | '/audio' | '/pdf' | '/font' | '/rename'
+export type MediaWorkspacePath =
+  '/image' | '/video' | '/sprite' | '/audio' | '/pdf' | '/font' | '/rename'
 
 type ProcessingWorkspacePath = Exclude<MediaWorkspacePath, '/rename'>
 
 const workspaceExtensions: Array<[ProcessingWorkspacePath, ReadonlySet<string>]> = [
   ['/image', IMAGE_EXTENSIONS],
   ['/video', VIDEO_EXTENSIONS],
+  ['/sprite', VIDEO_EXTENSIONS],
   ['/audio', AUDIO_EXTENSIONS],
   ['/pdf', PDF_EXTENSIONS],
   ['/font', FONT_EXTENSIONS]

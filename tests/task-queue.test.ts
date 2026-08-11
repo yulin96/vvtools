@@ -17,6 +17,7 @@ import { MediaProcessError, TaskCancelledError, TaskSkippedError } from '../src/
 import {
   DEFAULT_FONT_OPTIONS,
   DEFAULT_IMAGE_OPTIONS,
+  DEFAULT_SPRITE_OPTIONS,
   DEFAULT_VIDEO_OPTIONS
 } from '../src/shared/constants'
 import type { TaskConcurrencyLimits } from '../src/shared/types'
@@ -47,7 +48,7 @@ const successfulRunner: TaskRunner = async (task) => {
 }
 
 function concurrency(value: number): TaskConcurrencyLimits {
-  return { image: value, video: value, audio: value, pdf: value, font: value }
+  return { image: value, video: value, sprite: value, audio: value, pdf: value, font: value }
 }
 
 afterEach(() => {
@@ -145,7 +146,7 @@ describe('TaskQueue', () => {
 
   it('applies separate concurrency limits to each media type', async () => {
     const paths = fixture()
-    const running = { image: 0, video: 0, audio: 0, pdf: 0, font: 0 }
+    const running = { image: 0, video: 0, sprite: 0, audio: 0, pdf: 0, font: 0 }
     const maximum = { ...running }
     const runner: TaskRunner = async (task) => {
       running[task.kind] += 1
@@ -156,7 +157,7 @@ describe('TaskQueue', () => {
       return 12
     }
     const queue = new TaskQueue(
-      { image: 2, video: 1, audio: 1, pdf: 1, font: 1 },
+      { image: 2, video: 1, sprite: 1, audio: 1, pdf: 1, font: 1 },
       runner,
       new FailureLogService(paths.userData)
     )
@@ -588,6 +589,40 @@ describe('TaskQueue', () => {
       'document-page-001.png',
       'document-page-002.png',
       'document-page-003.png'
+    ])
+  })
+
+  it('keeps one sprite conversion as one task and commits all sheets together', async () => {
+    const paths = fixture()
+    const source = join(dirname(paths.source), 'clip.mp4')
+    writeFileSync(source, 'video fixture')
+    const spriteRunner: TaskRunner = async (task) => {
+      mkdirSync(task.outputPath, { recursive: true })
+      for (const outputPath of task.outputPaths ?? []) writeFileSync(outputPath, 'sprite')
+      return (task.outputPaths?.length ?? 0) * 6
+    }
+    const queue = new TaskQueue(concurrency(1), spriteRunner, new FailureLogService(paths.userData))
+    const tasks = queue.create({
+      kind: 'sprite',
+      sourcePaths: [source],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '_sprite',
+      outputNameTemplate: '{name}{suffix}',
+      inputMetadata: [{ path: source, width: 2452, height: 1402, sheetCount: 2 }],
+      options: { ...DEFAULT_SPRITE_OPTIONS }
+    })
+
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0].outputPath).toBe(join(paths.output, 'clip_sprite'))
+    expect(tasks[0].outputPaths).toEqual([
+      join(paths.output, 'clip_sprite', 'clip_sprite_1.png'),
+      join(paths.output, 'clip_sprite', 'clip_sprite_2.png')
+    ])
+    await waitFor(() => queue.list()[0]?.status === 'completed')
+    expect(readdirSync(join(paths.output, 'clip_sprite'))).toEqual([
+      'clip_sprite_1.png',
+      'clip_sprite_2.png'
     ])
   })
 

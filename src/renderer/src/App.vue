@@ -11,6 +11,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Sheet,
   Sun,
   Type,
   Video,
@@ -61,6 +62,7 @@ const currentTheme = computed(
 const navigation = [
   { to: '/image', label: '图片处理', icon: Images },
   { to: '/video', label: '视频处理', icon: Video },
+  { to: '/sprite', label: '视频雪碧图', icon: Sheet },
   { to: '/audio', label: '音频处理', icon: Music },
   { to: '/pdf', label: 'PDF 处理', icon: FileText },
   { to: '/font', label: '字体处理', icon: Type },

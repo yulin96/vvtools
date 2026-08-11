@@ -16,11 +16,17 @@ import type {
   PdfOptions,
   TaskConcurrencyLimits,
   TaskFailure,
+  SpriteOptions,
   VideoOptions
 } from '../../shared/types'
 import { FailureLogService } from './failure-log'
 import { MediaProcessError, TaskCancelledError, TaskSkippedError } from '../media/errors'
-import { getOutputExtension, resolveOutputPath, resolvePdfImageOutput } from '../media/output-path'
+import {
+  getOutputExtension,
+  resolveOutputPath,
+  resolvePdfImageOutput,
+  resolveSpriteOutput
+} from '../media/output-path'
 import { commitStagedOutput, createStagingOutputPath } from '../media/output-commit'
 
 export type TaskRunner = (
@@ -134,6 +140,45 @@ export class TaskQueue extends EventEmitter {
           outputPath: output.directory.path,
           outputPaths: output.paths,
           pageNumbers,
+          status: 'pending',
+          progress: 0,
+          options: structuredClone(request.options),
+          outputSuffix: request.outputSuffix,
+          outputNameTemplate: request.outputNameTemplate,
+          outputConflictPolicy: request.outputConflictPolicy,
+          presetName: request.presetName,
+          sourceWidth: sourceMetadata?.width,
+          sourceHeight: sourceMetadata?.height,
+          sourceSize: statSync(sourcePath).size,
+          createdAt: new Date().toISOString()
+        }
+        stagedTasks.set(task.id, task)
+        return [structuredClone(task)]
+      }
+      if (request.kind === 'sprite') {
+        mkdirSync(outputDirectory, { recursive: true })
+        const output = resolveSpriteOutput({
+          sourcePath,
+          outputDirectory,
+          imageFormat: request.options.imageFormat,
+          sheetCount: sourceMetadata?.sheetCount ?? 1,
+          reservedPaths: stagedReservedPaths,
+          outputSuffix: request.outputSuffix,
+          nameTemplate: request.outputNameTemplate,
+          conflictPolicy: request.outputConflictPolicy,
+          presetName: request.presetName,
+          width: sourceMetadata?.width,
+          height: sourceMetadata?.height
+        })
+        if (output.directory.skipped) return []
+        const task: MediaTask = {
+          id: randomUUID(),
+          kind: 'sprite',
+          batchInputId: source.batchItemId,
+          batchItemId: source.batchItemId,
+          sourcePath,
+          outputPath: output.directory.path,
+          outputPaths: output.paths,
           status: 'pending',
           progress: 0,
           options: structuredClone(request.options),
@@ -277,10 +322,10 @@ export class TaskQueue extends EventEmitter {
             ],
             options: structuredClone(original.options) as VideoOptions
           }
-        : original.kind === 'image'
+        : original.kind === 'sprite'
           ? {
-              kind: 'image',
-              sources: [{ path: original.sourcePath, relativeDirectory: '' }],
+              kind: 'sprite',
+              sourcePaths: [original.sourcePath],
               outputMode: 'custom',
               outputDirectory: dirname(original.outputPath),
               outputSuffix: original.outputSuffix ?? '',
@@ -291,26 +336,34 @@ export class TaskQueue extends EventEmitter {
                 {
                   path: original.sourcePath,
                   width: original.sourceWidth,
-                  height: original.sourceHeight
+                  height: original.sourceHeight,
+                  sheetCount: original.outputPaths?.length ?? 1
                 }
               ],
-              options: structuredClone(original.options) as ImageOptions
+              options: structuredClone(original.options) as SpriteOptions
             }
-          : original.kind === 'audio'
+          : original.kind === 'image'
             ? {
-                kind: 'audio',
-                sourcePaths: [original.sourcePath],
+                kind: 'image',
+                sources: [{ path: original.sourcePath, relativeDirectory: '' }],
                 outputMode: 'custom',
                 outputDirectory: dirname(original.outputPath),
                 outputSuffix: original.outputSuffix ?? '',
                 outputNameTemplate: original.outputNameTemplate,
                 outputConflictPolicy: original.outputConflictPolicy,
                 presetName: original.presetName,
-                options: structuredClone(original.options) as AudioOptions
+                inputMetadata: [
+                  {
+                    path: original.sourcePath,
+                    width: original.sourceWidth,
+                    height: original.sourceHeight
+                  }
+                ],
+                options: structuredClone(original.options) as ImageOptions
               }
-            : original.kind === 'pdf'
+            : original.kind === 'audio'
               ? {
-                  kind: 'pdf',
+                  kind: 'audio',
                   sourcePaths: [original.sourcePath],
                   outputMode: 'custom',
                   outputDirectory: dirname(original.outputPath),
@@ -318,47 +371,60 @@ export class TaskQueue extends EventEmitter {
                   outputNameTemplate: original.outputNameTemplate,
                   outputConflictPolicy: original.outputConflictPolicy,
                   presetName: original.presetName,
-                  inputMetadata: [
-                    {
-                      path: original.sourcePath,
-                      width: original.sourceWidth,
-                      height: original.sourceHeight,
-                      pageCount:
-                        original.pageNumbers?.length && original.pageNumbers.length > 0
-                          ? Math.max(...original.pageNumbers)
-                          : (original.pageNumber ?? 1)
-                    }
-                  ],
-                  pageNumbers:
-                    original.pageNumbers ??
-                    (original.pageNumber === undefined ? undefined : [original.pageNumber]),
-                  options: structuredClone(original.options) as PdfOptions
+                  options: structuredClone(original.options) as AudioOptions
                 }
-              : {
-                  kind: 'font',
-                  sources: [
-                    {
-                      path: original.sourcePath,
-                      outputFormat: (original.options as FontOptions).outputFormat
-                    }
-                  ],
-                  outputMode: 'custom',
-                  outputDirectory: dirname(original.outputPath),
-                  outputSuffix: original.outputSuffix ?? '',
-                  outputNameTemplate: original.outputNameTemplate,
-                  outputConflictPolicy: original.outputConflictPolicy,
-                  presetName: original.presetName,
-                  inputMetadata: [
-                    {
-                      path: original.sourcePath,
-                      fontCount: original.fontIndex === undefined ? 1 : original.fontIndex + 1,
-                      fontInstances: original.fontInstance ? [original.fontInstance] : undefined
-                    }
-                  ],
-                  fontIndexes: original.fontIndex === undefined ? undefined : [original.fontIndex],
-                  fontInstances: original.fontInstance ? [original.fontInstance] : undefined,
-                  options: structuredClone(original.options) as FontOptions
-                }
+              : original.kind === 'pdf'
+                ? {
+                    kind: 'pdf',
+                    sourcePaths: [original.sourcePath],
+                    outputMode: 'custom',
+                    outputDirectory: dirname(original.outputPath),
+                    outputSuffix: original.outputSuffix ?? '',
+                    outputNameTemplate: original.outputNameTemplate,
+                    outputConflictPolicy: original.outputConflictPolicy,
+                    presetName: original.presetName,
+                    inputMetadata: [
+                      {
+                        path: original.sourcePath,
+                        width: original.sourceWidth,
+                        height: original.sourceHeight,
+                        pageCount:
+                          original.pageNumbers?.length && original.pageNumbers.length > 0
+                            ? Math.max(...original.pageNumbers)
+                            : (original.pageNumber ?? 1)
+                      }
+                    ],
+                    pageNumbers:
+                      original.pageNumbers ??
+                      (original.pageNumber === undefined ? undefined : [original.pageNumber]),
+                    options: structuredClone(original.options) as PdfOptions
+                  }
+                : {
+                    kind: 'font',
+                    sources: [
+                      {
+                        path: original.sourcePath,
+                        outputFormat: (original.options as FontOptions).outputFormat
+                      }
+                    ],
+                    outputMode: 'custom',
+                    outputDirectory: dirname(original.outputPath),
+                    outputSuffix: original.outputSuffix ?? '',
+                    outputNameTemplate: original.outputNameTemplate,
+                    outputConflictPolicy: original.outputConflictPolicy,
+                    presetName: original.presetName,
+                    inputMetadata: [
+                      {
+                        path: original.sourcePath,
+                        fontCount: original.fontIndex === undefined ? 1 : original.fontIndex + 1,
+                        fontInstances: original.fontInstance ? [original.fontInstance] : undefined
+                      }
+                    ],
+                    fontIndexes:
+                      original.fontIndex === undefined ? undefined : [original.fontIndex],
+                    fontInstances: original.fontInstance ? [original.fontInstance] : undefined,
+                    options: structuredClone(original.options) as FontOptions
+                  }
     if (original.batchItemId) request.batchItemIds = [original.batchItemId]
     const task = this.createInternal(request, false)[0]
     if (!task) return null

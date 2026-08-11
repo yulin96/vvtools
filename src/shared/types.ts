@@ -1,4 +1,4 @@
-export type TaskKind = 'video' | 'image' | 'audio' | 'pdf' | 'font'
+export type TaskKind = 'video' | 'sprite' | 'image' | 'audio' | 'pdf' | 'font'
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'skipped' | 'failed' | 'cancelled'
 
 export type VideoQuality = 'high' | 'balanced' | 'small'
@@ -9,6 +9,9 @@ export type VideoRateControl = 'quality' | 'bitrate'
 export type VideoFrameRate = 'source' | '24' | '30' | '60' | 'custom'
 export type VideoAudioMode = 'aac' | 'copy' | 'none'
 export type VideoEncoderMode = 'auto' | 'software' | 'hardware'
+export type SpriteSamplingMode = 'interval' | 'count'
+export type SpriteExportMode = 'single' | 'batch'
+export type SpriteImageFormat = 'png' | 'jpeg' | 'webp'
 export type ImageFormat = 'original' | 'jpeg' | 'png' | 'webp' | 'avif'
 export type ImageCompressionMode = 'quality' | 'targetSize'
 export type ImageResizeMode = 'source' | 'width' | 'height' | 'percentage'
@@ -32,6 +35,7 @@ export type ConcurrencyMode = 'auto' | 'custom'
 export interface TaskConcurrencyLimits {
   image: number
   video: number
+  sprite: number
   audio: number
   pdf: number
   font: number
@@ -55,6 +59,23 @@ export interface VideoOptions {
   customFrameRate: number
   audioMode: VideoAudioMode
   audioBitrateKbps: number
+}
+
+export interface SpriteOptions {
+  samplingMode: SpriteSamplingMode
+  intervalSeconds: number
+  frameCount: number
+  startTimeSeconds: number
+  endTimeSeconds: number
+  frameWidth: number
+  columns: number
+  exportMode: SpriteExportMode
+  framesPerSheet: number
+  padding: number
+  margin: number
+  backgroundColor: string
+  imageFormat: SpriteImageFormat
+  quality: number
 }
 
 export interface VideoPreset {
@@ -171,6 +192,11 @@ export interface VideoSettings {
   lastOptions: VideoOptions
 }
 
+export interface SpriteSettings {
+  outputSuffix: string
+  lastOptions: SpriteOptions
+}
+
 export interface AudioSettings {
   outputSuffix: string
   lastOptions: AudioOptions
@@ -262,6 +288,7 @@ export interface AppSettings {
   common: CommonSettings
   image: ImageSettings
   video: VideoSettings
+  sprite: SpriteSettings
   audio: AudioSettings
   pdf: PdfSettings
   font: FontSettings
@@ -277,6 +304,10 @@ export interface AppSettingsPatch {
   video?: {
     outputSuffix?: string
     lastOptions?: VideoOptions
+  }
+  sprite?: {
+    outputSuffix?: string
+    lastOptions?: SpriteOptions
   }
   audio?: {
     outputSuffix?: string
@@ -317,7 +348,7 @@ export interface MediaTask {
   outputPath: string
   status: TaskStatus
   progress: number | null
-  options: VideoOptions | ImageOptions | AudioOptions | PdfOptions | FontOptions
+  options: VideoOptions | SpriteOptions | ImageOptions | AudioOptions | PdfOptions | FontOptions
   sourceSize: number
   outputSize?: number
   createdAt: string
@@ -357,6 +388,8 @@ export interface MediaInspection {
   outputWidth?: number
   outputHeight?: number
   duration?: number
+  frameCount?: number
+  sheetCount?: number
   videoCodec?: string
   audioCodec?: string
   channels?: number
@@ -371,6 +404,8 @@ export interface MediaInputMetadata {
   path: string
   width?: number
   height?: number
+  frameCount?: number
+  sheetCount?: number
   pageCount?: number
   fontCount?: number
   fontInstances?: FontInstance[]
@@ -389,6 +424,19 @@ export type CreateTasksRequest =
       presetName?: string
       inputMetadata?: MediaInputMetadata[]
       options: VideoOptions
+    }
+  | {
+      kind: 'sprite'
+      sourcePaths: string[]
+      batchItemIds?: string[]
+      outputMode: OutputMode
+      outputDirectory: string
+      outputSuffix: string
+      outputNameTemplate?: string
+      outputConflictPolicy?: OutputConflictPolicy
+      presetName?: string
+      inputMetadata?: MediaInputMetadata[]
+      options: SpriteOptions
     }
   | {
       kind: 'image'

@@ -6,6 +6,7 @@ import type {
   ImagePresetOptions,
   FontOptions,
   PdfOptions,
+  SpriteOptions,
   VideoOptions,
   VideoPreset
 } from './types'
@@ -15,6 +16,7 @@ export const DEFAULT_CONCURRENCY_SETTINGS: ConcurrencySettings = {
   custom: {
     image: 16,
     video: 1,
+    sprite: 1,
     audio: 2,
     pdf: 1,
     font: 2
@@ -34,6 +36,23 @@ export const DEFAULT_VIDEO_OPTIONS: VideoOptions = {
   customFrameRate: 30,
   audioMode: 'aac',
   audioBitrateKbps: 128
+}
+
+export const DEFAULT_SPRITE_OPTIONS: SpriteOptions = {
+  samplingMode: 'interval',
+  intervalSeconds: 2,
+  frameCount: 100,
+  startTimeSeconds: 0,
+  endTimeSeconds: 0,
+  frameWidth: 240,
+  columns: 10,
+  exportMode: 'batch',
+  framesPerSheet: 100,
+  padding: 4,
+  margin: 8,
+  backgroundColor: '#111111',
+  imageFormat: 'png',
+  quality: 90
 }
 
 export const DEFAULT_VIDEO_PRESETS: VideoPreset[] = [

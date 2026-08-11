@@ -6,8 +6,9 @@ import AudioWorkspace from './views/AudioWorkspace.vue'
 import FontWorkspace from './views/FontWorkspace.vue'
 import PdfWorkspace from './views/PdfWorkspace.vue'
 import RenameWorkspace from './views/RenameWorkspace.vue'
+import SpriteWorkspace from './views/SpriteWorkspace.vue'
 
-const mediaPaths = ['/image', '/video', '/audio', '/pdf', '/font'] as const
+const mediaPaths = ['/image', '/video', '/sprite', '/audio', '/pdf', '/font'] as const
 type MediaPath = (typeof mediaPaths)[number]
 const lastMediaPathKey = 'vvtools-last-media-path'
 
@@ -25,6 +26,7 @@ export const router = createRouter({
   routes: [
     { path: '/', redirect: initialMediaPath() },
     { path: '/video', component: VideoWorkspace },
+    { path: '/sprite', component: SpriteWorkspace },
     { path: '/audio', component: AudioWorkspace },
     { path: '/pdf', component: PdfWorkspace },
     { path: '/font', component: FontWorkspace },

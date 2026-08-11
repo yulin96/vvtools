@@ -14,6 +14,7 @@ import type {
   RenameFileRequest,
   RenameSettings,
   RuntimeCapabilities,
+  SpriteOptions,
   TaskProgressUpdate,
   TaskKind,
   VideoOptions,
@@ -48,6 +49,9 @@ const VIDEO_CODECS = new Set(['source', 'h264', 'h265', 'mpeg4'])
 const VIDEO_RATE_CONTROLS = new Set(['quality', 'bitrate'])
 const VIDEO_FRAME_RATES = new Set(['source', '24', '30', '60', 'custom'])
 const VIDEO_AUDIO_MODES = new Set(['aac', 'copy', 'none'])
+const SPRITE_SAMPLING_MODES = new Set(['interval', 'count'])
+const SPRITE_EXPORT_MODES = new Set(['single', 'batch'])
+const SPRITE_IMAGE_FORMATS = new Set(['png', 'jpeg', 'webp'])
 const IMAGE_FORMATS = new Set<ImageFormat>(['original', 'jpeg', 'png', 'webp', 'avif'])
 const PDF_OPERATIONS = new Set(['compress', 'toImage'])
 const PDF_COMPRESSION_MODES = new Set(['lossless', 'lossy'])
@@ -75,7 +79,7 @@ function validateSourcePath(path: string, kind: TaskKind): void {
     throw new Error(`文件不存在或不可访问：${path}`)
   }
   const extensions =
-    kind === 'video'
+    kind === 'video' || kind === 'sprite'
       ? VIDEO_EXTENSIONS
       : kind === 'audio'
         ? new Set([...AUDIO_EXTENSIONS, ...VIDEO_EXTENSIONS])
@@ -90,7 +94,7 @@ function validateSourcePath(path: string, kind: TaskKind): void {
 function validateCreateRequest(value: unknown): CreateTasksRequest {
   if (!value || typeof value !== 'object') throw new Error('任务参数无效')
   const request = value as CreateTasksRequest
-  if (!['video', 'image', 'audio', 'pdf', 'font'].includes(request.kind)) {
+  if (!['video', 'sprite', 'image', 'audio', 'pdf', 'font'].includes(request.kind)) {
     throw new Error('任务类型无效')
   }
   if (!['source', 'custom'].includes(request.outputMode)) throw new Error('输出位置参数无效')
@@ -117,6 +121,13 @@ function validateCreateRequest(value: unknown): CreateTasksRequest {
     if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
     request.sourcePaths.forEach((path) => validateSourcePath(path, 'video'))
     validateVideoOptions(request.options, '视频任务参数无效')
+  } else if (request.kind === 'sprite') {
+    if (!Array.isArray(request.sourcePaths) || request.sourcePaths.length === 0) {
+      throw new Error('请至少选择一个视频文件')
+    }
+    if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
+    request.sourcePaths.forEach((path) => validateSourcePath(path, 'sprite'))
+    validateSpriteOptions(request.options, '雪碧图任务参数无效')
   } else if (request.kind === 'image') {
     if (!Array.isArray(request.sources) || request.sources.length === 0) {
       throw new Error('请至少选择一张图片')
@@ -240,6 +251,8 @@ function sanitizeInputMetadata(
       width?: unknown
       height?: unknown
       pageCount?: unknown
+      frameCount?: unknown
+      sheetCount?: unknown
       fontCount?: unknown
       fontInstances?: unknown
     }
@@ -260,7 +273,12 @@ function sanitizeInputMetadata(
         throw new Error('媒体尺寸信息无效')
       }
     }
-    for (const count of [metadata.pageCount, metadata.fontCount]) {
+    for (const count of [
+      metadata.pageCount,
+      metadata.fontCount,
+      metadata.frameCount,
+      metadata.sheetCount
+    ]) {
       if (
         count !== undefined &&
         (!Number.isInteger(count) || (count as number) < 1 || (count as number) > 100_000)
@@ -274,6 +292,8 @@ function sanitizeInputMetadata(
       width: metadata.width as number | undefined,
       height: metadata.height as number | undefined,
       pageCount: metadata.pageCount as number | undefined,
+      frameCount: metadata.frameCount as number | undefined,
+      sheetCount: metadata.sheetCount as number | undefined,
       fontCount: metadata.fontCount as number | undefined,
       fontInstances: sanitizeFontInstances(metadata.fontInstances)
     }
@@ -323,6 +343,50 @@ function validateVideoOptions(options: VideoOptions, message: string): void {
     options.customFrameRate > 240 ||
     !VIDEO_AUDIO_MODES.has(options.audioMode) ||
     ![96, 128, 192, 256].includes(options.audioBitrateKbps)
+  ) {
+    throw new Error(message)
+  }
+}
+
+function validateSpriteOptions(options: SpriteOptions, message: string): void {
+  if (
+    !options ||
+    !SPRITE_SAMPLING_MODES.has(options.samplingMode) ||
+    !Number.isFinite(options.intervalSeconds) ||
+    options.intervalSeconds < 0.1 ||
+    options.intervalSeconds > 3600 ||
+    !Number.isInteger(options.frameCount) ||
+    options.frameCount < 1 ||
+    options.frameCount > 10_000 ||
+    !Number.isFinite(options.startTimeSeconds) ||
+    options.startTimeSeconds < 0 ||
+    options.startTimeSeconds > 864_000 ||
+    !Number.isFinite(options.endTimeSeconds) ||
+    options.endTimeSeconds < 0 ||
+    options.endTimeSeconds > 864_000 ||
+    (options.endTimeSeconds > 0 && options.endTimeSeconds <= options.startTimeSeconds) ||
+    !Number.isInteger(options.frameWidth) ||
+    options.frameWidth < 32 ||
+    options.frameWidth > 4096 ||
+    !Number.isInteger(options.columns) ||
+    options.columns < 1 ||
+    options.columns > 100 ||
+    !SPRITE_EXPORT_MODES.has(options.exportMode) ||
+    !Number.isInteger(options.framesPerSheet) ||
+    options.framesPerSheet < 1 ||
+    options.framesPerSheet > 10_000 ||
+    !Number.isInteger(options.padding) ||
+    options.padding < 0 ||
+    options.padding > 128 ||
+    !Number.isInteger(options.margin) ||
+    options.margin < 0 ||
+    options.margin > 256 ||
+    typeof options.backgroundColor !== 'string' ||
+    !/^#[0-9a-f]{6}$/iu.test(options.backgroundColor) ||
+    !SPRITE_IMAGE_FORMATS.has(options.imageFormat) ||
+    !Number.isInteger(options.quality) ||
+    options.quality < 1 ||
+    options.quality > 100
   ) {
     throw new Error(message)
   }
@@ -484,6 +548,19 @@ function sanitizeSettings(input: unknown): AppSettingsPatch {
       video.lastOptions = structuredClone(input.video.lastOptions) as VideoOptions
     }
     result.video = video
+  }
+
+  if (input.sprite !== undefined) {
+    if (!isRecord(input.sprite)) throw new Error('雪碧图设置参数无效')
+    const sprite: NonNullable<AppSettingsPatch['sprite']> = {}
+    if (input.sprite.outputSuffix !== undefined) {
+      sprite.outputSuffix = sanitizeOutputSuffix(input.sprite.outputSuffix)
+    }
+    if (input.sprite.lastOptions !== undefined) {
+      validateSpriteOptions(input.sprite.lastOptions as SpriteOptions, '雪碧图参数无效')
+      sprite.lastOptions = structuredClone(input.sprite.lastOptions) as SpriteOptions
+    }
+    result.sprite = sprite
   }
 
   if (input.image !== undefined) {
@@ -660,13 +737,13 @@ export function registerIpc(
 
   handle(IPC_CHANNELS.selectFiles, async (event, kind: TaskKind) => {
     assertTrusted(event, window())
-    if (!['video', 'image', 'audio', 'pdf', 'font'].includes(kind)) {
+    if (!['video', 'sprite', 'image', 'audio', 'pdf', 'font'].includes(kind)) {
       throw new Error('文件类型无效')
     }
     const result = await dialog.showOpenDialog(window(), {
       properties: ['openFile', 'multiSelections'],
       filters:
-        kind === 'video'
+        kind === 'video' || kind === 'sprite'
           ? [{ name: '视频文件', extensions: [...VIDEO_EXTENSIONS].map((item) => item.slice(1)) }]
           : kind === 'audio'
             ? [
@@ -804,8 +881,8 @@ export function registerIpc(
     if (!task) throw new Error('任务不存在')
     if (
       existsSync(task.outputPath) &&
-      task.kind === 'pdf' &&
-      (task.options as PdfOptions).operation === 'toImage'
+      ((task.kind === 'pdf' && (task.options as PdfOptions).operation === 'toImage') ||
+        task.kind === 'sprite')
     ) {
       const error = await shell.openPath(task.outputPath)
       if (error) throw new Error(error)

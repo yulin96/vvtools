@@ -8,6 +8,7 @@ import type {
   FontOptions,
   PdfOptions,
   RenameSettings,
+  SpriteOptions,
   VideoOptions
 } from '../../shared/types'
 import {
@@ -17,6 +18,7 @@ import {
   DEFAULT_IMAGE_OPTIONS,
   DEFAULT_PDF_OPTIONS,
   DEFAULT_RENAME_SETTINGS,
+  DEFAULT_SPRITE_OPTIONS,
   DEFAULT_VIDEO_OPTIONS
 } from '../../shared/constants'
 import { normalizeConcurrencySettings } from './task-concurrency'
@@ -44,6 +46,10 @@ export class SettingsStore {
       video: {
         outputSuffix: '_c',
         lastOptions: { ...DEFAULT_VIDEO_OPTIONS }
+      },
+      sprite: {
+        outputSuffix: '_sprite',
+        lastOptions: { ...DEFAULT_SPRITE_OPTIONS }
       },
       audio: {
         outputSuffix: '_c',
@@ -122,6 +128,15 @@ export class SettingsStore {
         lastOptions: input.video?.lastOptions
           ? { ...this.settings.video.lastOptions, ...input.video.lastOptions }
           : this.settings.video.lastOptions
+      },
+      sprite: {
+        outputSuffix:
+          typeof input.sprite?.outputSuffix === 'string'
+            ? input.sprite.outputSuffix
+            : this.settings.sprite.outputSuffix,
+        lastOptions: input.sprite?.lastOptions
+          ? { ...this.settings.sprite.lastOptions, ...input.sprite.lastOptions }
+          : this.settings.sprite.lastOptions
       },
       audio: {
         outputSuffix:
@@ -209,6 +224,7 @@ function migrateSettings(value: unknown, defaults: AppSettings): AppSettings {
   const common = isRecord(value.common) ? value.common : value
   const image = isNamespacedSettings(value.image) ? value.image : undefined
   const video = isNamespacedSettings(value.video) ? value.video : undefined
+  const sprite = isNamespacedSettings(value.sprite) ? value.sprite : undefined
   const audio = isNamespacedSettings(value.audio) ? value.audio : undefined
   const pdf = isNamespacedSettings(value.pdf) ? value.pdf : undefined
   const font = isNamespacedSettings(value.font) ? value.font : undefined
@@ -230,6 +246,17 @@ function migrateSettings(value: unknown, defaults: AppSettings): AppSettings {
         asRecord(video?.lastOptions ?? value.video) as LegacyVideoOptions,
         defaults.video.lastOptions
       )
+    },
+    sprite: {
+      outputSuffix: migrateOutputSuffix(
+        sprite,
+        defaults.sprite.outputSuffix,
+        legacyOutputSuffix
+      ),
+      lastOptions: {
+        ...defaults.sprite.lastOptions,
+        ...(asRecord(sprite?.lastOptions ?? value.sprite) as Partial<SpriteOptions>)
+      }
     },
     audio: {
       outputSuffix: migrateOutputSuffix(audio, defaults.audio.outputSuffix, legacyOutputSuffix),
@@ -356,8 +383,16 @@ function migrateCommonSettings(
   value: Record<string, unknown>,
   fallback: CommonSettings
 ): CommonSettings {
+  const concurrency = asRecord(value.concurrency)
+  const migratedConcurrency =
+    (concurrency.mode === 'auto' || concurrency.mode === 'custom') && isRecord(concurrency.custom)
+      ? {
+          ...concurrency,
+          custom: { ...fallback.concurrency.custom, ...concurrency.custom }
+        }
+      : value.concurrency
   return {
-    concurrency: normalizeConcurrencySettings(value.concurrency, fallback.concurrency),
+    concurrency: normalizeConcurrencySettings(migratedConcurrency, fallback.concurrency),
     closeBehavior: normalizeCloseBehavior(value.closeBehavior ?? fallback.closeBehavior),
     outputMode:
       value.outputMode === 'source' || value.outputMode === 'custom'

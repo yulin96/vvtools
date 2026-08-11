@@ -87,6 +87,7 @@ export const useAppStore = defineStore('app', () => {
   const errorMessage = ref('')
   const pendingImageInputs = ref<ImageInputFile[]>([])
   const pendingVideoPaths = ref<string[]>([])
+  const pendingSpritePaths = ref<string[]>([])
   const pendingAudioPaths = ref<string[]>([])
   const pendingPdfPaths = ref<string[]>([])
   const pendingFontItems = ref<PendingFontItem[]>([])
@@ -94,6 +95,7 @@ export const useAppStore = defineStore('app', () => {
   const currentBatchTaskIds = ref<Record<TaskKind, string[]>>({
     image: [],
     video: [],
+    sprite: [],
     audio: [],
     pdf: [],
     font: []
@@ -116,6 +118,10 @@ export const useAppStore = defineStore('app', () => {
         return task ? [task] : []
       }),
       video: currentBatchTaskIds.value.video.flatMap((id) => {
+        const task = tasksById.get(id)
+        return task ? [task] : []
+      }),
+      sprite: currentBatchTaskIds.value.sprite.flatMap((id) => {
         const task = tasksById.get(id)
         return task ? [task] : []
       }),
@@ -164,7 +170,7 @@ export const useAppStore = defineStore('app', () => {
   })
 
   function appendCurrentBatchTasks(nextTasks: MediaTask[]): void {
-    for (const kind of ['image', 'video', 'audio', 'pdf', 'font'] as const) {
+    for (const kind of ['image', 'video', 'sprite', 'audio', 'pdf', 'font'] as const) {
       const ids = nextTasks.filter((task) => task.kind === kind).map((task) => task.id)
       if (ids.length === 0) continue
       currentBatchTaskIds.value[kind] = [...new Set([...currentBatchTaskIds.value[kind], ...ids])]
@@ -183,7 +189,7 @@ export const useAppStore = defineStore('app', () => {
 
   function applyTasksSnapshot(nextTasks: MediaTask[]): void {
     const previousTasks = tasks.value
-    for (const kind of ['image', 'video', 'audio', 'pdf', 'font'] as const) {
+    for (const kind of ['image', 'video', 'sprite', 'audio', 'pdf', 'font'] as const) {
       currentBatchTaskIds.value[kind] = reconcileCurrentBatchTaskIds(
         currentBatchTaskIds.value[kind],
         previousTasks,
@@ -257,6 +263,8 @@ export const useAppStore = defineStore('app', () => {
               path: item.sourcePath,
               width: item.outputWidth ?? item.width,
               height: item.outputHeight ?? item.height,
+              frameCount: item.frameCount,
+              sheetCount: item.sheetCount,
               pageCount: item.pageCount,
               fontCount: item.fontCount,
               fontInstances: item.fontInstances?.length ? item.fontInstances : undefined
@@ -450,6 +458,7 @@ export const useAppStore = defineStore('app', () => {
     errorMessage,
     pendingImageInputs,
     pendingVideoPaths,
+    pendingSpritePaths,
     pendingAudioPaths,
     pendingPdfPaths,
     pendingFontItems,

@@ -6,6 +6,7 @@ import type {
   ImageFormat,
   OutputConflictPolicy,
   PdfImageFormat,
+  SpriteImageFormat,
   TaskKind,
   VideoFormat
 } from '../../shared/types'
@@ -102,9 +103,60 @@ interface ResolvePdfImageOutputOptions {
   height?: number
 }
 
+interface ResolveSpriteOutputOptions {
+  sourcePath: string
+  outputDirectory: string
+  imageFormat: SpriteImageFormat
+  sheetCount: number
+  reservedPaths: Set<string>
+  outputSuffix?: string
+  nameTemplate?: string
+  conflictPolicy?: OutputConflictPolicy
+  presetName?: string
+  width?: number
+  height?: number
+}
+
 export interface ResolvedPdfImageOutput {
   directory: ResolvedOutputPath
   paths: string[]
+}
+
+export function resolveSpriteOutput(options: ResolveSpriteOutputOptions): ResolvedPdfImageOutput {
+  const directory = resolveOutputPath({
+    sourcePath: options.sourcePath,
+    outputDirectory: options.outputDirectory,
+    extension: '',
+    reservedPaths: options.reservedPaths,
+    outputSuffix: options.outputSuffix,
+    nameTemplate: '{name}{suffix}',
+    conflictPolicy: options.conflictPolicy
+  })
+  if (directory.skipped) return { directory, paths: [] }
+
+  const extension = options.imageFormat === 'jpeg' ? '.jpg' : `.${options.imageFormat}`
+  const reservedImagePaths = new Set<string>()
+  const template = options.nameTemplate?.includes('{index}')
+    ? options.nameTemplate
+    : `${options.nameTemplate ?? '{name}{suffix}'}_{index}`
+  const paths = Array.from(
+    { length: options.sheetCount },
+    (_, index) =>
+      resolveOutputPath({
+        sourcePath: options.sourcePath,
+        outputDirectory: directory.path,
+        extension,
+        reservedPaths: reservedImagePaths,
+        outputSuffix: options.outputSuffix,
+        nameTemplate: template,
+        conflictPolicy: 'rename',
+        presetName: options.presetName,
+        width: options.width,
+        height: options.height,
+        index: index + 1
+      }).path
+  )
+  return { directory, paths }
 }
 
 export function resolvePdfImageOutput(

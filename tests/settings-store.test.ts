@@ -38,10 +38,18 @@ describe('SettingsStore', () => {
     expect({
       image: store.get().image.outputSuffix,
       video: store.get().video.outputSuffix,
+      sprite: store.get().sprite.outputSuffix,
       audio: store.get().audio.outputSuffix,
       pdf: store.get().pdf.outputSuffix,
       font: store.get().font.outputSuffix
-    }).toEqual({ image: '_c', video: '_c', audio: '_c', pdf: '_c', font: '_c' })
+    }).toEqual({
+      image: '_c',
+      video: '_c',
+      sprite: '_sprite',
+      audio: '_c',
+      pdf: '_c',
+      font: '_c'
+    })
     expect(store.get().common).not.toHaveProperty('outputSuffix')
     expect(store.get().image.lastOptions).toMatchObject({
       compressionMode: 'quality',
@@ -186,12 +194,14 @@ describe('SettingsStore', () => {
     expect({
       image: settings.image.outputSuffix,
       video: settings.video.outputSuffix,
+      sprite: settings.sprite.outputSuffix,
       audio: settings.audio.outputSuffix,
       pdf: settings.pdf.outputSuffix,
       font: settings.font.outputSuffix
     }).toEqual({
       image: '-legacy',
       video: '-legacy',
+      sprite: '-legacy',
       audio: '-legacy',
       pdf: '-legacy',
       font: '-legacy'
@@ -258,7 +268,7 @@ describe('SettingsStore', () => {
     const settings = new SettingsStore(root, join(root, 'downloads')).get()
     expect(settings.common.concurrency).toEqual({
       mode: 'custom',
-      custom: { image: 3, video: 2, audio: 3, pdf: 2, font: 1 }
+      custom: { image: 3, video: 2, sprite: 2, audio: 3, pdf: 2, font: 1 }
     })
     expect(settings.image).not.toHaveProperty('presets')
   })
@@ -319,6 +329,7 @@ describe('SettingsStore', () => {
     expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 10)).toEqual({
       image: 10,
       video: 1,
+      sprite: 1,
       audio: 2,
       pdf: 1,
       font: 3
@@ -326,6 +337,7 @@ describe('SettingsStore', () => {
     expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 2)).toEqual({
       image: 2,
       video: 1,
+      sprite: 1,
       audio: 1,
       pdf: 1,
       font: 1
@@ -333,6 +345,7 @@ describe('SettingsStore', () => {
     expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 16)).toEqual({
       image: 16,
       video: 1,
+      sprite: 1,
       audio: 2,
       pdf: 1,
       font: 4

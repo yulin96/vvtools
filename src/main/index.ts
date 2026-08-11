@@ -10,6 +10,7 @@ import { processFont } from './media/font-processor'
 import { processImage } from './media/image-processor'
 import { processPdf, shutdownPdfProcesses } from './media/pdf-processor'
 import { processVideo } from './media/video-processor'
+import { processSprite } from './media/sprite-processor'
 import { FailureLogService } from './services/failure-log'
 import { SettingsStore } from './services/settings-store'
 import { resolveTaskConcurrency } from './services/task-concurrency'
@@ -248,13 +249,15 @@ app.whenReady().then(() => {
     (task, signal, onProgress) =>
       task.kind === 'video'
         ? processVideo(task, signal, onProgress, failureLogs)
-        : task.kind === 'audio'
-          ? processAudio(task, signal, onProgress, failureLogs)
-          : task.kind === 'pdf'
-            ? processPdf(task, signal, onProgress)
-            : task.kind === 'font'
-              ? processFont(task, signal, onProgress)
-              : processImage(task, signal, onProgress),
+        : task.kind === 'sprite'
+          ? processSprite(task, signal, onProgress, failureLogs)
+          : task.kind === 'audio'
+            ? processAudio(task, signal, onProgress, failureLogs)
+            : task.kind === 'pdf'
+              ? processPdf(task, signal, onProgress)
+              : task.kind === 'font'
+                ? processFont(task, signal, onProgress)
+                : processImage(task, signal, onProgress),
     failureLogs,
     (path) => shell.trashItem(path)
   )
