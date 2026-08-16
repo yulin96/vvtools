@@ -2,6 +2,8 @@
 
 ## 未发布
 
+- 字体压缩的西文基础范围新增 Braille 与 Block Elements 字符，完整覆盖 Anime.js ScrambleText 的 braille、blocks 和 shades 字符预设。
+
 ## v0.0.18
 
 - 新增视频转雪碧图工作区：支持按时间间隔、总帧数或帧步长采样，可提取所有帧或每隔指定帧数抽取一张；可设置时间范围、单帧宽度、列数、帧间距、画布边距和背景色，并导出 PNG、JPEG 或 WebP。

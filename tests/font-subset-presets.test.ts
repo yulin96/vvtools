@@ -30,6 +30,21 @@ describe('font subset presets', () => {
     expect(FONT_SUBSET_CHINESE_PRESETS['8105']).toContain(FONT_SUBSET_CHINESE_PRESETS['6500'])
   })
 
+  it('includes every Anime.js scramble text named character preset', () => {
+    const expectedCharacters = [
+      ...Array.from({ length: 95 }, (_, index) => String.fromCodePoint(0x20 + index)),
+      ...Array.from({ length: 256 }, (_, index) => String.fromCodePoint(0x2800 + index)),
+      ...Array.from({ length: 32 }, (_, index) => String.fromCodePoint(0x2580 + index))
+    ]
+
+    expect([...FONT_SUBSET_LATIN_BASIC]).toHaveLength(383)
+    expect(new Set(FONT_SUBSET_LATIN_BASIC).size).toBe(383)
+    expect(
+      expectedCharacters.every((character) => FONT_SUBSET_LATIN_BASIC.includes(character))
+    ).toBe(true)
+    expect(FONT_SUBSET_LATIN_BASIC).toContain('░▒▓')
+  })
+
   it('builds Latin and Chinese presets with optional extra characters', async () => {
     const latin = await resolveFontSubsetText({
       ...DEFAULT_FONT_OPTIONS,
