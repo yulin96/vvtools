@@ -2,6 +2,7 @@
 
 ## 未发布
 
+- 字体工作区新增字体检查：支持单字体信息与 Unicode 字符搜索、虚拟田字格及基线/度量线预览，并可调整全局位置、缩放、倾斜、字距和字体度量；静态 TTF、WOFF、WOFF2 可重置后另存为新字体，其他字体保持只读预览。
 - 字体压缩的西文基础范围新增 Braille 与 Block Elements 字符，完整覆盖 Anime.js ScrambleText 的 braille、blocks 和 shades 字符预设。
 
 ## v0.0.18

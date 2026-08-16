@@ -215,12 +215,15 @@ export const DEFAULT_RENAME_SETTINGS = {
 
 export const IPC_CHANNELS = {
   selectFiles: 'files:select',
+  selectFontForInspection: 'font:select-inspection',
   selectRenameFiles: 'files:select-rename',
   selectOutputDirectory: 'directory:select-output',
   selectImageDirectory: 'directory:select-images',
   selectTextFile: 'file:select-text',
   expandImageInputs: 'images:expand-inputs',
   inspectImageInput: 'images:inspect-input',
+  inspectFont: 'font:inspect',
+  saveEditedFont: 'font:save-edited',
   inspectRenameFiles: 'rename:inspect-files',
   inspectRenamePlan: 'rename:inspect-plan',
   renameFiles: 'rename:execute',

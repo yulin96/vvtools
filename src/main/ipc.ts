@@ -1,7 +1,7 @@
 import { app, dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { existsSync, mkdirSync, statSync } from 'fs'
 import { readFile } from 'fs/promises'
-import { dirname, extname, isAbsolute, join, normalize, sep } from 'path'
+import { basename, dirname, extname, isAbsolute, join, normalize, sep } from 'path'
 import type {
   AppSettings,
   AppSettingsPatch,
@@ -32,6 +32,7 @@ import {
 } from '../shared/constants'
 import { extractVersionReleaseNotes } from '../shared/release-notes.mjs'
 import { getRuntimeCapabilities } from './media/ffmpeg-runtime'
+import { inspectFontFile, saveEditedFontFile, validateFontEditValues } from './media/font-inspector'
 import { sanitizeFontInstances } from './media/font-metadata'
 import { collectImageInputs } from './media/image-inputs'
 import { inspectImageMetadata } from './media/image-metadata'
@@ -788,6 +789,15 @@ export function registerIpc(
     return result.canceled ? [] : result.filePaths
   })
 
+  handle(IPC_CHANNELS.selectFontForInspection, async (event) => {
+    assertTrusted(event, window())
+    const result = await dialog.showOpenDialog(window(), {
+      properties: ['openFile'],
+      filters: [{ name: '字体文件', extensions: [...FONT_EXTENSIONS].map((item) => item.slice(1)) }]
+    })
+    return result.canceled ? null : (result.filePaths[0] ?? null)
+  })
+
   handle(IPC_CHANNELS.selectRenameFiles, async (event) => {
     assertTrusted(event, window())
     const result = await dialog.showOpenDialog(window(), {
@@ -829,6 +839,33 @@ export function registerIpc(
     assertTrusted(event, window())
     validateSourcePath(path, 'image')
     return inspectImageMetadata(path)
+  })
+
+  handle(IPC_CHANNELS.inspectFont, (event, path: string) => {
+    assertTrusted(event, window())
+    validateSourcePath(path, 'font')
+    return inspectFontFile(path)
+  })
+
+  handle(IPC_CHANNELS.saveEditedFont, async (event, path: string, input: unknown) => {
+    assertTrusted(event, window())
+    validateSourcePath(path, 'font')
+    if (activeFilePaths().has(path)) throw new Error('该字体正在被任务使用，暂时无法另存编辑结果')
+    const edits = validateFontEditValues(input)
+    const extension = extname(path).toLowerCase()
+    const result = await dialog.showSaveDialog(window(), {
+      defaultPath: join(dirname(path), `${basename(path, extension)}-edited${extension}`),
+      filters: [{ name: extension.slice(1).toUpperCase(), extensions: [extension.slice(1)] }]
+    })
+    if (result.canceled || !result.filePath) return null
+    const outputPath = result.filePath
+    if (!isAbsolute(outputPath) || extname(outputPath).toLowerCase() !== extension) {
+      throw new Error(`编辑后的字体必须另存为 ${extension.toUpperCase()} 文件`)
+    }
+    if (normalize(outputPath) === normalize(path)) throw new Error('不能覆盖当前打开的源字体')
+    if (existsSync(outputPath)) throw new Error('目标文件已存在，请使用新的文件名')
+    await saveEditedFontFile(path, outputPath, edits)
+    return { outputPath }
   })
 
   handle(IPC_CHANNELS.inspectRenameFiles, (event, input: unknown) => {

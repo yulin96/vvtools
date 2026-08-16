@@ -5,6 +5,7 @@ import type { MediaTask, TaskProgressUpdate, UpdateState, VVToolsApi } from '../
 const api: VVToolsApi = {
   platform: process.platform as VVToolsApi['platform'],
   selectFiles: (kind) => ipcRenderer.invoke(IPC_CHANNELS.selectFiles, kind),
+  selectFontForInspection: () => ipcRenderer.invoke(IPC_CHANNELS.selectFontForInspection),
   selectTextFile: () => ipcRenderer.invoke(IPC_CHANNELS.selectTextFile),
   selectRenameFiles: () => ipcRenderer.invoke(IPC_CHANNELS.selectRenameFiles),
   getDroppedFilePath: (file) => webUtils.getPathForFile(file),
@@ -13,6 +14,8 @@ const api: VVToolsApi = {
   selectImageDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.selectImageDirectory),
   expandImageInputs: (paths) => ipcRenderer.invoke(IPC_CHANNELS.expandImageInputs, paths),
   inspectImageInput: (path) => ipcRenderer.invoke(IPC_CHANNELS.inspectImageInput, path),
+  inspectFont: (path) => ipcRenderer.invoke(IPC_CHANNELS.inspectFont, path),
+  saveEditedFont: (path, edits) => ipcRenderer.invoke(IPC_CHANNELS.saveEditedFont, path, edits),
   inspectRenameFiles: (paths) => ipcRenderer.invoke(IPC_CHANNELS.inspectRenameFiles, paths),
   inspectRenamePlan: (items) => ipcRenderer.invoke(IPC_CHANNELS.inspectRenamePlan, items),
   renameFiles: (items) => ipcRenderer.invoke(IPC_CHANNELS.renameFiles, items),

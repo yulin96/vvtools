@@ -174,6 +174,56 @@ export interface FontInputFile {
   subsetPreset?: FontConversionSubsetPreset
 }
 
+export interface FontInspectionAxis {
+  tag: string
+  name: string
+  min: number
+  default: number
+  max: number
+}
+
+export interface FontInspectionMetrics {
+  unitsPerEm: number
+  ascent: number
+  descent: number
+  lineGap: number
+  xHeight: number
+  capHeight: number
+}
+
+export interface FontInspection {
+  sourcePath: string
+  previewUrl: string
+  fileName: string
+  fileSize: number
+  format: string
+  familyName: string
+  subfamilyName: string
+  fullName: string
+  postscriptName: string
+  version: string
+  fontCount: number
+  glyphCount: number
+  codePoints: number[]
+  metrics: FontInspectionMetrics
+  variationAxes: FontInspectionAxis[]
+  editable: boolean
+  readOnlyReason?: string
+}
+
+export interface FontEditValues extends FontInspectionMetrics {
+  offsetX: number
+  offsetY: number
+  scaleX: number
+  scaleY: number
+  skewX: number
+  advanceWidthDelta: number
+}
+
+export interface SaveEditedFontResult {
+  outputPath: string
+}
+
 export interface CommonSettings {
   concurrency: ConcurrencySettings
   closeBehavior: CloseBehavior
@@ -530,6 +580,7 @@ export interface UpdateState {
 export interface VVToolsApi {
   platform: 'darwin' | 'win32' | 'linux'
   selectFiles: (kind: TaskKind) => Promise<string[]>
+  selectFontForInspection: () => Promise<string | null>
   selectTextFile: () => Promise<string | null>
   selectRenameFiles: () => Promise<string[]>
   getDroppedFilePath: (file: File) => string
@@ -537,6 +588,8 @@ export interface VVToolsApi {
   selectImageDirectory: () => Promise<ImageInputFile[]>
   expandImageInputs: (paths: string[]) => Promise<ImageInputFile[]>
   inspectImageInput: (path: string) => Promise<ImageSourceMetadata>
+  inspectFont: (path: string) => Promise<FontInspection>
+  saveEditedFont: (path: string, edits: FontEditValues) => Promise<SaveEditedFontResult | null>
   inspectRenameFiles: (paths: string[]) => Promise<InspectRenameFilesResult>
   inspectRenamePlan: (items: RenameFileRequest[]) => Promise<RenamePlanInspection[]>
   renameFiles: (items: RenameFileRequest[]) => Promise<RenameFileResult[]>

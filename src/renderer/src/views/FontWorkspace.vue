@@ -21,6 +21,7 @@ import { fileName } from '../lib/utils'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
+import FontInspector from '../components/FontInspector.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
@@ -29,8 +30,15 @@ import { takeRoutedDrop } from '../lib/media-drop'
 import { settledBatchSourceItems } from '../lib/batch-sources'
 
 type FontWorkspaceMode = FontOperation | 'quickConvert'
+type FontWorkspaceSection = 'process' | 'inspect'
 
 const store = useAppStore()
+const workspaceSection = ref<FontWorkspaceSection>('process')
+const workspaceSectionOptions = [
+  { value: 'process', label: '转换与压缩' },
+  { value: 'inspect', label: '字体检查' }
+]
+const fontInspector = ref<InstanceType<typeof FontInspector> | null>(null)
 const dragging = ref(false)
 const starting = ref(false)
 const subsetTextarea = ref<HTMLTextAreaElement | null>(null)
@@ -168,7 +176,7 @@ const subsetPresetText = computed(() => {
 })
 const subsetScopeDescription = computed(() => {
   if (subsetMode.value === 'latin') {
-    return `英文大小写、数字和常用符号 · 预计保留 ${[...subsetPresetText.value].length} 个字符`
+    return `英文大小写、数字、常用符号、盲文与方块字符 · 预计保留 ${[...subsetPresetText.value].length} 个字符`
   }
   if (subsetMode.value === 'chinese') {
     return `规范汉字 ${subsetChineseLevel.value} + 西文与常用标点 · 预计保留 ${[...subsetPresetText.value].length} 个字符`
@@ -453,9 +461,11 @@ function handleDrop(event: DragEvent): void {
   if (!hasFiles(event)) return
   event.preventDefault()
   dragging.value = false
-  stageFiles(
-    [...(event.dataTransfer?.files || [])].map((file) => window.api.getDroppedFilePath(file))
+  const paths = [...(event.dataTransfer?.files || [])].map((file) =>
+    window.api.getDroppedFilePath(file)
   )
+  if (workspaceSection.value === 'inspect') void fontInspector.value?.openDroppedFiles(paths)
+  else stageFiles(paths)
 }
 
 onMounted(() => {
@@ -475,7 +485,22 @@ onBeforeUnmount(() => {
 <template>
   <div class="video-drop-workspace" :class="{ 'video-drop-workspace-active': dragging }">
     <DropFollowEffect :active="dragging" />
-    <section v-if="store.settings" class="video-config-panel" aria-label="字体处理设置">
+    <section class="font-workspace-section-switcher" aria-label="字体工作区">
+      <SegmentedControl
+        label="字体工作区"
+        :model-value="workspaceSection"
+        :options="workspaceSectionOptions"
+        hide-label
+        @update:model-value="workspaceSection = $event as FontWorkspaceSection"
+      />
+    </section>
+
+    <section
+      v-if="store.settings"
+      v-show="workspaceSection === 'process'"
+      class="video-config-panel"
+      aria-label="字体处理设置"
+    >
       <div class="video-config-heading">
         <div class="config-heading-main">
           <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
@@ -628,7 +653,10 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <div class="video-workspace-content workspace-scroll-content">
+    <div
+      v-show="workspaceSection === 'process'"
+      class="video-workspace-content workspace-scroll-content"
+    >
       <CurrentBatchTable
         v-if="pendingItems.length || fontTasks.length"
         kind="font"
@@ -700,5 +728,7 @@ onBeforeUnmount(() => {
         <Button class="mt-5" @click="chooseFiles">选择字体文件</Button>
       </div>
     </div>
+
+    <FontInspector v-show="workspaceSection === 'inspect'" ref="fontInspector" />
   </div>
 </template>

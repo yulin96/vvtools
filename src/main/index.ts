@@ -7,6 +7,11 @@ import icon from '../../resources/icon.png?asset'
 import { registerIpc } from './ipc'
 import { processAudio } from './media/audio-processor'
 import { processFont } from './media/font-processor'
+import {
+  clearFontPreview,
+  registerFontPreviewProtocol,
+  registerFontPreviewScheme
+} from './media/font-preview-protocol'
 import { processImage } from './media/image-processor'
 import { processPdf, shutdownPdfProcesses } from './media/pdf-processor'
 import { processVideo } from './media/video-processor'
@@ -24,6 +29,7 @@ import {
 import { configureOverlayScrollbars } from './scrollbar-config'
 
 process.env.UV_THREADPOOL_SIZE ??= String(Math.min(16, availableParallelism()))
+registerFontPreviewScheme()
 
 let mainWindow: BrowserWindow | null = null
 let queue: TaskQueue | null = null
@@ -232,6 +238,7 @@ async function confirmActiveTaskClose(): Promise<void> {
 app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return
   electronApp.setAppUserModelId('com.vvtools.app')
+  registerFontPreviewProtocol()
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -287,6 +294,7 @@ app.on('before-quit', () => {
   isQuitting = true
   queue?.shutdown()
   shutdownPdfProcesses()
+  clearFontPreview()
   unregisterIpc?.()
   tray?.destroy()
   tray = null

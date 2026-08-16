@@ -1406,6 +1406,17 @@ input {
   width: 550px;
 }
 
+.font-workspace-section-switcher {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.font-workspace-section-switcher .segmented-control {
+  width: 280px;
+}
+
 .font-quick-convert-summary {
   display: flex;
   min-height: 44px;
