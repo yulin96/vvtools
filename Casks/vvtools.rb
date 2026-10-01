@@ -4,8 +4,7 @@ cask "vvtools" do
   version :latest
   sha256 :no_check
 
-  url "https://github.com/yulin96/vvtools/releases/latest/download/vvtools-latest-#{arch}.dmg",
-      verified: "github.com/yulin96/vvtools/"
+  url "https://github.com/yulin96/vvtools/releases/latest/download/vvtools-latest-#{arch}.dmg"
   name "VVTools"
   desc "Cross-platform batch media conversion and compression utility"
   homepage "https://github.com/yulin96/vvtools"
