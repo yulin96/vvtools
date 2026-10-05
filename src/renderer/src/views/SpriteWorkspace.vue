@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { FileVideo2, Grid2X2, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
@@ -10,7 +10,8 @@ import type {
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import { settledBatchSourceItems } from '../lib/batch-sources'
-import { takeRoutedDrop } from '../lib/media-drop'
+import { useWorkspaceDrop } from '../composables/useWorkspaceDrop'
+import { useTaskSubmission } from '../composables/useTaskSubmission'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import Button from '../components/ui/Button.vue'
@@ -23,12 +24,11 @@ import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 
 const store = useAppStore()
 const configExpanded = ref(false)
-const dragging = ref(false)
-const starting = ref(false)
 const pendingPaths = computed<string[]>({
   get: () => store.pendingSpritePaths,
   set: (value) => (store.pendingSpritePaths = value)
 })
+const { starting, submit } = useTaskSubmission(pendingPaths, (path) => path)
 const spriteTasks = computed(() => store.currentBatchTasks.sprite)
 const startItems = computed(() =>
   pendingPaths.value.length
@@ -114,56 +114,23 @@ async function startProcessing(): Promise<void> {
     presetName: settings.sprite.lastOptions.exportMode === 'batch' ? '分批雪碧图' : '单张雪碧图',
     options: { ...settings.sprite.lastOptions }
   }
-  starting.value = true
-  try {
-    const result = await store.submitTasks(request)
-    if (result) {
-      const handled = new Set(result.handledPaths)
-      pendingPaths.value = pendingPaths.value.filter((path) => !handled.has(path))
-    }
-  } finally {
-    starting.value = false
+  await submit(request)
+}
+
+function receiveDroppedPaths(droppedPaths: string[]): void {
+  const paths = droppedPaths.filter((path) =>
+    videoExtensions.has(path.split('.').pop()?.toLowerCase() || '')
+  )
+  if (paths.length === 0 && droppedPaths.length > 0) {
+    store.errorMessage = '没有可导入的视频文件'
+    return
   }
+  stageFiles(paths)
 }
 
-function hasFiles(event: DragEvent): boolean {
-  return [...(event.dataTransfer?.types || [])].includes('Files')
-}
-
-function handleDragOver(event: DragEvent): void {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
-  dragging.value = true
-}
-
-function handleDragLeave(event: DragEvent): void {
-  if (!event.relatedTarget) dragging.value = false
-}
-
-function handleDrop(event: DragEvent): void {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  dragging.value = false
-  const files = [...(event.dataTransfer?.files || [])]
-  const paths = files
-    .map((file) => window.api.getDroppedFilePath(file))
-    .filter((path) => videoExtensions.has(path.split('.').pop()?.toLowerCase() || ''))
-  if (!paths.length && files.length) store.errorMessage = '没有可导入的视频文件'
-  else stageFiles(paths)
-}
-
-onMounted(() => {
-  window.addEventListener('dragover', handleDragOver, true)
-  window.addEventListener('dragleave', handleDragLeave, true)
-  window.addEventListener('drop', handleDrop, true)
-  stageFiles(takeRoutedDrop('/sprite'))
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('dragover', handleDragOver, true)
-  window.removeEventListener('dragleave', handleDragLeave, true)
-  window.removeEventListener('drop', handleDrop, true)
+const dragging = useWorkspaceDrop(receiveDroppedPaths, {
+  path: '/sprite',
+  receivePaths: stageFiles
 })
 </script>
 

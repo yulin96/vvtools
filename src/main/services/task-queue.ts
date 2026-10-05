@@ -5,12 +5,8 @@ import { EventEmitter } from 'events'
 import type {
   AudioOptions,
   CreateTasksRequest,
-  FontFormat,
-  FontConversionSubsetPreset,
-  FontInstance,
   FontOptions,
   ImageOptions,
-  MediaInputMetadata,
   MediaTask,
   TaskProgressUpdate,
   PdfOptions,
@@ -21,35 +17,20 @@ import type {
 } from '../../shared/types'
 import { FailureLogService } from './failure-log'
 import { MediaProcessError, TaskCancelledError, TaskSkippedError } from '../media/errors'
-import {
-  getOutputExtension,
-  getProtectedSourcePaths,
-  outputContainsSourcePath,
-  resolveOutputPath,
-  resolvePdfImageOutput,
-  resolveSpriteOutput
-} from '../media/output-path'
+import { getProtectedSourcePaths, outputContainsSourcePath } from '../media/output-path'
 import { commitStagedOutput, createStagingOutputPath } from '../media/output-commit'
+import {
+  planSourceOutputs,
+  taskOutputDirectory,
+  taskSources,
+  type TaskSource
+} from '../media/task-plan'
 
 export type TaskRunner = (
   task: MediaTask,
   signal: AbortSignal,
   onProgress: (progress: number) => void
 ) => Promise<number>
-
-interface TaskUnit {
-  pageNumber?: number
-  fontIndex?: number
-  fontInstance?: FontInstance
-}
-
-interface TaskSource {
-  path: string
-  relativeDirectory: string
-  batchItemId?: string
-  fontOutputFormat?: FontFormat
-  fontSubsetPreset?: FontConversionSubsetPreset
-}
 
 export class TaskQueue extends EventEmitter {
   private readonly tasks = new Map<string, MediaTask>()
@@ -84,25 +65,7 @@ export class TaskQueue extends EventEmitter {
       const task = this.tasks.get(taskId)
       if (task) stagedReservedPaths.delete(task.outputPath)
     }
-    const sources: TaskSource[] =
-      request.kind === 'image'
-        ? request.sources.map((source, index) => ({
-            ...source,
-            batchItemId: request.batchItemIds?.[index]
-          }))
-        : request.kind === 'font'
-          ? request.sources.map((source, index) => ({
-              path: source.path,
-              relativeDirectory: '',
-              batchItemId: request.batchItemIds?.[index],
-              fontOutputFormat: source.outputFormat,
-              fontSubsetPreset: source.subsetPreset
-            }))
-          : request.sourcePaths.map((path, index) => ({
-              path,
-              relativeDirectory: '',
-              batchItemId: request.batchItemIds?.[index]
-            }))
+    const sources = taskSources(request)
     const metadata = new Map(request.inputMetadata?.map((item) => [item.path, item]))
     const activeTasks = [...this.tasks.values()].filter(
       (task) => task.status === 'pending' || task.status === 'processing'
@@ -127,139 +90,15 @@ export class TaskQueue extends EventEmitter {
         sourceIndex,
         activeSourcePaths
       )
-      const outputDirectory =
-        request.outputMode === 'source'
-          ? dirname(sourcePath)
-          : request.kind === 'image' &&
-              request.options.preserveStructure &&
-              source.relativeDirectory
-            ? join(request.outputDirectory, source.relativeDirectory)
-            : request.outputDirectory
-      if (request.kind === 'pdf' && request.options.operation === 'toImage') {
-        mkdirSync(outputDirectory, { recursive: true })
-        const pageNumbers = pdfPageNumbers(request, sourceMetadata)
-        const output = resolvePdfImageOutput({
-          sourcePath,
-          outputDirectory,
-          imageFormat: request.options.imageFormat,
-          pageNumbers,
-          reservedPaths: stagedReservedPaths,
-          protectedSourcePaths,
-          outputSuffix: request.outputSuffix,
-          nameTemplate: request.outputNameTemplate,
-          conflictPolicy: request.outputConflictPolicy,
-          presetName: request.presetName,
-          width: sourceMetadata?.width,
-          height: sourceMetadata?.height
-        })
-        if (output.directory.skipped) return []
-        const task: MediaTask = {
-          id: randomUUID(),
-          kind: 'pdf',
-          batchInputId: source.batchItemId,
-          batchItemId: source.batchItemId,
-          sourcePath,
-          relativeDirectory: source.relativeDirectory,
-          outputPath: output.directory.path,
-          outputPaths: output.paths,
-          pageNumbers,
-          status: 'pending',
-          progress: 0,
-          options: structuredClone(request.options),
-          outputSuffix: request.outputSuffix,
-          outputNameTemplate: request.outputNameTemplate,
-          outputConflictPolicy: request.outputConflictPolicy,
-          presetName: request.presetName,
-          sourceWidth: sourceMetadata?.width,
-          sourceHeight: sourceMetadata?.height,
-          sourceSize: statSync(sourcePath).size,
-          createdAt: new Date().toISOString()
-        }
-        stagedTasks.set(task.id, task)
-        return [structuredClone(task)]
-      }
-      if (request.kind === 'sprite') {
-        mkdirSync(outputDirectory, { recursive: true })
-        const output = resolveSpriteOutput({
-          sourcePath,
-          outputDirectory,
-          imageFormat: request.options.imageFormat,
-          sheetCount: sourceMetadata?.sheetCount ?? 1,
-          reservedPaths: stagedReservedPaths,
-          protectedSourcePaths,
-          outputSuffix: request.outputSuffix,
-          nameTemplate: request.outputNameTemplate,
-          conflictPolicy: request.outputConflictPolicy,
-          presetName: request.presetName,
-          width: sourceMetadata?.width,
-          height: sourceMetadata?.height
-        })
-        if (output.directory.skipped) return []
-        const task: MediaTask = {
-          id: randomUUID(),
-          kind: 'sprite',
-          batchInputId: source.batchItemId,
-          batchItemId: source.batchItemId,
-          sourcePath,
-          outputPath: output.directory.path,
-          outputPaths: output.paths,
-          status: 'pending',
-          progress: 0,
-          options: structuredClone(request.options),
-          outputSuffix: request.outputSuffix,
-          outputNameTemplate: request.outputNameTemplate,
-          outputConflictPolicy: request.outputConflictPolicy,
-          presetName: request.presetName,
-          sourceWidth: sourceMetadata?.width,
-          sourceHeight: sourceMetadata?.height,
-          frameCount: sourceMetadata?.frameCount,
-          sourceFrameCount: sourceMetadata?.sourceFrameCount,
-          sourceSize: statSync(sourcePath).size,
-          createdAt: new Date().toISOString()
-        }
-        stagedTasks.set(task.id, task)
-        return [structuredClone(task)]
-      }
-      const units = expandTaskUnits(request, sourceMetadata)
-      const sourceTaskIds: string[] = []
-      const sourceReservedPaths: string[] = []
-      const sourceCreated: MediaTask[] = []
-      for (const [unitIndex, unit] of units.entries()) {
-        mkdirSync(outputDirectory, { recursive: true })
-        const extension = getOutputExtension(
-          request.kind,
-          sourcePath,
-          request.kind === 'image' ? request.options.format : undefined,
-          request.kind === 'video' ? request.options.format : undefined,
-          request.kind === 'audio' ? request.options.format : undefined,
-          request.kind === 'pdf' && request.options.operation === 'toImage'
-            ? request.options.imageFormat
-            : undefined,
-          request.kind === 'font'
-            ? (source.fontOutputFormat ?? request.options.outputFormat)
-            : undefined
-        )
-        const output = resolveOutputPath({
-          sourcePath,
-          outputDirectory,
-          extension,
-          reservedPaths: stagedReservedPaths,
-          protectedSourcePaths,
-          outputSuffix: request.outputSuffix,
-          nameTemplate: request.outputNameTemplate,
-          conflictPolicy: request.outputConflictPolicy,
-          presetName: request.presetName,
-          width: sourceMetadata?.width,
-          height: sourceMetadata?.height,
-          page: unit.pageNumber,
-          index: unit.fontIndex === undefined ? undefined : unit.fontIndex + 1,
-          instance: unit.fontInstance?.name
-        })
-        if (output.skipped) {
-          for (const taskId of sourceTaskIds) stagedTasks.delete(taskId)
-          for (const path of sourceReservedPaths) stagedReservedPaths.delete(path)
-          return []
-        }
+      mkdirSync(taskOutputDirectory(request, source), { recursive: true })
+      const plan = planSourceOutputs(
+        request,
+        source,
+        sourceMetadata,
+        stagedReservedPaths,
+        protectedSourcePaths
+      )
+      return plan.units.map((unit, unitIndex) => {
         const task: MediaTask = {
           id: randomUUID(),
           kind: request.kind,
@@ -267,12 +106,18 @@ export class TaskQueue extends EventEmitter {
           batchItemId:
             source.batchItemId === undefined
               ? undefined
-              : units.length === 1
+              : plan.units.length === 1
                 ? source.batchItemId
                 : `${source.batchItemId}:${unitIndex + 1}`,
           sourcePath,
-          relativeDirectory: source.relativeDirectory,
-          outputPath: output.path,
+          ...(request.kind === 'sprite'
+            ? {
+                frameCount: sourceMetadata?.frameCount,
+                sourceFrameCount: sourceMetadata?.sourceFrameCount
+              }
+            : { relativeDirectory: source.relativeDirectory }),
+          ...unit,
+          fontInstance: unit.fontInstance ? structuredClone(unit.fontInstance) : undefined,
           status: 'pending',
           progress: 0,
           options:
@@ -285,18 +130,13 @@ export class TaskQueue extends EventEmitter {
           presetName: request.presetName,
           sourceWidth: sourceMetadata?.width,
           sourceHeight: sourceMetadata?.height,
-          pageNumber: unit.pageNumber,
-          fontIndex: unit.fontIndex,
-          fontInstance: unit.fontInstance ? structuredClone(unit.fontInstance) : undefined,
           sourceSize: statSync(sourcePath).size,
           createdAt: new Date().toISOString()
         }
         stagedTasks.set(task.id, task)
-        sourceTaskIds.push(task.id)
-        sourceReservedPaths.push(output.path)
-        sourceCreated.push(structuredClone(task))
-      }
-      return sourceCreated
+        stagedReservedPaths.add(task.outputPath)
+        return structuredClone(task)
+      })
     })
     for (const taskId of discardedTaskIds) this.tasks.delete(taskId)
     for (const task of stagedTasks.values()) this.tasks.set(task.id, task)
@@ -577,47 +417,6 @@ export class TaskQueue extends EventEmitter {
       task.kind === kind ? [taskId] : []
     )
   }
-}
-
-function expandTaskUnits(
-  request: CreateTasksRequest,
-  metadata: MediaInputMetadata | undefined
-): TaskUnit[] {
-  if (request.kind === 'pdf') {
-    if (request.options.operation !== 'toImage') return [{}]
-    const pages =
-      request.pageNumbers ?? (metadata?.pageCount ? range(1, metadata.pageCount) : undefined)
-    if (!pages || pages.length === 0) throw new Error('无法确定 PDF 页面数量，请重新检查文件')
-    return pages.map((pageNumber) => ({ pageNumber }))
-  }
-  if (request.kind !== 'font') return [{}]
-  if (request.options.operation === 'splitCollection') {
-    const indexes =
-      request.fontIndexes ?? (metadata?.fontCount ? range(0, metadata.fontCount - 1) : undefined)
-    if (!indexes || indexes.length === 0) throw new Error('无法确定字体集合数量，请重新检查文件')
-    return indexes.map((fontIndex) => ({ fontIndex }))
-  }
-  if (request.options.operation === 'variableStatic') {
-    const instances = request.fontInstances ?? metadata?.fontInstances
-    if (!instances || instances.length === 0)
-      throw new Error('无法确定可变字体实例，请重新检查文件')
-    return instances.map((fontInstance) => ({ fontInstance }))
-  }
-  return [{}]
-}
-
-function pdfPageNumbers(
-  request: Extract<CreateTasksRequest, { kind: 'pdf' }>,
-  metadata: MediaInputMetadata | undefined
-): number[] {
-  const pages =
-    request.pageNumbers ?? (metadata?.pageCount ? range(1, metadata.pageCount) : undefined)
-  if (!pages || pages.length === 0) throw new Error('无法确定 PDF 页面数量，请重新检查文件')
-  return pages
-}
-
-function range(start: number, end: number): number[] {
-  return Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => start + index)
 }
 
 function fontOptionsForSource(options: FontOptions, source: TaskSource): FontOptions {

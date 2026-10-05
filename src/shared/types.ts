@@ -1,4 +1,5 @@
-export type TaskKind = 'video' | 'sprite' | 'image' | 'audio' | 'pdf' | 'font'
+export const TASK_KINDS = ['image', 'video', 'sprite', 'audio', 'pdf', 'font'] as const
+export type TaskKind = (typeof TASK_KINDS)[number]
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'skipped' | 'failed' | 'cancelled'
 
 export type VideoQuality = 'high' | 'balanced' | 'small'

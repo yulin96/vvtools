@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import {
   ArrowDown,
   ArrowUp,
@@ -30,6 +30,7 @@ import { DEFAULT_RENAME_SETTINGS } from '../../../shared/constants'
 import { useAppStore } from '../stores/app'
 import { buildRenamePreview } from '../lib/rename-rules'
 import { formatBytes } from '../lib/utils'
+import { useWorkspaceDrop } from '../composables/useWorkspaceDrop'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import Button from '../components/ui/Button.vue'
@@ -39,7 +40,6 @@ import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 
 const store = useAppStore()
 const advancedOpen = ref(false)
-const dragging = ref(false)
 const loadingFiles = ref(false)
 const renaming = ref(false)
 const settingsReady = ref(false)
@@ -290,40 +290,9 @@ function formatDateTime(value: string): string {
   }).format(new Date(value))
 }
 
-function hasFiles(event: DragEvent): boolean {
-  return [...(event.dataTransfer?.types || [])].includes('Files')
-}
-
-function handleDragOver(event: DragEvent): void {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
-  dragging.value = true
-}
-
-function handleDragLeave(event: DragEvent): void {
-  if (!event.relatedTarget) dragging.value = false
-}
-
-function handleDrop(event: DragEvent): void {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  dragging.value = false
-  void stagePaths(
-    [...(event.dataTransfer?.files || [])].map((file) => window.api.getDroppedFilePath(file))
-  )
-}
-
-onMounted(() => {
-  window.addEventListener('dragover', handleDragOver, true)
-  window.addEventListener('dragleave', handleDragLeave, true)
-  window.addEventListener('drop', handleDrop, true)
-})
+const dragging = useWorkspaceDrop(stagePaths)
 
 onBeforeUnmount(() => {
-  window.removeEventListener('dragover', handleDragOver, true)
-  window.removeEventListener('dragleave', handleDragLeave, true)
-  window.removeEventListener('drop', handleDrop, true)
   if (settingsTimer) clearTimeout(settingsTimer)
   if (planTimer) clearTimeout(planTimer)
   if (settingsReady.value) persistSettings()

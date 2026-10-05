@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { TASK_KINDS } from '../../../shared/types'
 import type {
   AppSettings,
   AppSettingsPatch,
@@ -16,7 +17,7 @@ import type {
   UpdateState
 } from '../../../shared/types'
 
-interface TaskSubmissionResult {
+export interface TaskSubmissionResult {
   handledPaths: string[]
   handledBatchItemIds: string[]
 }
@@ -94,14 +95,12 @@ export const useAppStore = defineStore('app', () => {
   const pendingPdfPaths = ref<string[]>([])
   const pendingFontItems = ref<PendingFontItem[]>([])
   const pendingRenameFiles = ref<RenameFileInfo[]>([])
-  const currentBatchTaskIds = ref<Record<TaskKind, string[]>>({
-    image: [],
-    video: [],
-    sprite: [],
-    audio: [],
-    pdf: [],
-    font: []
-  })
+  const currentBatchTaskIds = ref(
+    Object.fromEntries(TASK_KINDS.map((kind) => [kind, [] as string[]])) as Record<
+      TaskKind,
+      string[]
+    >
+  )
   let unsubscribe: (() => void) | null = null
   let unsubscribeProgress: (() => void) | null = null
   let unsubscribeUpdates: (() => void) | null = null
@@ -114,32 +113,15 @@ export const useAppStore = defineStore('app', () => {
   )
   const currentBatchTasks = computed<Record<TaskKind, MediaTask[]>>(() => {
     const tasksById = new Map(tasks.value.map((task) => [task.id, task]))
-    return {
-      image: currentBatchTaskIds.value.image.flatMap((id) => {
-        const task = tasksById.get(id)
-        return task ? [task] : []
-      }),
-      video: currentBatchTaskIds.value.video.flatMap((id) => {
-        const task = tasksById.get(id)
-        return task ? [task] : []
-      }),
-      sprite: currentBatchTaskIds.value.sprite.flatMap((id) => {
-        const task = tasksById.get(id)
-        return task ? [task] : []
-      }),
-      audio: currentBatchTaskIds.value.audio.flatMap((id) => {
-        const task = tasksById.get(id)
-        return task ? [task] : []
-      }),
-      pdf: currentBatchTaskIds.value.pdf.flatMap((id) => {
-        const task = tasksById.get(id)
-        return task ? [task] : []
-      }),
-      font: currentBatchTaskIds.value.font.flatMap((id) => {
-        const task = tasksById.get(id)
-        return task ? [task] : []
-      })
-    }
+    return Object.fromEntries(
+      TASK_KINDS.map((kind) => [
+        kind,
+        currentBatchTaskIds.value[kind].flatMap((id) => {
+          const task = tasksById.get(id)
+          return task ? [task] : []
+        })
+      ])
+    ) as Record<TaskKind, MediaTask[]>
   })
   const updateDescription = computed(() => {
     if (updateState.value.status === 'checking') return '正在检查新版本…'
@@ -172,7 +154,7 @@ export const useAppStore = defineStore('app', () => {
   })
 
   function appendCurrentBatchTasks(nextTasks: MediaTask[]): void {
-    for (const kind of ['image', 'video', 'sprite', 'audio', 'pdf', 'font'] as const) {
+    for (const kind of TASK_KINDS) {
       const ids = nextTasks.filter((task) => task.kind === kind).map((task) => task.id)
       if (ids.length === 0) continue
       currentBatchTaskIds.value[kind] = [...new Set([...currentBatchTaskIds.value[kind], ...ids])]
@@ -191,7 +173,7 @@ export const useAppStore = defineStore('app', () => {
 
   function applyTasksSnapshot(nextTasks: MediaTask[]): void {
     const previousTasks = tasks.value
-    for (const kind of ['image', 'video', 'sprite', 'audio', 'pdf', 'font'] as const) {
+    for (const kind of TASK_KINDS) {
       currentBatchTaskIds.value[kind] = reconcileCurrentBatchTaskIds(
         currentBatchTaskIds.value[kind],
         previousTasks,

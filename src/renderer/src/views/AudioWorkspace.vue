@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { FileAudio, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   AudioChannels,
@@ -16,16 +16,16 @@ import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
-import { takeRoutedDrop } from '../lib/media-drop'
+import { useWorkspaceDrop } from '../composables/useWorkspaceDrop'
+import { useTaskSubmission } from '../composables/useTaskSubmission'
 import { settledBatchSourceItems } from '../lib/batch-sources'
 
 const store = useAppStore()
-const dragging = ref(false)
-const starting = ref(false)
 const pendingPaths = computed<string[]>({
   get: () => store.pendingAudioPaths,
   set: (value) => (store.pendingAudioPaths = value)
 })
+const { starting, submit } = useTaskSubmission(pendingPaths, (path) => path)
 const audioFormatOptions = [
   { value: 'mp3', label: 'MP3' },
   { value: 'm4a', label: 'M4A' },
@@ -121,53 +121,10 @@ async function startProcessing(): Promise<void> {
     presetName: '音频处理',
     options: { ...settings.audio.lastOptions }
   }
-  starting.value = true
-  try {
-    const result = await store.submitTasks(request)
-    if (!result) return
-    const handledPaths = new Set(result.handledPaths)
-    pendingPaths.value = pendingPaths.value.filter((path) => !handledPaths.has(path))
-  } finally {
-    starting.value = false
-  }
+  await submit(request)
 }
 
-function hasFiles(event: DragEvent): boolean {
-  return [...(event.dataTransfer?.types || [])].includes('Files')
-}
-
-function handleDragOver(event: DragEvent): void {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
-  dragging.value = true
-}
-
-function handleDragLeave(event: DragEvent): void {
-  if (!event.relatedTarget) dragging.value = false
-}
-
-function handleDrop(event: DragEvent): void {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  dragging.value = false
-  stageFiles(
-    [...(event.dataTransfer?.files || [])].map((file) => window.api.getDroppedFilePath(file))
-  )
-}
-
-onMounted(() => {
-  window.addEventListener('dragover', handleDragOver, true)
-  window.addEventListener('dragleave', handleDragLeave, true)
-  window.addEventListener('drop', handleDrop, true)
-  stageFiles(takeRoutedDrop('/audio'))
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('dragover', handleDragOver, true)
-  window.removeEventListener('dragleave', handleDragLeave, true)
-  window.removeEventListener('drop', handleDrop, true)
-})
+const dragging = useWorkspaceDrop(stageFiles, { path: '/audio', receivePaths: stageFiles })
 </script>
 
 <template>

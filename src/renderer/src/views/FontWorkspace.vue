@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { FileType, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
@@ -26,7 +26,8 @@ import OutputLocationControls from '../components/OutputLocationControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
-import { takeRoutedDrop } from '../lib/media-drop'
+import { useWorkspaceDrop } from '../composables/useWorkspaceDrop'
+import { useTaskSubmission } from '../composables/useTaskSubmission'
 import { settledBatchSourceItems } from '../lib/batch-sources'
 
 type FontWorkspaceMode = FontOperation | 'quickConvert'
@@ -39,8 +40,6 @@ const workspaceSectionOptions = [
   { value: 'inspect', label: '字体检查' }
 ]
 const fontInspector = ref<InstanceType<typeof FontInspector> | null>(null)
-const dragging = ref(false)
-const starting = ref(false)
 const subsetTextarea = ref<HTMLTextAreaElement | null>(null)
 const subsetValidationMessage = ref('')
 const subsetTextDraft = ref('')
@@ -50,6 +49,11 @@ const pendingItems = computed<PendingFontItem[]>({
   get: () => store.pendingFontItems,
   set: (value) => (store.pendingFontItems = value)
 })
+const { starting, submit } = useTaskSubmission(
+  pendingItems,
+  (item) => item.id,
+  'handledBatchItemIds'
+)
 const fontTasks = computed(() => store.currentBatchTasks.font)
 const pendingTableItems = computed(() =>
   pendingItems.value.map((item) => ({
@@ -408,55 +412,16 @@ async function startProcessing(): Promise<void> {
     presetName: modeOptions.find((item) => item.value === selectedMode.value)?.label ?? '字体处理',
     options
   }
-  starting.value = true
-  try {
-    const result = await store.submitTasks(request)
-    if (!result) return
-    const handledIds = new Set(result.handledBatchItemIds)
-    pendingItems.value = pendingItems.value.filter((item) => !handledIds.has(item.id))
-  } finally {
-    starting.value = false
-  }
+  await submit(request)
 }
 
-function hasFiles(event: DragEvent): boolean {
-  return [...(event.dataTransfer?.types || [])].includes('Files')
-}
-
-function handleDragOver(event: DragEvent): void {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
-  dragging.value = true
-}
-
-function handleDragLeave(event: DragEvent): void {
-  if (!event.relatedTarget) dragging.value = false
-}
-
-function handleDrop(event: DragEvent): void {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  dragging.value = false
-  const paths = [...(event.dataTransfer?.files || [])].map((file) =>
-    window.api.getDroppedFilePath(file)
-  )
-  if (workspaceSection.value === 'inspect') void fontInspector.value?.openDroppedFiles(paths)
-  else stageFiles(paths)
-}
-
-onMounted(() => {
-  window.addEventListener('dragover', handleDragOver, true)
-  window.addEventListener('dragleave', handleDragLeave, true)
-  window.addEventListener('drop', handleDrop, true)
-  stageFiles(takeRoutedDrop('/font'))
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('dragover', handleDragOver, true)
-  window.removeEventListener('dragleave', handleDragLeave, true)
-  window.removeEventListener('drop', handleDrop, true)
-})
+const dragging = useWorkspaceDrop(
+  (paths) => {
+    if (workspaceSection.value === 'inspect') void fontInspector.value?.openDroppedFiles(paths)
+    else stageFiles(paths)
+  },
+  { path: '/font', receivePaths: stageFiles }
+)
 </script>
 
 <template>

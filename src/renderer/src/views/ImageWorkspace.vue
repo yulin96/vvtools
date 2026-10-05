@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { FolderPlus, Images, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
@@ -27,17 +27,17 @@ import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
-import { takeRoutedDrop } from '../lib/media-drop'
+import { useWorkspaceDrop } from '../composables/useWorkspaceDrop'
+import { useTaskSubmission } from '../composables/useTaskSubmission'
 import { settledBatchSourceItems } from '../lib/batch-sources'
 
 const store = useAppStore()
 const configExpanded = ref(false)
-const dragging = ref(false)
-const starting = ref(false)
 const pendingInputs = computed<ImageInputFile[]>({
   get: () => store.pendingImageInputs,
   set: (value) => (store.pendingImageInputs = value)
 })
+const { starting, submit } = useTaskSubmission(pendingInputs, (input) => input.path)
 const compressionModeOptions = [
   { value: 'quality', label: '按画质' },
   { value: 'targetSize', label: '按文件大小' }
@@ -287,43 +287,14 @@ async function startProcessing(): Promise<void> {
     presetName: activePresetName.value,
     options: { ...settings.image.lastOptions }
   }
-  starting.value = true
-  try {
-    const result = await store.submitTasks(request)
-    if (!result) return
-    const handledPaths = new Set(result.handledPaths)
-    pendingInputs.value = pendingInputs.value.filter((input) => !handledPaths.has(input.path))
-  } finally {
-    starting.value = false
-  }
+  await submit(request)
 }
 
 function removePending(path: string): void {
   pendingInputs.value = pendingInputs.value.filter((input) => input.path !== path)
 }
 
-function hasFiles(event: DragEvent): boolean {
-  return [...(event.dataTransfer?.types || [])].includes('Files')
-}
-
-function handleDragOver(event: DragEvent): void {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
-  dragging.value = true
-}
-
-function handleDragLeave(event: DragEvent): void {
-  if (!event.relatedTarget) dragging.value = false
-}
-
-async function handleDrop(event: DragEvent): Promise<void> {
-  if (!hasFiles(event)) return
-  event.preventDefault()
-  dragging.value = false
-  const paths = [...(event.dataTransfer?.files || [])].map((file) =>
-    window.api.getDroppedFilePath(file)
-  )
+async function receiveDroppedPaths(paths: string[]): Promise<void> {
   try {
     const inputs = await window.api.expandImageInputs(paths)
     if (inputs.length === 0 && paths.length > 0) {
@@ -336,20 +307,13 @@ async function handleDrop(event: DragEvent): Promise<void> {
   }
 }
 
-onMounted(() => {
-  window.addEventListener('dragover', handleDragOver, true)
-  window.addEventListener('dragleave', handleDragLeave, true)
-  window.addEventListener('drop', handleDrop, true)
-  const routedPaths = takeRoutedDrop('/image')
-  if (routedPaths.length > 0) {
-    void window.api.expandImageInputs(routedPaths).then(stageInputs).catch(reportError)
+const dragging = useWorkspaceDrop(receiveDroppedPaths, {
+  path: '/image',
+  receivePaths: (paths) => {
+    if (paths.length > 0) {
+      void window.api.expandImageInputs(paths).then(stageInputs).catch(reportError)
+    }
   }
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('dragover', handleDragOver, true)
-  window.removeEventListener('dragleave', handleDragLeave, true)
-  window.removeEventListener('drop', handleDrop, true)
 })
 </script>
 

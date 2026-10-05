@@ -1,20 +1,13 @@
 import { accessSync, constants, existsSync, statSync } from 'fs'
-import { dirname, join } from 'path'
+import { dirname } from 'path'
 import type {
   CreateTasksRequest,
-  FontFormat,
-  FontInstance,
   ImageOptions,
   MediaInspection,
   VideoOptions
 } from '../../shared/types'
-import {
-  getOutputExtension,
-  getProtectedSourcePaths,
-  resolveOutputPath,
-  resolvePdfImageOutput,
-  resolveSpriteOutput
-} from './output-path'
+import { getProtectedSourcePaths } from './output-path'
+import { planSourceOutputs, taskOutputDirectory, taskSources } from './task-plan'
 import { getVideoResolutionBounds, probeVideo } from './video-processor'
 import { createSpritePlan } from './sprite-processor'
 import { probeAudio } from './audio-processor'
@@ -22,33 +15,18 @@ import { probeFont } from './font-processor'
 import { inspectImageMetadata } from './image-metadata'
 import { probePdf } from './pdf-processor'
 
-interface InspectionSource {
-  path: string
-  relativeDirectory: string
-  fontOutputFormat?: FontFormat
-}
-
 export async function inspectTasks(
   request: CreateTasksRequest,
   existingReservedPaths: ReadonlySet<string> = new Set(),
   activeSourcePaths: ReadonlySet<string> = new Set()
 ): Promise<MediaInspection[]> {
-  const sources: InspectionSource[] =
-    request.kind === 'image'
-      ? request.sources
-      : request.kind === 'font'
-        ? request.sources.map((source) => ({
-            path: source.path,
-            relativeDirectory: '',
-            fontOutputFormat: source.outputFormat
-          }))
-        : request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
+  const sources = taskSources(request)
   const reservedPaths = new Set(existingReservedPaths)
   const sourcePaths = sources.map((source) => source.path)
 
   const inspections = await mapWithConcurrency(sources, 4, async (source) => {
     try {
-      assertOutputDirectoryWritable(outputDirectoryFor(request, source))
+      assertOutputDirectoryWritable(taskOutputDirectory(request, source))
       const sourceSize = statSync(source.path).size
       if (request.kind === 'video') {
         const probe = await probeVideo(source.path, new AbortController().signal)
@@ -186,146 +164,25 @@ export async function inspectTasks(
     const source = sources[index]
     if (!inspection.valid) return inspection
     const protectedSourcePaths = getProtectedSourcePaths(sourcePaths, index, activeSourcePaths)
-    if (request.kind === 'sprite') {
-      const output = resolveSpriteOutput({
-        sourcePath: source.path,
-        outputDirectory: outputDirectoryFor(request, source),
-        imageFormat: request.options.imageFormat,
-        sheetCount: inspection.sheetCount ?? 1,
-        reservedPaths,
-        protectedSourcePaths,
-        outputSuffix: request.outputSuffix,
-        nameTemplate: request.outputNameTemplate,
-        conflictPolicy: request.outputConflictPolicy,
-        presetName: request.presetName,
-        width: inspection.outputWidth,
-        height: inspection.outputHeight
-      })
-      if (output.directory.skipped) {
-        return {
-          ...inspection,
-          outputPath: output.directory.path,
-          outputPaths: [],
-          valid: false,
-          skipped: true,
-          error: '输出文件夹已存在，当前冲突策略为跳过'
-        }
-      }
-      return { ...inspection, outputPath: output.directory.path, outputPaths: output.paths }
-    }
-    if (request.kind === 'pdf' && request.options.operation === 'toImage') {
-      const pageNumbers = request.pageNumbers ?? range(1, inspection.pageCount ?? 0)
-      const output = resolvePdfImageOutput({
-        sourcePath: source.path,
-        outputDirectory: outputDirectoryFor(request, source),
-        imageFormat: request.options.imageFormat,
-        pageNumbers,
-        reservedPaths,
-        protectedSourcePaths,
-        outputSuffix: request.outputSuffix,
-        nameTemplate: request.outputNameTemplate,
-        conflictPolicy: request.outputConflictPolicy,
-        presetName: request.presetName,
+    const plan = planSourceOutputs(
+      request,
+      source,
+      {
+        ...inspection,
         width: inspection.outputWidth ?? inspection.width,
         height: inspection.outputHeight ?? inspection.height
-      })
-      if (output.directory.skipped) {
-        return {
-          ...inspection,
-          outputPath: output.directory.path,
-          outputPaths: [],
-          valid: false,
-          skipped: true,
-          error: '输出文件夹已存在，当前冲突策略为跳过'
-        }
-      }
-      return {
-        ...inspection,
-        outputPath: output.directory.path,
-        outputPaths: output.paths
-      }
-    }
-    const outputPaths: string[] = []
-    const claimedPaths: string[] = []
-    const units = inspectionUnits(request, inspection)
-    const extension = getOutputExtension(
-      request.kind,
-      source.path,
-      request.kind === 'image' ? request.options.format : undefined,
-      request.kind === 'video' ? request.options.format : undefined,
-      request.kind === 'audio' ? request.options.format : undefined,
-      request.kind === 'pdf' && request.options.operation === 'toImage'
-        ? request.options.imageFormat
-        : undefined,
-      request.kind === 'font'
-        ? (source.fontOutputFormat ?? request.options.outputFormat)
-        : undefined
+      },
+      reservedPaths,
+      protectedSourcePaths
     )
-    for (const unit of units) {
-      const output = resolveOutputPath({
-        sourcePath: source.path,
-        outputDirectory: outputDirectoryFor(request, source),
-        extension,
-        reservedPaths,
-        protectedSourcePaths,
-        outputSuffix: request.outputSuffix,
-        nameTemplate: request.outputNameTemplate,
-        conflictPolicy: request.outputConflictPolicy,
-        presetName: request.presetName,
-        width: inspection.outputWidth ?? inspection.width,
-        height: inspection.outputHeight ?? inspection.height,
-        page: unit.pageNumber,
-        index: unit.fontIndex === undefined ? undefined : unit.fontIndex + 1,
-        instance: unit.fontInstance?.name
-      })
-      outputPaths.push(output.path)
-      if (!output.skipped) claimedPaths.push(output.path)
-      if (output.skipped) {
-        for (const path of claimedPaths) reservedPaths.delete(path)
-        return {
-          ...inspection,
-          outputPath: output.path,
-          outputPaths,
-          valid: false,
-          skipped: true,
-          error: '输出文件已存在，当前冲突策略为跳过'
-        }
-      }
-    }
+    for (const unit of plan.units) reservedPaths.add(unit.outputPath)
     return {
       ...inspection,
-      outputPath: outputPaths[0] ?? '',
-      outputPaths
+      outputPath: plan.outputPath,
+      outputPaths: plan.outputPaths,
+      ...(plan.skipped ? { valid: false, skipped: true, error: plan.skippedReason } : {})
     }
   })
-}
-
-interface TaskUnit {
-  pageNumber?: number
-  fontIndex?: number
-  fontInstance?: FontInstance
-}
-
-function inspectionUnits(request: CreateTasksRequest, inspection: MediaInspection): TaskUnit[] {
-  if (request.kind === 'pdf') {
-    if (request.options.operation !== 'toImage') return [{}]
-    const pages = request.pageNumbers ?? range(1, inspection.pageCount ?? 0)
-    return pages.map((pageNumber) => ({ pageNumber }))
-  }
-  if (request.kind !== 'font') return [{}]
-  if (request.options.operation === 'splitCollection') {
-    const indexes = request.fontIndexes ?? range(0, (inspection.fontCount ?? 0) - 1)
-    return indexes.map((fontIndex) => ({ fontIndex }))
-  }
-  if (request.options.operation === 'variableStatic') {
-    const instances = request.fontInstances ?? inspection.fontInstances ?? []
-    return instances.map((fontInstance) => ({ fontInstance }))
-  }
-  return [{}]
-}
-
-function range(start: number, end: number): number[] {
-  return Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => start + index)
 }
 
 function expectedImageDimensions(
@@ -365,14 +222,6 @@ function expectedVideoDimensions(
     width: Math.max(2, Math.floor((width * scale) / 2) * 2),
     height: Math.max(2, Math.floor((height * scale) / 2) * 2)
   }
-}
-
-function outputDirectoryFor(request: CreateTasksRequest, source: InspectionSource): string {
-  if (request.outputMode === 'source') return dirname(source.path)
-  if (request.kind === 'image' && request.options.preserveStructure && source.relativeDirectory) {
-    return join(request.outputDirectory, source.relativeDirectory)
-  }
-  return request.outputDirectory
 }
 
 function assertOutputDirectoryWritable(outputDirectory: string): void {

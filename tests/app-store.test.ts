@@ -1,8 +1,17 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { reactive } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { CreateTasksRequest, MediaTask, VVToolsApi } from '../src/shared/types'
-import { DEFAULT_FONT_OPTIONS, DEFAULT_IMAGE_OPTIONS } from '../src/shared/constants'
+import type { AppSettings, CreateTasksRequest, MediaTask, VVToolsApi } from '../src/shared/types'
+import {
+  DEFAULT_AUDIO_OPTIONS,
+  DEFAULT_CONCURRENCY_SETTINGS,
+  DEFAULT_FONT_OPTIONS,
+  DEFAULT_IMAGE_OPTIONS,
+  DEFAULT_PDF_OPTIONS,
+  DEFAULT_RENAME_SETTINGS,
+  DEFAULT_SPRITE_OPTIONS,
+  DEFAULT_VIDEO_OPTIONS
+} from '../src/shared/constants'
 import { reconcileCurrentBatchTaskIds, useAppStore } from '../src/renderer/src/stores/app'
 
 afterEach(() => {
@@ -10,6 +19,101 @@ afterEach(() => {
 })
 
 describe('app store task submission', () => {
+  it('mirrors all six task kinds and keeps each current batch in input order across snapshots', async () => {
+    const options = {
+      image: DEFAULT_IMAGE_OPTIONS,
+      video: DEFAULT_VIDEO_OPTIONS,
+      sprite: DEFAULT_SPRITE_OPTIONS,
+      audio: DEFAULT_AUDIO_OPTIONS,
+      pdf: DEFAULT_PDF_OPTIONS,
+      font: DEFAULT_FONT_OPTIONS
+    }
+    const settings: AppSettings = {
+      common: {
+        concurrency: DEFAULT_CONCURRENCY_SETTINGS,
+        closeBehavior: 'ask',
+        outputMode: 'custom',
+        outputDirectory: '/tmp',
+        outputNameTemplate: '{name}{suffix}',
+        outputConflictPolicy: 'rename'
+      },
+      image: { outputSuffix: '', lastOptions: options.image },
+      video: { outputSuffix: '', lastOptions: options.video },
+      sprite: { outputSuffix: '', lastOptions: options.sprite },
+      audio: { outputSuffix: '', lastOptions: options.audio },
+      pdf: { outputSuffix: '', lastOptions: options.pdf },
+      font: { outputSuffix: '', lastOptions: options.font },
+      rename: DEFAULT_RENAME_SETTINGS
+    }
+    const kinds = ['image', 'video', 'sprite', 'audio', 'pdf', 'font'] as const
+    const initialTasks: MediaTask[] = kinds.flatMap((kind) =>
+      [1, 2].map((index) => ({
+        id: `${kind}-${index}`,
+        kind,
+        batchItemId: `${kind}-row-${index}`,
+        sourcePath: `/tmp/${kind}-${index}`,
+        outputPath: `/tmp/${kind}-${index}-out`,
+        status: 'processing',
+        progress: 10,
+        options: options[kind],
+        sourceSize: 10,
+        createdAt: '2026-10-05T00:00:00.000Z'
+      }))
+    )
+    let updateSnapshot!: (tasks: MediaTask[]) => void
+    vi.stubGlobal('window', {
+      api: {
+        getTasks: async () => initialTasks,
+        getSettings: async () => settings,
+        getVersion: async () => '0.0.19',
+        getReleaseNotes: async () => '',
+        getSettingsRecoveryNotice: async () => null,
+        onTasksChanged: (listener: typeof updateSnapshot) => {
+          updateSnapshot = listener
+          return () => {}
+        },
+        onTaskProgressChanged: () => () => {},
+        onUpdateChanged: () => () => {},
+        getUpdateState: async () => ({ status: 'idle' }),
+        getCapabilities: async () => ({})
+      }
+    })
+    setActivePinia(createPinia())
+    const store = useAppStore()
+    try {
+      expect(store.currentBatchTasks).toEqual({
+        image: [],
+        video: [],
+        sprite: [],
+        audio: [],
+        pdf: [],
+        font: []
+      })
+      await store.initialize()
+      expect(store.errorMessage).toBe('')
+      for (const kind of kinds) {
+        expect(store.currentBatchTasks[kind].map((task) => task.id)).toEqual([
+          `${kind}-1`,
+          `${kind}-2`
+        ])
+      }
+      updateSnapshot(
+        [...initialTasks].reverse().map((task) => ({ ...task, progress: 100, status: 'completed' }))
+      )
+      for (const kind of kinds) {
+        expect(store.currentBatchTasks[kind].map(({ id, status }) => ({ id, status }))).toEqual([
+          { id: `${kind}-1`, status: 'completed' },
+          { id: `${kind}-2`, status: 'completed' }
+        ])
+      }
+      store.prepareCurrentBatch('font')
+      expect(store.currentBatchTasks.font).toEqual([])
+      expect(store.currentBatchTasks.image.map((task) => task.id)).toEqual(['image-1', 'image-2'])
+    } finally {
+      store.dispose()
+    }
+  })
+
   it('keeps current rows attached when a settled batch is submitted again', () => {
     const previous: MediaTask = {
       id: 'previous-task',
