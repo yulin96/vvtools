@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { FileText, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
+import { FileText, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
   PdfCompressionMode,
@@ -47,12 +47,6 @@ const imageFormatOptions = [
 ]
 const supportedExtensions = new Set(['pdf'])
 
-const formatLabel = computed(() => {
-  const options = store.settings?.pdf.lastOptions
-  if (!options) return ''
-  if (options.operation === 'toImage') return `PDF → ${options.imageFormat.toUpperCase()}`
-  return options.compressionMode === 'lossy' ? '有损压缩' : '无损压缩'
-})
 const workspaceMode = computed<PdfWorkspaceMode>(() => {
   const options = store.settings?.pdf.lastOptions
   if (!options || options.operation === 'toImage') return 'toImage'
@@ -201,11 +195,14 @@ onBeforeUnmount(() => {
     <section v-if="store.settings" class="video-config-panel" aria-label="PDF 处理设置">
       <div class="video-config-heading">
         <div class="config-heading-main">
-          <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">PDF 处理设置</span>
-          <span class="config-summary truncate text-xs text-muted-foreground">{{
-            formatLabel
-          }}</span>
+          <SegmentedControl
+            class="pdf-operation-segments"
+            label="PDF 处理方式"
+            :model-value="workspaceMode"
+            :options="operationOptions"
+            hide-label
+            @update:model-value="setWorkspaceMode($event as PdfWorkspaceMode)"
+          />
         </div>
         <div class="video-config-actions">
           <OutputLocationControls />
@@ -225,17 +222,6 @@ onBeforeUnmount(() => {
             </Button>
           </div>
         </div>
-      </div>
-
-      <div class="workflow-mode-row">
-        <SegmentedControl
-          class="pdf-operation-segments"
-          label="PDF 处理方式"
-          :model-value="workspaceMode"
-          :options="operationOptions"
-          hide-label
-          @update:model-value="setWorkspaceMode($event as PdfWorkspaceMode)"
-        />
       </div>
 
       <div

@@ -49,7 +49,6 @@ const isDark = computed(() =>
 const sidebarCollapsed = ref(localStorage.getItem('vvtools-sidebar-collapsed') === 'true')
 const isMac = window.api.platform === 'darwin'
 const isWindows = window.api.platform === 'win32'
-const hasIntegratedTitlebar = isMac || isWindows
 const releaseNotesOpen = ref(false)
 const themes = [
   { value: 'system' as const, label: '跟随系统', icon: Monitor },
@@ -59,18 +58,22 @@ const themes = [
 const currentTheme = computed(
   () => themes.find((theme) => theme.value === themeMode.value) ?? themes[0]
 )
-const navigation = [
+const workspaceNavigation = [
   { to: '/image', label: '图片处理', icon: Images },
   { to: '/video', label: '视频处理', icon: Video },
   { to: '/sprite', label: '视频雪碧图', icon: Sheet },
   { to: '/audio', label: '音频处理', icon: Music },
   { to: '/pdf', label: 'PDF 处理', icon: FileText },
-  { to: '/font', label: '字体处理', icon: Type },
+  { to: '/font', label: '字体处理', icon: Type }
+]
+const utilityNavigation = [
   { to: '/rename', label: '批量重命名', icon: FilePenLine },
   { to: '/settings', label: '设置', icon: Settings }
 ]
-const currentPageLabel = computed(
-  () => navigation.find((item) => item.to === route.path)?.label ?? 'VVTools'
+const currentPage = computed(
+  () =>
+    [...workspaceNavigation, ...utilityNavigation].find((item) => item.to === route.path) ??
+    workspaceNavigation[0]
 )
 const taskStatusLabel = computed(() =>
   store.activeCount > 0 ? `${store.activeCount} 个任务处理中` : '暂无处理任务'
@@ -140,15 +143,18 @@ onBeforeUnmount(() => {
   <div
     class="app-shell"
     :class="{
-      'app-window-overlay': hasIntegratedTitlebar
+      'app-shell-mac': isMac,
+      'app-shell-windows': isWindows
     }"
   >
-    <header
-      v-if="hasIntegratedTitlebar"
-      class="app-titlebar"
-      :class="{ 'app-titlebar-mac': isMac, 'app-titlebar-windows': isWindows }"
-    >
-      <div class="app-titlebar-actions">
+    <aside class="app-sidebar" :class="{ 'app-sidebar-collapsed': sidebarCollapsed }">
+      <div class="sidebar-brand">
+        <div class="brand-mark">
+          <img :src="appIcon" alt="" class="size-8 rounded-[9px]" />
+        </div>
+        <div class="sidebar-label brand-copy">
+          <p class="brand-name">VVTools</p>
+        </div>
         <button
           class="app-titlebar-button"
           type="button"
@@ -166,37 +172,16 @@ onBeforeUnmount(() => {
           </span>
         </button>
       </div>
-      <div class="app-titlebar-context" aria-live="polite">
-        <span class="app-titlebar-page">{{ currentPageLabel }}</span>
-        <span class="app-titlebar-separator" aria-hidden="true"></span>
-        <span
-          class="app-titlebar-task-status"
-          :class="{ 'app-titlebar-task-status-active': store.activeCount > 0 }"
-        >
-          <span class="app-titlebar-task-dot" aria-hidden="true"></span>
-          {{ taskStatusLabel }}
-        </span>
-      </div>
-    </header>
-    <aside class="app-sidebar" :class="{ 'app-sidebar-collapsed': sidebarCollapsed }">
-      <div class="sidebar-brand">
-        <div class="brand-mark">
-          <img :src="appIcon" alt="" class="size-8 rounded-[9px]" />
-        </div>
-        <div class="sidebar-label brand-copy">
-          <p class="brand-name">VVTools</p>
-          <p class="brand-caption">文件工作台</p>
-        </div>
-      </div>
 
       <nav class="sidebar-nav" aria-label="主导航">
         <button
-          v-for="item in navigation"
+          v-for="item in workspaceNavigation"
           :key="item.to"
           type="button"
           class="sidebar-link"
           :class="{ 'sidebar-link-active': route.path === item.to }"
           :aria-current="route.path === item.to ? 'page' : undefined"
+          :aria-label="item.label"
           :title="sidebarCollapsed ? item.label : undefined"
           @click="router.push(item.to)"
         >
@@ -208,6 +193,24 @@ onBeforeUnmount(() => {
       </nav>
 
       <div class="sidebar-footer">
+        <nav class="sidebar-nav sidebar-utility-nav" aria-label="工具与设置">
+          <button
+            v-for="item in utilityNavigation"
+            :key="item.to"
+            type="button"
+            class="sidebar-link"
+            :class="{ 'sidebar-link-active': route.path === item.to }"
+            :aria-current="route.path === item.to ? 'page' : undefined"
+            :aria-label="item.label"
+            :title="sidebarCollapsed ? item.label : undefined"
+            @click="router.push(item.to)"
+          >
+            <span class="sidebar-link-icon">
+              <component :is="item.icon" class="size-4" />
+            </span>
+            <span class="sidebar-label">{{ item.label }}</span>
+          </button>
+        </nav>
         <Transition name="sidebar-footer-swap" mode="out-in">
           <SegmentedControl
             v-if="!sidebarCollapsed"
@@ -230,7 +233,7 @@ onBeforeUnmount(() => {
           </div>
         </Transition>
         <button
-          v-if="store.appVersion"
+          v-if="store.appVersion && !sidebarCollapsed"
           class="sidebar-label sidebar-version"
           type="button"
           :class="{
@@ -256,25 +259,41 @@ onBeforeUnmount(() => {
     </aside>
 
     <main class="app-main">
-      <Transition name="alert-slide">
-        <div v-if="store.errorMessage" role="alert" class="app-alert">
-          <span>{{ store.errorMessage }}</span>
-          <button
-            class="app-alert-close"
-            aria-label="关闭错误提示"
-            @click="store.errorMessage = ''"
-          >
-            <X class="size-4" />
-          </button>
+      <header class="app-titlebar">
+        <div class="app-titlebar-context">
+          <component :is="currentPage.icon" class="size-5" aria-hidden="true" />
+          <h1 class="app-titlebar-page">{{ currentPage.label }}</h1>
         </div>
-      </Transition>
-      <RouterView v-slot="{ Component, route: viewRoute }">
-        <Transition name="page-swap">
-          <div :key="viewRoute.path" class="route-view">
-            <component :is="Component" />
+        <span
+          class="app-titlebar-task-status"
+          :class="{ 'app-titlebar-task-status-active': store.activeCount > 0 }"
+          role="status"
+        >
+          <span class="app-titlebar-task-dot" aria-hidden="true"></span>
+          {{ taskStatusLabel }}
+        </span>
+      </header>
+      <div class="app-workspace">
+        <Transition name="alert-slide">
+          <div v-if="store.errorMessage" role="alert" class="app-alert">
+            <span>{{ store.errorMessage }}</span>
+            <button
+              class="app-alert-close"
+              aria-label="关闭错误提示"
+              @click="store.errorMessage = ''"
+            >
+              <X class="size-4" />
+            </button>
           </div>
         </Transition>
-      </RouterView>
+        <RouterView v-slot="{ Component, route: viewRoute }">
+          <Transition name="page-swap">
+            <div :key="viewRoute.path" class="route-view">
+              <component :is="Component" />
+            </div>
+          </Transition>
+        </RouterView>
+      </div>
     </main>
 
     <Modal

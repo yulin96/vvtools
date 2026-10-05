@@ -4,7 +4,6 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
-  FilePenLine,
   Files,
   ListOrdered,
   Play,
@@ -341,8 +340,14 @@ onBeforeUnmount(() => {
     <section v-if="settingsReady" class="video-config-panel" aria-label="批量重命名设置">
       <div class="video-config-heading">
         <div class="config-heading-main">
-          <FilePenLine class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">批量重命名设置</span>
+          <SegmentedControl
+            class="rename-mode-segments"
+            label="重命名方式"
+            :model-value="draft.mode"
+            :options="renameModeOptions"
+            hide-label
+            @update:model-value="setMode"
+          />
           <Button
             v-if="draft.mode === 'custom'"
             class="config-expand-toggle"
@@ -375,14 +380,6 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="rename-config-primary" :class="`rename-config-${draft.mode}`">
-        <SegmentedControl
-          class="rename-mode-segments"
-          label="重命名方式"
-          :model-value="draft.mode"
-          :options="renameModeOptions"
-          @update:model-value="setMode"
-        />
-
         <div v-if="draft.mode === 'sequence'" class="rename-sequence-explainer">
           <ListOrdered class="size-4 shrink-0 text-signal-strong" />
           <div>
@@ -699,18 +696,18 @@ onBeforeUnmount(() => {
 .rename-config-primary {
   display: grid;
   grid-template-columns:
-    minmax(170px, 1.05fr) minmax(145px, 0.9fr) minmax(165px, 1fr) minmax(130px, 0.85fr)
-    minmax(130px, 0.85fr) minmax(135px, 0.8fr);
+    minmax(145px, 0.9fr) minmax(165px, 1fr) minmax(130px, 0.85fr) minmax(130px, 0.85fr)
+    minmax(135px, 0.8fr);
   gap: 12px;
-  border-top: 1px solid var(--border);
-  padding: 12px 16px 14px;
+  padding: 0 0 20px;
 }
 
 .rename-config-sequence {
-  grid-template-columns: minmax(210px, 0.55fr) minmax(420px, 1.45fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .rename-mode-segments {
+  width: 224px;
   min-width: 0;
 }
 
@@ -719,10 +716,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--signal-soft) 44%, var(--background));
-  padding: 8px 12px;
+  padding: 4px 0;
 }
 
 .rename-sequence-explainer strong {
@@ -754,18 +748,11 @@ onBeforeUnmount(() => {
 }
 
 .rename-config-expanded {
-  position: absolute;
-  z-index: 15;
-  top: calc(100% + var(--shell-gap));
-  right: 0;
-  left: 0;
   display: grid;
   grid-template-columns: 1.05fr 1.45fr 0.9fr;
-  gap: 20px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--background);
-  padding: 16px;
+  gap: 24px;
+  border-top: 1px solid var(--border);
+  padding: 16px 0 20px;
 }
 
 .rename-format-fields {
@@ -922,20 +909,11 @@ onBeforeUnmount(() => {
   }
 
   .rename-config-sequence {
-    grid-template-columns: minmax(190px, 0.65fr) minmax(360px, 1.35fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .rename-config-expanded {
     grid-template-columns: 1fr;
-    max-height: min(62vh, 520px);
-    overflow: auto;
-  }
-
-  .rename-config-expanded :deep(.config-group + .config-group) {
-    border-top: 1px solid var(--border);
-    border-left: 0;
-    padding-top: 16px;
-    padding-left: 0;
   }
 }
 

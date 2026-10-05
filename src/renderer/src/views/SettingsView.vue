@@ -110,12 +110,7 @@ function openSourcePage(): void {
 
 <template>
   <div class="page-container workspace-scroll-content">
-    <header class="page-header">
-      <div>
-        <h1>设置</h1>
-        <p>管理适用于所有处理页面的输出规则、任务调度和应用行为。</p>
-      </div>
-    </header>
+    <p class="settings-intro">管理适用于所有处理页面的输出规则、任务调度和应用行为。</p>
     <template v-if="store.settings">
       <section class="settings-card settings-update-card">
         <div class="settings-card-title">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { FileVideo2, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
+import { FileVideo2, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
   VideoAudioMode,
@@ -315,8 +315,14 @@ onBeforeUnmount(() => {
     <section v-if="store.settings" class="video-config-panel" aria-label="视频转换设置">
       <div class="video-config-heading">
         <div class="config-heading-main">
-          <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">视频转换设置</span>
+          <SegmentedControl
+            class="preset-segments video-preset-segments"
+            label="视频处理方案"
+            :model-value="activePresetId"
+            :options="videoPresetOptions"
+            hide-label
+            @update:model-value="applyPreset"
+          />
           <Button
             class="config-expand-toggle"
             variant="ghost"
@@ -333,14 +339,6 @@ onBeforeUnmount(() => {
           </span>
         </div>
         <div class="video-config-actions">
-          <SegmentedControl
-            class="preset-segments video-preset-segments"
-            label="视频处理方案"
-            :model-value="activePresetId"
-            :options="videoPresetOptions"
-            hide-label
-            @update:model-value="applyPreset"
-          />
           <OutputLocationControls />
           <div class="start-processing-actions">
             <SourceOverwriteWarning />

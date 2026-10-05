@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { FileAudio, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
+import { FileAudio, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   AudioChannels,
   AudioFormat,
@@ -176,8 +176,6 @@ onBeforeUnmount(() => {
     <section v-if="store.settings" class="video-config-panel" aria-label="音频处理设置">
       <div class="video-config-heading">
         <div class="config-heading-main">
-          <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">音频输出设置</span>
           <span class="config-summary truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ bitrateLabel }}
           </span>

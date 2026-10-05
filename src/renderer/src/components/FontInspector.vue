@@ -289,11 +289,11 @@ defineExpose({ openDroppedFiles })
       <div class="video-config-heading">
         <div class="config-heading-main min-w-0">
           <FileSearch class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">字体检查</span>
-          <span v-if="inspection" class="config-summary truncate text-xs text-muted-foreground">
+          <span v-if="inspection" class="truncate text-xs text-foreground">
             {{ inspection.fullName || inspection.familyName || inspection.fileName }} ·
             {{ inspection.codePoints.length.toLocaleString() }} 个字符
           </span>
+          <span v-else class="text-xs text-muted-foreground">尚未选择字体</span>
         </div>
         <div class="video-config-actions">
           <Button variant="secondary" size="sm" :disabled="loading" @click="chooseFont">
@@ -534,13 +534,15 @@ defineExpose({ openDroppedFiles })
 
 .font-inspector-toolbar {
   flex: none;
+  max-height: none;
+  overflow: visible;
 }
 
 .font-inspector-facts {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 16px;
-  padding-top: 10px;
+  padding: 0 0 16px;
   color: var(--muted-foreground);
   font-size: 11px;
 }
@@ -553,22 +555,27 @@ defineExpose({ openDroppedFiles })
   display: grid;
   min-height: 0;
   flex: 1;
-  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-  gap: 8px;
-  padding-top: 8px;
+  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+  gap: 16px;
+  padding-top: 16px;
 }
 
 .font-inspector-sidebar,
 .font-inspector-preview {
   min-height: 0;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--background);
+  background: var(--workspace);
 }
 
 .font-inspector-sidebar {
   overflow: auto;
-  padding: 16px;
+  border-right: 1px solid var(--border);
+  padding: 0 16px 0 0;
+}
+
+.font-inspector-preview {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--background);
 }
 
 .font-inspector-section + .font-inspector-section {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { FolderPlus, Images, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
+import { FolderPlus, Images, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
   ImageCompressionMode,
@@ -359,8 +359,14 @@ onBeforeUnmount(() => {
     <section v-if="store.settings" class="video-config-panel" aria-label="图片处理设置">
       <div class="video-config-heading">
         <div class="config-heading-main">
-          <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">图片处理设置</span>
+          <SegmentedControl
+            class="preset-segments image-preset-segments"
+            label="图片处理方案"
+            :model-value="activePresetId"
+            :options="imagePresetOptions"
+            hide-label
+            @update:model-value="applyPreset"
+          />
           <Button
             class="config-expand-toggle"
             variant="ghost"
@@ -377,14 +383,6 @@ onBeforeUnmount(() => {
           </span>
         </div>
         <div class="video-config-actions">
-          <SegmentedControl
-            class="preset-segments image-preset-segments"
-            label="图片处理方案"
-            :model-value="activePresetId"
-            :options="imagePresetOptions"
-            hide-label
-            @update:model-value="applyPreset"
-          />
           <OutputLocationControls />
           <div class="start-processing-actions">
             <SourceOverwriteWarning />

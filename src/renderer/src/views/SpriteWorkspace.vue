@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { FileVideo2, Grid2X2, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
+import { FileVideo2, Grid2X2, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
   SpriteExportMode,
@@ -173,8 +173,6 @@ onBeforeUnmount(() => {
     <section v-if="store.settings" class="video-config-panel" aria-label="视频雪碧图设置">
       <div class="video-config-heading">
         <div class="config-heading-main">
-          <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">视频雪碧图设置</span>
           <Button
             class="config-expand-toggle"
             variant="ghost"

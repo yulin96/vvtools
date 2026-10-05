@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { FileType, Play, Plus, SlidersHorizontal, UploadCloud } from '@lucide/vue'
+import { FileType, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
   FontConversionSubsetPreset,
@@ -187,21 +187,6 @@ const subsetScopeDescription = computed(() => {
   return subsetTextDraft.value
     ? `预计保留 ${[...subsetPresetText.value].length} 个字符`
     : '输入实际会使用的文字，或选择 TXT 文本文件'
-})
-const summary = computed(() => {
-  const options = store.settings?.font.lastOptions
-  if (!options) return ''
-  if (quickConvert.value) return '自动生成网页字体 · 中文 8105'
-  if (options.operation === 'subset') {
-    const scope =
-      options.subsetMode === 'latin'
-        ? '西文基础'
-        : options.subsetMode === 'chinese'
-          ? `中文 ${options.subsetChineseLevel} + 西文`
-          : '自定义字符'
-    return `${options.outputFormat.toUpperCase()} · ${scope}`
-  }
-  return `${options.outputFormat.toUpperCase()} · ${modeOptions.find((item) => item.value === options.operation)?.label ?? ''}`
 })
 const emptyStateCopy = computed(() => {
   if (quickConvert.value) {
@@ -503,9 +488,14 @@ onBeforeUnmount(() => {
     >
       <div class="video-config-heading">
         <div class="config-heading-main">
-          <SlidersHorizontal class="size-4 shrink-0 text-signal-strong" />
-          <span class="shrink-0 text-sm font-semibold">字体处理</span>
-          <span class="config-summary truncate text-xs text-muted-foreground">{{ summary }}</span>
+          <SegmentedControl
+            class="font-operation-segments"
+            label="字体处理方式"
+            :model-value="selectedMode"
+            :options="modeOptions"
+            hide-label
+            @update:model-value="setMode($event as FontWorkspaceMode)"
+          />
         </div>
         <div class="video-config-actions">
           <OutputLocationControls />
@@ -527,18 +517,10 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="workflow-mode-row">
-        <SegmentedControl
-          class="font-operation-segments"
-          label="字体处理方式"
-          :model-value="selectedMode"
-          :options="modeOptions"
-          hide-label
-          @update:model-value="setMode($event as FontWorkspaceMode)"
-        />
-      </div>
-
-      <div class="image-config-primary font-config-primary">
+      <div
+        class="image-config-primary font-config-primary"
+        :class="{ 'font-config-primary-subset': operation === 'subset' }"
+      >
         <fieldset class="config-group">
           <legend class="sr-only">{{ quickConvert ? '快速转换规则' : '输出格式' }}</legend>
           <div class="config-group-fields">
