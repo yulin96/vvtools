@@ -11,7 +11,8 @@ import type {
   RuntimeCapabilities,
   TaskProgressUpdate,
   TaskStateUpdate,
-  TaskKind
+  TaskKind,
+  ThemeMode
 } from '../shared/types'
 import {
   AUDIO_EXTENSIONS,
@@ -60,7 +61,8 @@ export function registerIpc(
   queue: TaskQueue,
   settings: SettingsStore,
   updates: UpdateService,
-  desktop?: DesktopIpc
+  desktop?: DesktopIpc,
+  setAppIconTheme?: (theme: ThemeMode) => void
 ): () => void {
   const window = (): BrowserWindow => {
     const current = getWindow()
@@ -343,6 +345,14 @@ export function registerIpc(
       console.error('读取更新日志失败', error)
       return ''
     }
+  })
+  handle(IPC_CHANNELS.setAppIconTheme, (event, theme: unknown) => {
+    assertTrusted(event, window())
+    if (theme !== 'system' && theme !== 'light' && theme !== 'dark') {
+      throw new Error('图标主题无效')
+    }
+    if (!setAppIconTheme) throw new Error('图标主题服务不可用')
+    setAppIconTheme(theme)
   })
   handle(IPC_CHANNELS.setWindowTheme, (event, theme: unknown) => {
     assertTrusted(event, window())

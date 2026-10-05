@@ -32,9 +32,11 @@ pnpm dev
 
 ## 图标维护
 
-运行 `pnpm icons` 从 `build/logo-source.png` 生成图标。源文件是至少 1024 × 1024、带完整底色的正方形图像；脚本统一处理圆角，并分别添加 macOS 和 Windows 的透明留白，避免重复套底框或重复缩小。
+运行 `pnpm icons` 从 `build/logo-source.png` 和 `build/logo-source-dark.png` 生成浅色、深色图标，也可通过两个位置参数指定对应源文件。源文件是至少 1024 × 1024、带完整底色的正方形图像；脚本统一处理圆角，并分别添加 macOS 和 Windows 的透明留白，避免重复套底框或重复缩小。
 
-Windows 使用包含 16、20、24、32、40、48、64、96、128、256 px 的 ICO；macOS 使用包含 16–1024 px 普通与 Retina 图像的 ICNS，ICNS 需在 macOS 上生成。界面侧栏使用独立的 256 px 图标，避免系统图标的外部留白使其显示过小。
+Windows 使用包含 16、20、24、32、40、48、64、96、128、256 px 的 ICO；macOS 使用包含 16–1024 px 普通与 Retina 图像的 ICNS，ICNS 需在 macOS 上生成，运行中的 Dock 使用 1024 px PNG 保留高分辨率。界面侧栏使用独立的 256 px 图标，避免系统图标的外部留白使其显示过小。
+
+侧栏、关于面板和运行中的 Dock / 窗口图标使用现有主题设置；选择“跟随系统”时自动切换。安装包、Finder 和桌面快捷方式仍使用固定的浅色图标，ICNS / ICO 本身不负责动态主题切换。
 
 ## 使用 Homebrew 安装
 

@@ -4,7 +4,7 @@ import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BrowserWindowConstructorOptions, MenuItemConstructorOptions } from 'electron'
 import type { DesktopIpc } from './ipc'
-import type { DesktopActionRequest } from '../shared/types'
+import type { DesktopActionRequest, ThemeMode } from '../shared/types'
 import type { DesktopResult } from './services/desktop-actions'
 import type { SettingsStore } from './services/settings-store'
 import type { TaskQueue } from './services/task-queue'
@@ -18,9 +18,14 @@ const runtime = vi.hoisted(() => ({
     show: ReturnType<typeof vi.fn>
     focus: ReturnType<typeof vi.fn>
     restore: ReturnType<typeof vi.fn>
+    setIcon: ReturnType<typeof vi.fn>
   }>,
   windowOptions: [] as BrowserWindowConstructorOptions[],
   dev: false,
+  systemIsDark: false,
+  themeSource: 'system' as ThemeMode,
+  themeListeners: new Set<() => void>(),
+  setIconTheme: null as ((theme: ThemeMode) => void) | null,
   dockIcon: vi.fn(),
   aboutOptions: vi.fn(),
   queue: null as TaskQueue | null,
@@ -65,6 +70,7 @@ vi.mock('electron', async () => {
     loadFile = vi.fn()
     loadURL = vi.fn()
     setTitleBarOverlay = vi.fn()
+    setIcon = vi.fn()
     show = vi.fn(() => {
       this.visible = true
       this.emit('show')
@@ -104,6 +110,19 @@ vi.mock('electron', async () => {
       quit: runtime.quit
     },
     BrowserWindow: Window,
+    nativeTheme: {
+      get shouldUseDarkColors() {
+        return runtime.systemIsDark
+      },
+      get themeSource() {
+        return runtime.themeSource
+      },
+      set themeSource(theme: ThemeMode) {
+        runtime.themeSource = theme
+      },
+      on: (_event: string, listener: () => void) => runtime.themeListeners.add(listener),
+      off: (_event: string, listener: () => void) => runtime.themeListeners.delete(listener)
+    },
     Tray: runtime.tray,
     Menu: { buildFromTemplate: (items: unknown) => items, setApplicationMenu: runtime.menu },
     screen: {
@@ -130,11 +149,13 @@ vi.mock('./ipc', () => ({
     queue: TaskQueue,
     settings: SettingsStore,
     _updates: unknown,
-    desktop: DesktopIpc
+    desktop: DesktopIpc,
+    setIconTheme: (theme: ThemeMode) => void
   ) => {
     runtime.queue = queue
     runtime.settings = settings
     runtime.desktop = desktop
+    runtime.setIconTheme = setIconTheme
     return vi.fn()
   }
 }))
@@ -181,6 +202,10 @@ beforeEach(() => {
   runtime.windows.length = 0
   runtime.windowOptions.length = 0
   runtime.dev = false
+  runtime.systemIsDark = false
+  runtime.themeSource = 'system'
+  runtime.themeListeners.clear()
+  runtime.setIconTheme = null
   runtime.queue = null
   runtime.settings = null
   runtime.desktop = null
@@ -242,10 +267,12 @@ describe('desktop lifecycle orchestration', () => {
       '帮助'
     ])
     expect(runtime.queue!.listenerCount('changed')).toBe(0)
-    expect(runtime.dockIcon).not.toHaveBeenCalled()
+    expect(runtime.dockIcon).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining('icon-mac.png')
+    )
   })
 
-  it('uses the padded macOS PNG for the development Dock icon without overriding the packaged ICNS', async () => {
+  it('uses the padded macOS PNG for the development Dock icon', async () => {
     Object.defineProperty(process, 'platform', { ...platform, value: 'darwin' })
     runtime.dev = true
     await start()
@@ -254,6 +281,63 @@ describe('desktop lifecycle orchestration', () => {
     )
     expect(runtime.windowOptions[0].icon).toEqual(expect.stringContaining('resources/icon.png'))
     expect(runtime.tray).not.toHaveBeenCalled()
+  })
+
+  it('uses dark Windows icons on system-dark startup and follows changes even without a window', async () => {
+    runtime.systemIsDark = true
+    await start()
+    expect(runtime.windowOptions[0].icon).toEqual(expect.stringContaining('icon-dark.ico'))
+    expect(runtime.aboutOptions).toHaveBeenCalledExactlyOnceWith({
+      applicationName: 'VVTools',
+      iconPath: expect.stringContaining('resources/icon-dark.png')
+    })
+    runtime.systemIsDark = false
+    runtime.themeListeners.forEach((listener) => listener())
+    const window = runtime.windows[0]
+    expect(window.setIcon).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('icon.ico'))
+    expect(runtime.aboutOptions).toHaveBeenLastCalledWith({
+      applicationName: 'VVTools',
+      iconPath: expect.stringContaining('resources/icon.png')
+    })
+    runtime.themeListeners.forEach((listener) => listener())
+    expect(window.setIcon).toHaveBeenCalledOnce()
+    expect(runtime.aboutOptions).toHaveBeenCalledTimes(2)
+    window.emit('closed')
+    runtime.systemIsDark = true
+    runtime.themeListeners.forEach((listener) => listener())
+    expect(window.setIcon).toHaveBeenCalledOnce()
+    runtime.events.get('activate')!()
+    expect(runtime.windowOptions[1].icon).toEqual(expect.stringContaining('icon-dark.ico'))
+    expect(runtime.dockIcon).not.toHaveBeenCalled()
+  })
+
+  it('keeps manual macOS icon appearance across system changes, resumes following and removes its listener', async () => {
+    Object.defineProperty(process, 'platform', { ...platform, value: 'darwin' })
+    await start()
+    runtime.setIconTheme!('dark')
+    expect(runtime.dockIcon.mock.calls.map(([path]) => path)).toEqual([
+      expect.stringContaining('icon-mac.png'),
+      expect.stringContaining('icon-mac-dark.png')
+    ])
+    runtime.systemIsDark = true
+    runtime.themeListeners.forEach((listener) => listener())
+    runtime.systemIsDark = false
+    runtime.themeListeners.forEach((listener) => listener())
+    expect(runtime.dockIcon).toHaveBeenCalledTimes(2)
+    runtime.setIconTheme!('system')
+    expect(runtime.dockIcon).toHaveBeenLastCalledWith(expect.stringContaining('icon-mac.png'))
+    runtime.systemIsDark = true
+    runtime.themeListeners.forEach((listener) => listener())
+    expect(runtime.dockIcon).toHaveBeenLastCalledWith(expect.stringContaining('icon-mac-dark.png'))
+    runtime.setIconTheme!('light')
+    runtime.themeListeners.forEach((listener) => listener())
+    expect(runtime.dockIcon).toHaveBeenCalledTimes(5)
+    expect(runtime.dockIcon).toHaveBeenLastCalledWith(expect.stringContaining('icon-mac.png'))
+    expect(runtime.themeSource).toBe('system')
+    expect(runtime.windows[0].setIcon).not.toHaveBeenCalled()
+    expect(runtime.themeListeners.size).toBe(1)
+    runtime.events.get('before-quit')!()
+    expect(runtime.themeListeners.size).toBe(0)
   })
   it('starts file-manager launches without a renderer and forwards ordered data to the existing instance', async () => {
     process.argv = [

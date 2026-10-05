@@ -11,13 +11,21 @@ let root: string
 beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'vvtools-icons-'))
   const source = join(root, 'source.png')
+  const darkSource = join(root, 'source-dark.png')
   await sharp({ create: { width: 1024, height: 1024, channels: 3, background: '#6f51e7' } })
     .png()
     .toFile(source)
-  const generated = spawnSync(process.execPath, [resolve('scripts/generate-icons.mjs'), source], {
-    cwd: root,
-    encoding: 'utf8'
-  })
+  await sharp({ create: { width: 1024, height: 1024, channels: 3, background: '#20212a' } })
+    .png()
+    .toFile(darkSource)
+  const generated = spawnSync(
+    process.execPath,
+    [resolve('scripts/generate-icons.mjs'), source, darkSource],
+    {
+      cwd: root,
+      encoding: 'utf8'
+    }
+  )
   expect(generated.error).toBeUndefined()
   expect(generated.status, generated.stderr).toBe(0)
 })
@@ -26,7 +34,7 @@ afterAll(async () => {
   if (root) await rm(root, { recursive: true, force: true })
 })
 
-async function opaqueBounds(path: string): Promise<number[]> {
+async function opaqueBounds(path: string, color: number[]): Promise<number[]> {
   const { data, info } = await sharp(path).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
   const bounds = [info.width, info.height, -1, -1]
   for (let y = 0; y < info.height; y++) {
@@ -40,21 +48,30 @@ async function opaqueBounds(path: string): Promise<number[]> {
   }
   expect(data[3]).toBe(0)
   const center = (Math.floor(info.height / 2) * info.width + Math.floor(info.width / 2)) * 4
-  expect([...data.subarray(center, center + 4)]).toEqual([111, 81, 231, 255])
+  expect([...data.subarray(center, center + 4)]).toEqual([...color, 255])
   return bounds
 }
 
-describe('application icon export contracts', () => {
+describe.each([
+  { suffix: '', color: [111, 81, 231] },
+  { suffix: '-dark', color: [32, 33, 42] }
+])('application icon export contracts $suffix', ({ suffix, color }) => {
   it('keeps native transparent padding separate from the unpadded UI badge', async () => {
-    expect(await opaqueBounds(join(root, 'build/icon-source.png'))).toEqual([100, 100, 923, 923])
-    expect(await opaqueBounds(join(root, 'build/icon-windows.png'))).toEqual([64, 64, 959, 959])
-    expect(await opaqueBounds(join(root, 'resources/logo.png'))).toEqual([0, 0, 255, 255])
+    expect(await opaqueBounds(join(root, `build/icon-source${suffix}.png`), color)).toEqual([
+      100, 100, 923, 923
+    ])
+    expect(await opaqueBounds(join(root, `build/icon-windows${suffix}.png`), color)).toEqual([
+      64, 64, 959, 959
+    ])
+    expect(await opaqueBounds(join(root, `resources/logo${suffix}.png`), color)).toEqual([
+      0, 0, 255, 255
+    ])
     for (const [path, size] of [
-      ['build/logo-source.png', 1024],
-      ['build/icon.png', 512],
-      ['resources/icon.png', 512],
-      ['resources/icon-mac.png', 512],
-      ['resources/logo.png', 256]
+      [`build/logo-source${suffix}.png`, 1024],
+      [`build/icon${suffix}.png`, 512],
+      [`resources/icon${suffix}.png`, 512],
+      [`resources/icon-mac${suffix}.png`, 1024],
+      [`resources/logo${suffix}.png`, 256]
     ] as const) {
       expect(await sharp(join(root, path)).metadata()).toMatchObject({
         width: size,
@@ -62,11 +79,13 @@ describe('application icon export contracts', () => {
         format: 'png'
       })
     }
-    expect(await opaqueBounds(join(root, 'resources/icon-mac.png'))).toEqual([50, 50, 461, 461])
+    expect(await opaqueBounds(join(root, `resources/icon-mac${suffix}.png`), color)).toEqual([
+      100, 100, 923, 923
+    ])
   })
 
   it('embeds distinct 32-bit ICO frames for common Windows DPI scales with transparent corners', async () => {
-    const ico = await readFile(join(root, 'build/icon.ico'))
+    const ico = await readFile(join(root, `build/icon${suffix}.ico`))
     expect(ico.readUInt16LE(0)).toBe(0)
     expect(ico.readUInt16LE(2)).toBe(1)
     expect(ico.readUInt16LE(4)).toBe(10)
@@ -95,12 +114,14 @@ describe('application icon export contracts', () => {
       ])
         expect(alphaAt(x, y)).toBe(0)
       expect(alphaAt(size / 2, size / 2)).toBe(255)
+      const center = pixels + ((size - size / 2 - 1) * size + size / 2) * 4
+      expect([...ico.subarray(center, center + 4)]).toEqual([color[2], color[1], color[0], 255])
     }
     expect(sizes).toEqual([16, 20, 24, 32, 40, 48, 64, 96, 128, 256])
   })
 
   it('round-trips the full macOS ordinary and Retina iconset on the native host', async () => {
-    const path = join(root, 'build/icon.icns')
+    const path = join(root, `build/icon${suffix}.icns`)
     if (process.platform !== 'darwin') {
       expect(existsSync(path)).toBe(false)
       return
@@ -108,7 +129,7 @@ describe('application icon export contracts', () => {
     const icns = await readFile(path)
     expect(icns.toString('ascii', 0, 4)).toBe('icns')
     expect(icns.readUInt32BE(4)).toBe(icns.length)
-    const decoded = join(root, 'decoded.iconset')
+    const decoded = join(root, `decoded${suffix}.iconset`)
     const result = spawnSync('iconutil', ['-c', 'iconset', '-o', decoded, path], {
       encoding: 'utf8'
     })

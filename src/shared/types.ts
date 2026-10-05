@@ -1,6 +1,7 @@
 export const TASK_KINDS = ['image', 'video', 'sprite', 'audio', 'pdf', 'font'] as const
 export type TaskKind = (typeof TASK_KINDS)[number]
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'skipped' | 'failed' | 'cancelled'
+export type ThemeMode = 'system' | 'light' | 'dark'
 
 export type VideoQuality = 'high' | 'balanced' | 'small'
 export type VideoResolution = 'source' | '1080p' | '720p' | 'custom'
@@ -630,6 +631,7 @@ export interface VVToolsApi {
   getVersion: () => Promise<string>
   getReleaseNotes: () => Promise<string>
   setWindowTheme: (theme: 'light' | 'dark') => Promise<void>
+  setAppIconTheme: (theme: ThemeMode) => Promise<void>
   getUpdateState: () => Promise<UpdateState>
   checkForUpdates: () => Promise<UpdateState>
   downloadUpdate: () => Promise<void>

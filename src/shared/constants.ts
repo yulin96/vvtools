@@ -243,6 +243,7 @@ export const IPC_CHANNELS = {
   getVersion: 'system:version',
   getReleaseNotes: 'system:release-notes',
   setWindowTheme: 'window:set-theme',
+  setAppIconTheme: 'app:set-icon-theme',
   getUpdateState: 'updates:get-state',
   checkForUpdates: 'updates:check',
   downloadUpdate: 'updates:download',

@@ -29,6 +29,43 @@ vi.mock('electron', () => ({
 afterEach(() => handlers.clear())
 
 describe('IPC authentication boundary', () => {
+  it('authenticates and validates icon appearance before invoking the native icon service', () => {
+    const webContents = { mainFrame: {}, send: vi.fn() }
+    const window = { webContents, isDestroyed: () => false } as unknown as BrowserWindow
+    const queue = new EventEmitter() as TaskQueue
+    const setIconTheme = vi.fn()
+    const dispose = registerIpc(
+      () => window,
+      queue,
+      {} as SettingsStore,
+      {} as UpdateService,
+      undefined,
+      setIconTheme
+    )
+    try {
+      const handle = handlers.get(IPC_CHANNELS.setAppIconTheme)!
+      expect(() =>
+        handle({ sender: {}, senderFrame: webContents.mainFrame } as IpcMainInvokeEvent, 'dark')
+      ).toThrow('拒绝来自未知页面的请求')
+      expect(() =>
+        handle({ sender: webContents, senderFrame: {} } as IpcMainInvokeEvent, 'dark')
+      ).toThrow('拒绝来自未知页面的请求')
+      const trusted = {
+        sender: webContents,
+        senderFrame: webContents.mainFrame
+      } as IpcMainInvokeEvent
+      for (const input of [null, {}, true, 'auto', '']) {
+        expect(() => handle(trusted, input)).toThrow('图标主题无效')
+      }
+      expect(setIconTheme).not.toHaveBeenCalled()
+      for (const mode of ['system', 'light', 'dark']) handle(trusted, mode)
+      expect(setIconTheme.mock.calls).toEqual([['system'], ['light'], ['dark']])
+    } finally {
+      dispose()
+    }
+    expect(handlers.size).toBe(0)
+  })
+
   it('serves an ordered initial snapshot and forwards state/progress deltas without fetching the full list', () => {
     const webContents = { mainFrame: {}, send: vi.fn() }
     const window = { webContents, isDestroyed: () => false } as unknown as BrowserWindow

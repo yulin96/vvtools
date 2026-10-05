@@ -4,9 +4,6 @@ import { randomUUID } from 'crypto'
 import { availableParallelism } from 'os'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
-import icon from '../../resources/icon.png?asset'
-import macIcon from '../../resources/icon-mac.png?asset'
-import windowsIcon from '../../build/icon.ico?asset'
 import { IPC_CHANNELS, IMAGE_EXTENSIONS } from '../shared/constants'
 import type { AppSettingsPatch, DesktopActionId, DesktopNavigation } from '../shared/types'
 import { DesktopActions, type DesktopResult } from './services/desktop-actions'
@@ -15,6 +12,7 @@ import { isDesktopLaunch, readDesktopLaunch } from './services/desktop-request'
 import { normalizeDesktopSettings } from '../shared/desktop-settings'
 import { registerIpc } from './ipc'
 import { applicationMenuTemplate } from './application-menu'
+import { ApplicationIcons } from './application-icons'
 import { processAudio } from './media/audio-processor'
 import { processFont } from './media/font-processor'
 import {
@@ -59,6 +57,7 @@ const pendingLaunches: string[][] = isDesktopLaunch(process.argv) ? [process.arg
 const pendingNavigation: DesktopNavigation[] = []
 let lastRevealedDesktopResult = ''
 const updates = new UpdateService(() => mainWindow)
+const applicationIcons = new ApplicationIcons(() => mainWindow)
 const defaultWindowSize = { width: 1280, height: 800 }
 const minimumWindowSize = { width: 1040, height: 680 }
 const windowsTitleBarOverlay = {
@@ -129,7 +128,7 @@ function createWindow(): void {
         : {}),
     show: false,
     autoHideMenuBar: true,
-    icon: process.platform === 'win32' ? windowsIcon : icon,
+    icon: applicationIcons.windowIcon(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -452,8 +451,7 @@ async function confirmActiveTaskClose(): Promise<void> {
 app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return
   electronApp.setAppUserModelId('com.vvtools.app')
-  app.setAboutPanelOptions({ applicationName: 'VVTools', iconPath: icon })
-  if (process.platform === 'darwin' && is.dev) app.dock?.setIcon(macIcon)
+  applicationIcons.start()
   registerFontPreviewProtocol()
 
   // Default open or close DevTools by F12 in development
@@ -499,26 +497,35 @@ app.whenReady().then(() => {
     handleDesktopResult,
     navigateDesktop
   )
-  unregisterIpc = registerIpc(() => mainWindow, queue, settings, updates, {
-    updateSettings: updateDesktopSettings,
-    integrationState: () => desktopIntegration!.state(settings.get().desktop),
-    repairIntegration: async () => {
-      await settingsSerial
-      await desktopIntegration!.sync(settings.get().desktop)
-      return desktopIntegration!.state(settings.get().desktop)
+  unregisterIpc = registerIpc(
+    () => mainWindow,
+    queue,
+    settings,
+    updates,
+    {
+      updateSettings: updateDesktopSettings,
+      integrationState: () => desktopIntegration!.state(settings.get().desktop),
+      repairIntegration: async () => {
+        await settingsSerial
+        await desktopIntegration!.sync(settings.get().desktop)
+        return desktopIntegration!.state(settings.get().desktop)
+      },
+      openSystemSettings: async () => {
+        if (process.platform === 'darwin')
+          await shell.openExternal(
+            'x-apple.systempreferences:com.apple.preference.keyboard?Services'
+          )
+        else throw new Error('Windows 无需另行启用系统服务')
+      },
+      getNavigation: () => pendingNavigation[0] ?? null,
+      acknowledgeNavigation: (id) => {
+        if (pendingNavigation[0]?.id !== id) return
+        pendingNavigation.shift()
+        sendDesktopNavigation()
+      }
     },
-    openSystemSettings: async () => {
-      if (process.platform === 'darwin')
-        await shell.openExternal('x-apple.systempreferences:com.apple.preference.keyboard?Services')
-      else throw new Error('Windows 无需另行启用系统服务')
-    },
-    getNavigation: () => pendingNavigation[0] ?? null,
-    acknowledgeNavigation: (id) => {
-      if (pendingNavigation[0]?.id !== id) return
-      pendingNavigation.shift()
-      sendDesktopNavigation()
-    }
-  })
+    (theme) => applicationIcons.setTheme(theme)
+  )
 
   if (showAtStart) createWindow()
   refreshApplicationMenu()
@@ -553,5 +560,6 @@ app.on('before-quit', () => {
   shutdownPdfProcesses()
   clearFontPreview()
   unregisterIpc?.()
+  applicationIcons.dispose()
   desktopActions?.dispose()
 })
