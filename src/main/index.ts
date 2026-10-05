@@ -5,6 +5,8 @@ import { availableParallelism } from 'os'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import icon from '../../resources/icon.png?asset'
+import macIcon from '../../resources/icon-mac.png?asset'
+import windowsIcon from '../../build/icon.ico?asset'
 import { IPC_CHANNELS, IMAGE_EXTENSIONS } from '../shared/constants'
 import type { AppSettingsPatch, DesktopActionId, DesktopNavigation } from '../shared/types'
 import { DesktopActions, type DesktopResult } from './services/desktop-actions'
@@ -127,7 +129,7 @@ function createWindow(): void {
         : {}),
     show: false,
     autoHideMenuBar: true,
-    icon,
+    icon: process.platform === 'win32' ? windowsIcon : icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -450,6 +452,8 @@ async function confirmActiveTaskClose(): Promise<void> {
 app.whenReady().then(() => {
   if (!hasSingleInstanceLock) return
   electronApp.setAppUserModelId('com.vvtools.app')
+  app.setAboutPanelOptions({ applicationName: 'VVTools', iconPath: icon })
+  if (process.platform === 'darwin' && is.dev) app.dock?.setIcon(macIcon)
   registerFontPreviewProtocol()
 
   // Default open or close DevTools by F12 in development

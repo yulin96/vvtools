@@ -26,11 +26,14 @@ asarUnpack:
   - 'node_modules/sharp/**'
   - 'node_modules/@img/**'
 win:
+  icon: build/icon.ico
   executableName: vvtools
   extraResources:
     - from: .release/shell/vvtools-shell.dll
       to: shell/vvtools-shell.dll
 nsis:
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
   include: build/desktop-integration.nsh
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -50,6 +53,7 @@ mac:
 dmg:
   artifactName: ${name}-${version}-${arch}.${ext}
 linux:
+  icon: build/icon.png
   target:
     - AppImage
     - snap

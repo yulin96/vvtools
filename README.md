@@ -30,6 +30,12 @@ pnpm dev
 - Windows 文件右键使用经典菜单，Windows 11 从「显示更多选项」进入；后台快捷任务可发送完成通知，重新打开应用可查看当前批次。
 - 文件右键需要安装版；开发模式不注册系统入口。Windows 打包前的 `pnpm stage:desktop` 需要 Visual Studio C++ Build Tools，原生发布工作流会执行这一步。
 
+## 图标维护
+
+运行 `pnpm icons` 从 `build/logo-source.png` 生成图标。源文件是至少 1024 × 1024、带完整底色的正方形图像；脚本统一处理圆角，并分别添加 macOS 和 Windows 的透明留白，避免重复套底框或重复缩小。
+
+Windows 使用包含 16、20、24、32、40、48、64、96、128、256 px 的 ICO；macOS 使用包含 16–1024 px 普通与 Retina 图像的 ICNS，ICNS 需在 macOS 上生成。界面侧栏使用独立的 256 px 图标，避免系统图标的外部留白使其显示过小。
+
 ## 使用 Homebrew 安装
 
 添加本仓库作为自定义 Tap，然后安装 VVTools：

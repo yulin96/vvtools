@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { MenuItemConstructorOptions } from 'electron'
+import type { BrowserWindowConstructorOptions, MenuItemConstructorOptions } from 'electron'
 import type { DesktopIpc } from './ipc'
 import type { DesktopActionRequest } from '../shared/types'
 import type { DesktopResult } from './services/desktop-actions'
@@ -19,6 +19,10 @@ const runtime = vi.hoisted(() => ({
     focus: ReturnType<typeof vi.fn>
     restore: ReturnType<typeof vi.fn>
   }>,
+  windowOptions: [] as BrowserWindowConstructorOptions[],
+  dev: false,
+  dockIcon: vi.fn(),
+  aboutOptions: vi.fn(),
   queue: null as TaskQueue | null,
   settings: null as SettingsStore | null,
   desktop: null as DesktopIpc | null,
@@ -44,9 +48,10 @@ vi.mock('electron', async () => {
       isLoading: () => false,
       setWindowOpenHandler: vi.fn()
     })
-    constructor() {
+    constructor(options: BrowserWindowConstructorOptions) {
       super()
       runtime.windows.push(this)
+      runtime.windowOptions.push(options)
     }
     isDestroyed(): boolean {
       return false
@@ -85,6 +90,8 @@ vi.mock('electron', async () => {
   return {
     app: {
       setName: vi.fn(),
+      setAboutPanelOptions: runtime.aboutOptions,
+      dock: { setIcon: runtime.dockIcon },
       commandLine: { appendSwitch: vi.fn() },
       requestSingleInstanceLock: () => true,
       on: (event: string, callback: (...args: unknown[]) => void) =>
@@ -109,7 +116,11 @@ vi.mock('electron', async () => {
   }
 })
 vi.mock('@electron-toolkit/utils', () => ({
-  is: { dev: false },
+  is: {
+    get dev() {
+      return runtime.dev
+    }
+  },
   electronApp: { setAppUserModelId: vi.fn() },
   optimizer: { watchWindowShortcuts: vi.fn() }
 }))
@@ -168,6 +179,8 @@ beforeEach(() => {
   runtime.result.mockReturnValue(null)
   runtime.events.clear()
   runtime.windows.length = 0
+  runtime.windowOptions.length = 0
+  runtime.dev = false
   runtime.queue = null
   runtime.settings = null
   runtime.desktop = null
@@ -193,6 +206,12 @@ describe('desktop lifecycle orchestration', () => {
   it('never creates a Windows tray or its queue listener, including background close and second launch', async () => {
     await start()
     expect(runtime.windows).toHaveLength(1)
+    expect(runtime.windowOptions[0].icon).toEqual(expect.stringContaining('icon.ico'))
+    expect(runtime.aboutOptions).toHaveBeenCalledExactlyOnceWith({
+      applicationName: 'VVTools',
+      iconPath: expect.stringContaining('resources/icon.png')
+    })
+    expect(runtime.dockIcon).not.toHaveBeenCalled()
     expect(runtime.queue!.listenerCount('changed')).toBe(0)
     runtime.settings!.update({ common: { closeBehavior: 'minimizeToTray' } })
     vi.spyOn(runtime.queue!, 'activeCount').mockReturnValue(1)
@@ -223,6 +242,18 @@ describe('desktop lifecycle orchestration', () => {
       '帮助'
     ])
     expect(runtime.queue!.listenerCount('changed')).toBe(0)
+    expect(runtime.dockIcon).not.toHaveBeenCalled()
+  })
+
+  it('uses the padded macOS PNG for the development Dock icon without overriding the packaged ICNS', async () => {
+    Object.defineProperty(process, 'platform', { ...platform, value: 'darwin' })
+    runtime.dev = true
+    await start()
+    expect(runtime.dockIcon).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining('icon-mac.png')
+    )
+    expect(runtime.windowOptions[0].icon).toEqual(expect.stringContaining('resources/icon.png'))
+    expect(runtime.tray).not.toHaveBeenCalled()
   })
   it('starts file-manager launches without a renderer and forwards ordered data to the existing instance', async () => {
     process.argv = [
