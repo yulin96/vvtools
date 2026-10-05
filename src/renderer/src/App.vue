@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
     <aside class="app-sidebar" :class="{ 'app-sidebar-collapsed': sidebarCollapsed }">
       <div class="sidebar-brand">
         <div class="brand-mark">
-          <img :src="appIcon" alt="" class="size-8" />
+          <img :src="appIcon" alt="" class="size-6" />
         </div>
         <div class="sidebar-label brand-copy">
           <p class="brand-name">VVTools</p>
