@@ -18,7 +18,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from './stores/app'
 import type { DesktopNavigation } from '../../shared/types'
 import appIcon from '../../../resources/logo.png'
-import darkAppIcon from '../../../resources/logo-dark.png'
 import Button from './components/ui/Button.vue'
 import Modal from './components/ui/Modal.vue'
 import { themeModeKey, type ThemeMode } from './lib/theme'
@@ -190,7 +189,7 @@ onBeforeUnmount(() => {
     <aside class="app-sidebar" :class="{ 'app-sidebar-collapsed': sidebarCollapsed }">
       <div class="sidebar-brand">
         <div class="brand-mark">
-          <img :src="isDark ? darkAppIcon : appIcon" alt="" class="size-8" />
+          <img :src="appIcon" alt="" class="size-8" />
         </div>
         <div class="sidebar-label brand-copy">
           <p class="brand-name">VVTools</p>

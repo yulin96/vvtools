@@ -12,15 +12,34 @@ beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'vvtools-icons-'))
   const source = join(root, 'source.png')
   const darkSource = join(root, 'source-dark.png')
+  const markSource = join(root, 'mark-source.png')
   await sharp({ create: { width: 1024, height: 1024, channels: 3, background: '#6f51e7' } })
     .png()
     .toFile(source)
   await sharp({ create: { width: 1024, height: 1024, channels: 3, background: '#20212a' } })
     .png()
     .toFile(darkSource)
+  const mark = await sharp({
+    create: { width: 512, height: 768, channels: 4, background: '#6f51e7' }
+  })
+    .composite([
+      {
+        input: { create: { width: 512, height: 64, channels: 4, background: '#ffffff' } },
+        left: 0,
+        top: 352
+      }
+    ])
+    .png()
+    .toBuffer()
+  await sharp({
+    create: { width: 1024, height: 1024, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
+  })
+    .composite([{ input: mark, left: 256, top: 128 }])
+    .png()
+    .toFile(markSource)
   const generated = spawnSync(
     process.execPath,
-    [resolve('scripts/generate-icons.mjs'), source, darkSource],
+    [resolve('scripts/generate-icons.mjs'), source, darkSource, markSource],
     {
       cwd: root,
       encoding: 'utf8'
@@ -56,22 +75,18 @@ describe.each([
   { suffix: '', color: [111, 81, 231] },
   { suffix: '-dark', color: [32, 33, 42] }
 ])('application icon export contracts $suffix', ({ suffix, color }) => {
-  it('keeps native transparent padding separate from the unpadded UI badge', async () => {
+  it('preserves platform-specific transparent padding in program icons', async () => {
     expect(await opaqueBounds(join(root, `build/icon-source${suffix}.png`), color)).toEqual([
       100, 100, 923, 923
     ])
     expect(await opaqueBounds(join(root, `build/icon-windows${suffix}.png`), color)).toEqual([
       64, 64, 959, 959
     ])
-    expect(await opaqueBounds(join(root, `resources/logo${suffix}.png`), color)).toEqual([
-      0, 0, 255, 255
-    ])
     for (const [path, size] of [
       [`build/logo-source${suffix}.png`, 1024],
       [`build/icon${suffix}.png`, 512],
       [`resources/icon${suffix}.png`, 512],
-      [`resources/icon-mac${suffix}.png`, 1024],
-      [`resources/logo${suffix}.png`, 256]
+      [`resources/icon-mac${suffix}.png`, 1024]
     ] as const) {
       expect(await sharp(join(root, path)).metadata()).toMatchObject({
         width: size,
@@ -154,4 +169,21 @@ describe.each([
       })
     }
   })
+})
+
+it('exports one transparent content mark and preserves its white foreground', async () => {
+  const path = join(root, 'resources/logo.png')
+  expect(await sharp(path).metadata()).toMatchObject({
+    width: 256,
+    height: 256,
+    hasAlpha: true,
+    format: 'png'
+  })
+  expect(await opaqueBounds(path, [255, 255, 255])).toEqual([42, 0, 212, 255])
+  const { data } = await sharp(path).raw().toBuffer({ resolveWithObject: true })
+  const top = (32 * 256 + 128) * 4
+  expect([...data.subarray(top, top + 4)]).toEqual([111, 81, 231, 255])
+  const side = 128 * 256 * 4
+  expect(data[side + 3]).toBe(0)
+  expect(existsSync(join(root, 'resources/logo-dark.png'))).toBe(false)
 })

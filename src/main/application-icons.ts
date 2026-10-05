@@ -1,5 +1,6 @@
 import { app, nativeTheme, type BrowserWindow } from 'electron'
 import type { ThemeMode } from '../shared/types'
+import logo from '../../resources/logo.png?asset'
 import icon from '../../resources/icon.png?asset'
 import darkIcon from '../../resources/icon-dark.png?asset'
 import macIcon from '../../resources/icon-mac.png?asset'
@@ -31,7 +32,6 @@ export class ApplicationIcons {
   private readonly update = (): void => {
     const appearance = this.appearance()
     if (appearance.icon === this.appliedIcon) return
-    app.setAboutPanelOptions({ applicationName: 'VVTools', iconPath: appearance.icon })
     if (process.platform === 'darwin') app.dock?.setIcon(appearance.macIcon)
     else {
       const window = this.getWindow()
@@ -41,6 +41,7 @@ export class ApplicationIcons {
   }
 
   start(): void {
+    app.setAboutPanelOptions({ applicationName: 'VVTools', iconPath: logo })
     this.update()
     nativeTheme.on('updated', this.update)
   }

@@ -9,6 +9,7 @@ const sources = [
   { source: process.argv[2] || 'build/logo-source.png', suffix: '' },
   { source: process.argv[3] || 'build/logo-source-dark.png', suffix: '-dark' }
 ]
+const markSource = process.argv[4] || 'build/logo-mark-source.png'
 const canvasSize = 1024
 const macBadgeSize = 824
 const windowsBadgeSize = 896
@@ -70,7 +71,6 @@ try {
     await writeFile(`build/icon-windows${suffix}.png`, windowsIcon)
     await sharp(badge).resize(512, 512).png().toFile(`build/icon${suffix}.png`)
     await sharp(badge).resize(512, 512).png().toFile(`resources/icon${suffix}.png`)
-    await sharp(badge).resize(256, 256).png().toFile(`resources/logo${suffix}.png`)
     await writeFile(`resources/icon-mac${suffix}.png`, macIcon)
 
     const icoSizes = [16, 20, 24, 32, 40, 48, 64, 96, 128, 256]
@@ -123,6 +123,27 @@ try {
       if (result.status !== 0) throw new Error('iconutil 生成 ICNS 失败')
     }
   }
+  const markMetadata = await sharp(markSource).metadata()
+  if (markMetadata.width !== markMetadata.height || markMetadata.width < canvasSize) {
+    throw new Error('内容图标源文件必须是至少 1024 × 1024 的正方形图像')
+  }
+  const markStats = await sharp(markSource).stats()
+  if (!markMetadata.hasAlpha || markStats.channels.at(-1).min !== 0) {
+    throw new Error('内容图标源文件必须包含透明背景')
+  }
+  const markMaster = await sharp(markSource)
+    .resize(canvasSize, canvasSize)
+    .toColourspace('srgb')
+    .png()
+    .toBuffer()
+  if (resolve(markSource) !== resolve('build/logo-mark-source.png')) {
+    await writeFile('build/logo-mark-source.png', markMaster)
+  }
+  await sharp(markMaster)
+    .trim()
+    .resize(256, 256, { fit: 'contain', background: transparent })
+    .png()
+    .toFile('resources/logo.png')
 } finally {
   await rm(iconSet, { recursive: true, force: true })
 }

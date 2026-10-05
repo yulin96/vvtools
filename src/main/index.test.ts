@@ -234,7 +234,7 @@ describe('desktop lifecycle orchestration', () => {
     expect(runtime.windowOptions[0].icon).toEqual(expect.stringContaining('icon.ico'))
     expect(runtime.aboutOptions).toHaveBeenCalledExactlyOnceWith({
       applicationName: 'VVTools',
-      iconPath: expect.stringContaining('resources/icon.png')
+      iconPath: expect.stringContaining('resources/logo.png')
     })
     expect(runtime.dockIcon).not.toHaveBeenCalled()
     expect(runtime.queue!.listenerCount('changed')).toBe(0)
@@ -289,7 +289,7 @@ describe('desktop lifecycle orchestration', () => {
     expect(runtime.windowOptions[0].icon).toEqual(expect.stringContaining('icon-dark.ico'))
     expect(runtime.aboutOptions).toHaveBeenCalledExactlyOnceWith({
       applicationName: 'VVTools',
-      iconPath: expect.stringContaining('resources/icon-dark.png')
+      iconPath: expect.stringContaining('resources/logo.png')
     })
     runtime.systemIsDark = false
     runtime.themeListeners.forEach((listener) => listener())
@@ -297,11 +297,11 @@ describe('desktop lifecycle orchestration', () => {
     expect(window.setIcon).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('icon.ico'))
     expect(runtime.aboutOptions).toHaveBeenLastCalledWith({
       applicationName: 'VVTools',
-      iconPath: expect.stringContaining('resources/icon.png')
+      iconPath: expect.stringContaining('resources/logo.png')
     })
     runtime.themeListeners.forEach((listener) => listener())
     expect(window.setIcon).toHaveBeenCalledOnce()
-    expect(runtime.aboutOptions).toHaveBeenCalledTimes(2)
+    expect(runtime.aboutOptions).toHaveBeenCalledOnce()
     window.emit('closed')
     runtime.systemIsDark = true
     runtime.themeListeners.forEach((listener) => listener())
@@ -334,6 +334,10 @@ describe('desktop lifecycle orchestration', () => {
     expect(runtime.dockIcon).toHaveBeenCalledTimes(5)
     expect(runtime.dockIcon).toHaveBeenLastCalledWith(expect.stringContaining('icon-mac.png'))
     expect(runtime.themeSource).toBe('system')
+    expect(runtime.aboutOptions).toHaveBeenCalledExactlyOnceWith({
+      applicationName: 'VVTools',
+      iconPath: expect.stringContaining('resources/logo.png')
+    })
     expect(runtime.windows[0].setIcon).not.toHaveBeenCalled()
     expect(runtime.themeListeners.size).toBe(1)
     runtime.events.get('before-quit')!()
