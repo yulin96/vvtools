@@ -1115,9 +1115,9 @@ input {
 .drop-follow-effect::before {
   position: absolute;
   background: radial-gradient(
-    circle 330px at var(--drop-follow-x) var(--drop-follow-y),
-    rgb(139 120 246 / 18%),
-    rgb(139 120 246 / 7%) 38%,
+    circle 300px at var(--drop-follow-x) var(--drop-follow-y),
+    rgb(139 120 246 / 10%),
+    rgb(139 120 246 / 4%) 38%,
     transparent 72%
   );
   content: '';
@@ -1130,12 +1130,13 @@ input {
 
 .drop-follow-grid {
   position: absolute;
-  background-image: radial-gradient(circle, rgb(139 120 246 / 76%) 1.5px, transparent 1.5px);
-  background-size: 18px 18px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M12 16h8m-4-4v8' fill='none' stroke='%238b78f6' stroke-opacity='.64' stroke-width='1.2'/%3E%3C/svg%3E");
+  background-size: 32px 32px;
   mask-image: radial-gradient(
-    circle 250px at var(--drop-follow-x) var(--drop-follow-y),
-    black,
-    transparent 76%
+    circle 230px at var(--drop-follow-x) var(--drop-follow-y),
+    transparent 56px,
+    black 100px,
+    transparent 100%
   );
   opacity: 0.9;
   inset: 0;
