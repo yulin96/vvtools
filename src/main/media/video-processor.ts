@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { rmSync, statSync } from 'fs'
 import { extname } from 'path'
+import { createInterface } from 'readline'
 import type { MediaTask, VideoOptions } from '../../shared/types'
 import { FailureLogService } from '../services/failure-log'
 import { MediaProcessError, TaskCancelledError } from './errors'
@@ -161,20 +162,30 @@ export interface VideoProbe {
   frameCount?: number
 }
 
-export function probeVideo(
+export async function probeVideo(
   sourcePath: string,
   signal: AbortSignal,
   frameRange?: { start: number; end?: number }
 ): Promise<VideoProbe> {
+  const probe = await probeVideoMetadata(sourcePath, signal)
+  if (!frameRange) return probe
+  const frameCount = await probeVideoFrameCount(
+    sourcePath,
+    signal,
+    frameRange.start,
+    frameRange.end ?? probe.duration
+  )
+  return { ...probe, frameCount }
+}
+
+function probeVideoMetadata(sourcePath: string, signal: AbortSignal): Promise<VideoProbe> {
+  if (signal.aborted) return Promise.reject(new TaskCancelledError())
   const executable = getFfprobePath()
   const args = [
     '-v',
     'error',
-    ...(frameRange ? ['-select_streams', 'v:0', '-read_intervals', `${frameRange.start}%`] : []),
     '-show_entries',
-    `format=duration,format_name:stream=codec_type,codec_name,width,height${
-      frameRange ? ':frame=best_effort_timestamp_time' : ''
-    }`,
+    'format=duration,format_name:stream=codec_type,codec_name,width,height',
     '-of',
     'json',
     sourcePath
@@ -191,7 +202,10 @@ export function probeVideo(
     signal.addEventListener('abort', cancel, { once: true })
     child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()))
     child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
-    child.once('error', (error) => reject(new MediaProcessError(error.message, { command })))
+    child.once('error', (error) => {
+      signal.removeEventListener('abort', cancel)
+      reject(new MediaProcessError(error.message, { command }))
+    })
     child.once('close', (code) => {
       signal.removeEventListener('abort', cancel)
       if (signal.aborted) return reject(new TaskCancelledError())
@@ -213,39 +227,97 @@ export function probeVideo(
             width?: number
             height?: number
           }>
-          frames?: Array<{ best_effort_timestamp_time?: string }>
         }
         const duration = Number(result.format?.duration)
         const videoStream = result.streams?.find((stream) => stream.codec_type === 'video')
         const videoCodec = videoStream?.codec_name
-        const frameCount = frameRange
-          ? result.frames?.filter((frame) => {
-              const timestamp = Number(frame.best_effort_timestamp_time)
-              return (
-                Number.isFinite(timestamp) &&
-                timestamp + 1e-6 >= frameRange.start &&
-                timestamp < (frameRange.end ?? duration)
-              )
-            }).length
-          : undefined
         if (!Number.isFinite(duration) || duration <= 0) throw new Error('无有效时长')
         if (!videoCodec) throw new Error('无有效视频编码')
-        if (frameRange && (!Number.isInteger(frameCount) || (frameCount ?? 0) < 1)) {
-          throw new Error('无法读取视频帧数')
-        }
         resolve({
           duration,
           videoCodec,
           width: videoStream?.width,
           height: videoStream?.height,
-          format: result.format?.format_name?.split(',')[0],
-          frameCount
+          format: result.format?.format_name?.split(',')[0]
         })
       } catch {
         reject(
           new MediaProcessError('FFprobe 未返回有效的视频时长', { command, stderrTail: stderr })
         )
       }
+    })
+  })
+}
+
+function probeVideoFrameCount(
+  sourcePath: string,
+  signal: AbortSignal,
+  start: number,
+  end: number
+): Promise<number> {
+  if (signal.aborted) return Promise.reject(new TaskCancelledError())
+  const executable = getFfprobePath()
+  // FFprobe stops on packet timestamps; a hard interval end drops reordered B frames.
+  // Stop on decoded frame timestamps instead, after every frame before end was received.
+  const args = [
+    '-v',
+    'error',
+    '-select_streams',
+    'v:0',
+    '-read_intervals',
+    `${start}%`,
+    '-show_entries',
+    'frame=best_effort_timestamp_time',
+    '-of',
+    'compact',
+    sourcePath
+  ]
+  const command = createTaskCommand(executable, args)
+  return new Promise((resolve, reject) => {
+    const child = spawn(executable, args, { windowsHide: true })
+    const lines = createInterface({ input: child.stdout, crlfDelay: Infinity })
+    let frameCount = 0
+    let reachedEnd = false
+    let stderr = ''
+    const cancel = (): void => {
+      child.kill()
+    }
+    signal.addEventListener('abort', cancel, { once: true })
+    lines.on('line', (line) => {
+      if (reachedEnd || !line.startsWith('frame|')) return
+      const value = line.match(/(?:^|\|)best_effort_timestamp_time=([^|]+)/u)?.[1]
+      const timestamp = Number(value)
+      if (!Number.isFinite(timestamp)) return
+      if (timestamp >= end) {
+        reachedEnd = true
+        child.kill()
+      } else if (timestamp + 1e-6 >= start) frameCount += 1
+    })
+    child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
+    child.once('error', (error) => {
+      signal.removeEventListener('abort', cancel)
+      lines.close()
+      reject(new MediaProcessError(error.message, { command }))
+    })
+    child.once('close', (code) => {
+      signal.removeEventListener('abort', cancel)
+      lines.close()
+      if (signal.aborted) return reject(new TaskCancelledError())
+      if (code !== 0 && !reachedEnd) {
+        return reject(
+          new MediaProcessError('无法读取视频信息，请确认文件未损坏', {
+            exitCode: code ?? undefined,
+            command,
+            stderrTail: stderr.trim()
+          })
+        )
+      }
+      if (frameCount < 1) {
+        return reject(
+          new MediaProcessError('FFprobe 未返回有效的视频时长', { command, stderrTail: stderr })
+        )
+      }
+      resolve(frameCount)
     })
   })
 }

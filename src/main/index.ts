@@ -163,10 +163,7 @@ function saveWindowState(window: BrowserWindow): void {
 }
 
 function activeTaskCount(): number {
-  return (
-    queue?.list().filter((task) => task.status === 'pending' || task.status === 'processing')
-      .length ?? 0
-  )
+  return queue?.activeCount() ?? 0
 }
 
 function showMainWindow(): void {

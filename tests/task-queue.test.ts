@@ -20,7 +20,7 @@ import {
   DEFAULT_SPRITE_OPTIONS,
   DEFAULT_VIDEO_OPTIONS
 } from '../src/shared/constants'
-import type { TaskConcurrencyLimits } from '../src/shared/types'
+import type { TaskConcurrencyLimits, TaskStateUpdate } from '../src/shared/types'
 
 const directories: string[] = []
 
@@ -82,7 +82,7 @@ describe('TaskQueue', () => {
     await waitFor(() => queue.list()[0]?.status === 'completed')
   })
 
-  it('emits throttled task progress separately from full task snapshots', async () => {
+  it('emits immutable task deltas and throttled progress with ordered sequence numbers', async () => {
     const paths = fixture()
     let release!: () => void
     const blocker = new Promise<void>((resolve) => (release = resolve))
@@ -95,7 +95,7 @@ describe('TaskQueue', () => {
       return 9
     }
     const queue = new TaskQueue(concurrency(1), runner, new FailureLogService(paths.userData))
-    const snapshots: unknown[] = []
+    const snapshots: TaskStateUpdate[] = []
     const progress: unknown[] = []
     queue.on('changed', (tasks) => snapshots.push(tasks))
     queue.on('progress', (update) => progress.push(update))
@@ -109,11 +109,109 @@ describe('TaskQueue', () => {
       options: { ...DEFAULT_IMAGE_OPTIONS }
     })
 
-    expect(progress).toEqual([{ id: task.id, progress: 10 }])
-    expect(snapshots).toHaveLength(2)
+    expect(progress).toEqual([{ sequence: 3, id: task.id, progress: 10 }])
+    expect(
+      snapshots.map((update) => ({
+        sequence: update.sequence,
+        status: update.tasks[0].status,
+        progress: update.tasks[0].progress,
+        removed: update.removedTaskIds
+      }))
+    ).toEqual([
+      { sequence: 1, status: 'pending', progress: 0, removed: [] },
+      { sequence: 2, status: 'processing', progress: 0, removed: [] }
+    ])
     release()
     await waitFor(() => queue.list()[0]?.status === 'completed')
     expect(snapshots).toHaveLength(3)
+    expect(snapshots[2]).toMatchObject({
+      sequence: 4,
+      tasks: [{ id: task.id, status: 'completed', progress: 100 }],
+      removedTaskIds: []
+    })
+    expect(snapshots[0].tasks[0].status).toBe('pending')
+    expect(queue.snapshot()).toEqual({ sequence: 4, tasks: queue.list() })
+    expect(queue.activeCount()).toBe(0)
+  })
+
+  it('sends only the affected task when starting and settling a large batch without cloning the full list', async () => {
+    const paths = fixture()
+    let release!: () => void
+    const blocker = new Promise<void>((resolve) => (release = resolve))
+    const runner: TaskRunner = async (task) => {
+      await blocker
+      writeFileSync(task.outputPath, 'processed')
+      return 9
+    }
+    const queue = new TaskQueue(concurrency(1), runner, new FailureLogService(paths.userData))
+    const list = vi.spyOn(queue, 'list')
+    const updates: TaskStateUpdate[] = []
+    queue.on('changed', (update) => updates.push(update))
+    const created = queue.create({
+      kind: 'image',
+      sources: Array.from({ length: 64 }, () => ({ path: paths.source, relativeDirectory: '' })),
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+    expect(updates[0].tasks.map((task) => task.id)).toEqual(created.map((task) => task.id))
+    expect(updates[1].tasks.map((task) => task.id)).toEqual([created[0].id])
+    expect(queue.activeCount()).toBe(64)
+    expect(list).not.toHaveBeenCalled()
+    release()
+    await waitFor(() => queue.activeCount() === 0)
+    expect(updates).toHaveLength(129)
+    expect(
+      updates
+        .slice(1)
+        .every((update) => update.tasks.length === 1 && update.removedTaskIds.length === 0)
+    ).toBe(true)
+    expect(
+      updates
+        .filter((update) => update.tasks[0].status === 'completed')
+        .map((update) => update.tasks[0].id)
+    ).toEqual(created.map((task) => task.id))
+    expect(list).not.toHaveBeenCalled()
+    expect(queue.snapshot().tasks).toHaveLength(64)
+    expect(list).toHaveBeenCalledOnce()
+    list.mockRestore()
+  })
+
+  it('includes deleted task IDs when replacing a settled batch and retains other kinds', async () => {
+    const paths = fixture()
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
+    const request = {
+      kind: 'image' as const,
+      sources: [{ path: paths.source, relativeDirectory: '' }],
+      outputMode: 'custom' as const,
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    }
+    const [previous] = queue.create(request)
+    const [video] = queue.create({
+      kind: 'video',
+      sourcePaths: [paths.source],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_VIDEO_OPTIONS }
+    })
+    await waitFor(() => queue.activeCount() === 0)
+    const updates: TaskStateUpdate[] = []
+    queue.on('changed', (update) => updates.push(update))
+    const [next] = queue.create(request)
+    expect(updates[0]).toMatchObject({
+      tasks: [{ id: next.id, status: 'pending' }],
+      removedTaskIds: [previous.id]
+    })
+    expect(queue.snapshot().tasks.map((task) => task.id)).toEqual([video.id, next.id])
+    await waitFor(() => queue.activeCount() === 0)
   })
 
   it('respects concurrency and continues dispatching', async () => {

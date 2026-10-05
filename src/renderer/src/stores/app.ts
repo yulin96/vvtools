@@ -14,6 +14,8 @@ import type {
   RenameFileInfo,
   RuntimeCapabilities,
   TaskKind,
+  TaskProgressUpdate,
+  TaskStateUpdate,
   UpdateState
 } from '../../../shared/types'
 
@@ -104,6 +106,7 @@ export const useAppStore = defineStore('app', () => {
   let unsubscribe: (() => void) | null = null
   let unsubscribeProgress: (() => void) | null = null
   let unsubscribeUpdates: (() => void) | null = null
+  let taskSequence = 0
   let promptedAvailableVersion = ''
   let promptedDownloadedVersion = ''
   let promptedFailedVersion = ''
@@ -184,38 +187,75 @@ export const useAppStore = defineStore('app', () => {
     tasks.value = nextTasks
   }
 
+  function applyTaskUpdate(update: TaskStateUpdate | TaskProgressUpdate): void {
+    if (update.sequence <= taskSequence) return
+    taskSequence = update.sequence
+    if ('tasks' in update) {
+      const removed = new Set(update.removedTaskIds)
+      const replacements = new Map(update.tasks.map((task) => [task.id, task]))
+      const knownIds = new Set(tasks.value.map((task) => task.id))
+      applyTasksSnapshot([
+        ...tasks.value
+          .filter((task) => !removed.has(task.id))
+          .map((task) => replacements.get(task.id) ?? task),
+        ...update.tasks.filter((task) => !knownIds.has(task.id))
+      ])
+    } else {
+      const index = tasks.value.findIndex((task) => task.id === update.id)
+      if (index < 0 || tasks.value[index].progress === update.progress) return
+      tasks.value[index] = { ...tasks.value[index], progress: update.progress }
+    }
+  }
+
+  function appendUnknownTasks(nextTasks: MediaTask[]): void {
+    const knownIds = new Set(tasks.value.map((task) => task.id))
+    tasks.value.push(...nextTasks.filter((task) => !knownIds.has(task.id)))
+  }
+
   async function initialize(): Promise<void> {
+    let initializing = true
+    const pendingUpdates: Array<TaskStateUpdate | TaskProgressUpdate> = []
+    const receiveUpdate = (update: TaskStateUpdate | TaskProgressUpdate): void => {
+      if (initializing) pendingUpdates.push(update)
+      else applyTaskUpdate(update)
+    }
     try {
-      const [initialTasks, initialSettings, version, releaseNotes, recoveryNotice] =
-        await Promise.all([
-          window.api.getTasks(),
-          window.api.getSettings(),
-          window.api.getVersion(),
-          window.api.getReleaseNotes(),
-          window.api.getSettingsRecoveryNotice()
-        ])
-      tasks.value = initialTasks
+      unsubscribe?.()
+      unsubscribe = window.api.onTasksChanged(receiveUpdate)
+      unsubscribeProgress?.()
+      unsubscribeProgress = window.api.onTaskProgressChanged(receiveUpdate)
+      const [snapshot, initialSettings, version, releaseNotes, recoveryNotice] = await Promise.all([
+        window.api.getTasks(),
+        window.api.getSettings(),
+        window.api.getVersion(),
+        window.api.getReleaseNotes(),
+        window.api.getSettingsRecoveryNotice()
+      ])
+      taskSequence = snapshot.sequence
+      tasks.value = snapshot.tasks
       appendCurrentBatchTasks(
-        initialTasks.filter((task) => ['pending', 'processing'].includes(task.status))
+        snapshot.tasks.filter((task) => ['pending', 'processing'].includes(task.status))
       )
+      for (const update of pendingUpdates) applyTaskUpdate(update)
+      appendCurrentBatchTasks(
+        tasks.value.filter((task) => ['pending', 'processing'].includes(task.status))
+      )
+      pendingUpdates.length = 0
+      initializing = false
       settings.value = initialSettings
       appVersion.value = version
       currentReleaseNotes.value = releaseNotes
       if (recoveryNotice) errorMessage.value = recoveryNotice
-      unsubscribe?.()
-      unsubscribe = window.api.onTasksChanged(applyTasksSnapshot)
-      unsubscribeProgress?.()
-      unsubscribeProgress = window.api.onTaskProgressChanged(({ id, progress }) => {
-        const index = tasks.value.findIndex((task) => task.id === id)
-        if (index < 0 || tasks.value[index].progress === progress) return
-        tasks.value[index] = { ...tasks.value[index], progress }
-      })
       unsubscribeUpdates?.()
       unsubscribeUpdates = window.api.onUpdateChanged(handleUpdateState)
       handleUpdateState(await window.api.getUpdateState())
       void refreshCapabilities()
     } catch (error) {
+      dispose()
       reportError(error)
+    } finally {
+      initializing = false
+      pendingUpdates.length = 0
     }
   }
 
@@ -308,8 +348,7 @@ export const useAppStore = defineStore('app', () => {
       const handledBatchItemIds = handledInputs.flatMap(({ batchInputId }) =>
         batchInputId === undefined ? [] : [batchInputId]
       )
-      const createdIds = new Set(createdTasks.map((task) => task.id))
-      tasks.value = [...tasks.value.filter((task) => !createdIds.has(task.id)), ...createdTasks]
+      appendUnknownTasks(createdTasks)
       appendCurrentBatchTasks(createdTasks)
       const skippedCount = skipped.length + (processable.length - handledInputs.length)
       if (skippedCount > 0 || rejected.length > 0) {
@@ -342,7 +381,7 @@ export const useAppStore = defineStore('app', () => {
     try {
       const task = await window.api.retryTask(id)
       if (task) {
-        tasks.value = [...tasks.value.filter((item) => item.id !== task.id), task]
+        appendUnknownTasks([task])
         const currentIds = currentBatchTaskIds.value[task.kind]
         currentBatchTaskIds.value[task.kind] = currentIds.includes(task.id)
           ? currentIds

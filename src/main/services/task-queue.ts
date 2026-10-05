@@ -9,6 +9,8 @@ import type {
   ImageOptions,
   MediaTask,
   TaskProgressUpdate,
+  TaskSnapshot,
+  TaskStateUpdate,
   PdfOptions,
   TaskConcurrencyLimits,
   TaskFailure,
@@ -37,6 +39,7 @@ export class TaskQueue extends EventEmitter {
   private readonly running = new Map<string, AbortController>()
   private readonly reservedPaths = new Set<string>()
   private readonly lastProgressNotifications = new Map<string, { at: number; progress: number }>()
+  private notificationSequence = 0
 
   constructor(
     private concurrency: TaskConcurrencyLimits,
@@ -51,6 +54,18 @@ export class TaskQueue extends EventEmitter {
 
   list(): MediaTask[] {
     return structuredClone([...this.tasks.values()])
+  }
+
+  snapshot(): TaskSnapshot {
+    return { sequence: this.notificationSequence, tasks: this.list() }
+  }
+
+  activeCount(): number {
+    let count = 0
+    for (const task of this.tasks.values()) {
+      if (task.status === 'pending' || task.status === 'processing') count += 1
+    }
+    return count
   }
 
   create(request: CreateTasksRequest): MediaTask[] {
@@ -142,7 +157,7 @@ export class TaskQueue extends EventEmitter {
     for (const task of stagedTasks.values()) this.tasks.set(task.id, task)
     this.reservedPaths.clear()
     for (const path of stagedReservedPaths) this.reservedPaths.add(path)
-    this.changed()
+    this.changed([...stagedTasks.values()], discardedTaskIds)
     this.dispatch()
     return created.flatMap((createdTask) => {
       const latest = stagedTasks.get(createdTask.id)
@@ -157,7 +172,7 @@ export class TaskQueue extends EventEmitter {
       task.status = 'cancelled'
       task.completedAt = new Date().toISOString()
       this.reservedPaths.delete(task.outputPath)
-      this.changed()
+      this.changed([task])
       this.dispatch()
       return true
     }
@@ -302,7 +317,7 @@ export class TaskQueue extends EventEmitter {
       stored.batchInputId = original.batchInputId
       stored.batchItemId = original.batchItemId
     }
-    this.changed()
+    if (stored) this.changed([stored])
     return stored ? structuredClone(stored) : null
   }
 
@@ -346,7 +361,7 @@ export class TaskQueue extends EventEmitter {
     task.status = 'processing'
     task.progress = 0
     task.startedAt = new Date().toISOString()
-    this.changed()
+    this.changed([task])
 
     try {
       const outputSize = await this.runner(processingTask, controller.signal, (progress) => {
@@ -387,13 +402,18 @@ export class TaskQueue extends EventEmitter {
       this.running.delete(task.id)
       this.lastProgressNotifications.delete(task.id)
       this.reservedPaths.delete(task.outputPath)
-      this.changed()
+      this.changed([task])
       this.dispatch()
     }
   }
 
-  private changed(): void {
-    this.emit('changed', this.list())
+  private changed(tasks: MediaTask[], removedTaskIds: string[] = []): void {
+    const update: TaskStateUpdate = {
+      sequence: ++this.notificationSequence,
+      tasks: structuredClone(tasks),
+      removedTaskIds: [...removedTaskIds]
+    }
+    this.emit('changed', update)
   }
 
   private progressChanged(task: MediaTask): void {
@@ -404,7 +424,11 @@ export class TaskQueue extends EventEmitter {
     const previous = this.lastProgressNotifications.get(task.id)
     if (previous?.progress === progress || (previous && now - previous.at < 150)) return
     this.lastProgressNotifications.set(task.id, { at: now, progress })
-    const update: TaskProgressUpdate = { id: task.id, progress }
+    const update: TaskProgressUpdate = {
+      sequence: ++this.notificationSequence,
+      id: task.id,
+      progress
+    }
     this.emit('progress', update)
   }
 

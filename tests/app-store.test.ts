@@ -1,7 +1,13 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { reactive } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { AppSettings, CreateTasksRequest, MediaTask, VVToolsApi } from '../src/shared/types'
+import type {
+  AppSettings,
+  CreateTasksRequest,
+  MediaTask,
+  TaskStateUpdate,
+  VVToolsApi
+} from '../src/shared/types'
 import {
   DEFAULT_AUDIO_OPTIONS,
   DEFAULT_CONCURRENCY_SETTINGS,
@@ -60,10 +66,10 @@ describe('app store task submission', () => {
         createdAt: '2026-10-05T00:00:00.000Z'
       }))
     )
-    let updateSnapshot!: (tasks: MediaTask[]) => void
+    let updateSnapshot!: (update: TaskStateUpdate) => void
     vi.stubGlobal('window', {
       api: {
-        getTasks: async () => initialTasks,
+        getTasks: async () => ({ sequence: 0, tasks: initialTasks }),
         getSettings: async () => settings,
         getVersion: async () => '0.0.19',
         getReleaseNotes: async () => '',
@@ -97,9 +103,13 @@ describe('app store task submission', () => {
           `${kind}-2`
         ])
       }
-      updateSnapshot(
-        [...initialTasks].reverse().map((task) => ({ ...task, progress: 100, status: 'completed' }))
-      )
+      updateSnapshot({
+        sequence: 1,
+        tasks: [...initialTasks]
+          .reverse()
+          .map((task) => ({ ...task, progress: 100, status: 'completed' })),
+        removedTaskIds: []
+      })
       for (const kind of kinds) {
         expect(store.currentBatchTasks[kind].map(({ id, status }) => ({ id, status }))).toEqual([
           { id: `${kind}-1`, status: 'completed' },

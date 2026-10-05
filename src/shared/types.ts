@@ -425,8 +425,20 @@ export interface MediaTask {
 }
 
 export interface TaskProgressUpdate {
+  sequence: number
   id: string
   progress: number | null
+}
+
+export interface TaskSnapshot {
+  sequence: number
+  tasks: MediaTask[]
+}
+
+export interface TaskStateUpdate {
+  sequence: number
+  tasks: MediaTask[]
+  removedTaskIds: string[]
 }
 
 export interface MediaInspection {
@@ -597,7 +609,7 @@ export interface VVToolsApi {
   openOutputDirectory: () => Promise<void>
   createTasks: (request: CreateTasksRequest) => Promise<MediaTask[]>
   inspectTasks: (request: CreateTasksRequest) => Promise<MediaInspection[]>
-  getTasks: () => Promise<MediaTask[]>
+  getTasks: () => Promise<TaskSnapshot>
   cancelTask: (taskId: string) => Promise<boolean>
   retryTask: (taskId: string) => Promise<MediaTask | null>
   openTaskOutput: (taskId: string) => Promise<void>
@@ -614,7 +626,7 @@ export interface VVToolsApi {
   installUpdate: () => Promise<void>
   openReleasePage: () => Promise<void>
   openSourcePage: () => Promise<void>
-  onTasksChanged: (callback: (tasks: MediaTask[]) => void) => () => void
+  onTasksChanged: (callback: (update: TaskStateUpdate) => void) => () => void
   onTaskProgressChanged: (callback: (update: TaskProgressUpdate) => void) => () => void
   onUpdateChanged: (callback: (state: UpdateState) => void) => () => void
 }

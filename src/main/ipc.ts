@@ -2,7 +2,13 @@ import { app, dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEven
 import { existsSync, mkdirSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { basename, dirname, extname, isAbsolute, join, normalize } from 'path'
-import type { PdfOptions, RuntimeCapabilities, TaskProgressUpdate, TaskKind } from '../shared/types'
+import type {
+  PdfOptions,
+  RuntimeCapabilities,
+  TaskProgressUpdate,
+  TaskStateUpdate,
+  TaskKind
+} from '../shared/types'
 import {
   AUDIO_EXTENSIONS,
   FONT_EXTENSIONS,
@@ -228,7 +234,7 @@ export function registerIpc(
   })
   handle(IPC_CHANNELS.getTasks, (event) => {
     assertTrusted(event, window())
-    return queue.list()
+    return queue.snapshot()
   })
   handle(IPC_CHANNELS.cancelTask, (event, taskId: string) => {
     assertTrusted(event, window())
@@ -331,10 +337,10 @@ export function registerIpc(
     return shell.openExternal('https://github.com/yulin96/vvtools')
   })
 
-  const notify = (tasks: ReturnType<TaskQueue['list']>): void => {
+  const notify = (update: TaskStateUpdate): void => {
     const current = getWindow()
     if (current && !current.isDestroyed())
-      current.webContents.send(IPC_CHANNELS.tasksChanged, tasks)
+      current.webContents.send(IPC_CHANNELS.tasksChanged, update)
   }
   queue.on('changed', notify)
   const notifyProgress = (update: TaskProgressUpdate): void => {

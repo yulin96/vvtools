@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { IPC_CHANNELS } from '../shared/constants'
-import type { MediaTask, TaskProgressUpdate, UpdateState, VVToolsApi } from '../shared/types'
+import type { TaskStateUpdate, TaskProgressUpdate, UpdateState, VVToolsApi } from '../shared/types'
 
 const api: VVToolsApi = {
   platform: process.platform as VVToolsApi['platform'],
@@ -40,8 +40,8 @@ const api: VVToolsApi = {
   openReleasePage: () => ipcRenderer.invoke(IPC_CHANNELS.openReleasePage),
   openSourcePage: () => ipcRenderer.invoke(IPC_CHANNELS.openSourcePage),
   onTasksChanged: (callback) => {
-    const listener = (_event: Electron.IpcRendererEvent, tasks: MediaTask[]): void =>
-      callback(tasks)
+    const listener = (_event: Electron.IpcRendererEvent, update: TaskStateUpdate): void =>
+      callback(update)
     ipcRenderer.on(IPC_CHANNELS.tasksChanged, listener)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.tasksChanged, listener)
   },
