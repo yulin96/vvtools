@@ -105,7 +105,10 @@ describe('app store task submission', () => {
     const store = useAppStore()
     const result = await store.submitTasks(request)
 
-    expect(result).toEqual({ handledPaths: ['/tmp/source.png'] })
+    expect(result).toEqual({
+      handledPaths: ['/tmp/source.png'],
+      handledBatchItemIds: ['/tmp/source.png']
+    })
     expect(store.currentBatchTasks.image).toEqual([createdTask])
     store.tasks[0].status = 'completed'
     store.prepareCurrentBatch('image')
@@ -285,7 +288,10 @@ describe('app store task submission', () => {
       options: { ...DEFAULT_FONT_OPTIONS, operation: 'convert' }
     })
 
-    expect(result).toEqual({ handledPaths: [sourcePath, sourcePath] })
+    expect(result).toEqual({
+      handledPaths: [sourcePath, sourcePath],
+      handledBatchItemIds: ['font-row-woff', 'font-row-woff2']
+    })
     expect(createTasks).toHaveBeenCalledOnce()
     expect(createTasks.mock.calls[0][0]).toMatchObject({
       kind: 'font',
@@ -328,9 +334,101 @@ describe('app store task submission', () => {
       options: { ...DEFAULT_IMAGE_OPTIONS }
     })
 
-    expect(result).toEqual({ handledPaths: [] })
+    expect(result).toEqual({ handledPaths: [], handledBatchItemIds: [] })
     expect(createTasks).not.toHaveBeenCalled()
     expect(store.errorMessage).toContain('已保留在待处理列表')
+  })
+
+  it('recognizes a submitted row when its output name changes after preflight', async () => {
+    const task: MediaTask = {
+      id: 'created-image',
+      kind: 'image',
+      batchInputId: 'image-row',
+      batchItemId: 'image-row',
+      sourcePath: '/tmp/photo.png',
+      outputPath: '/tmp/photo.webp',
+      status: 'pending',
+      progress: 0,
+      options: { ...DEFAULT_IMAGE_OPTIONS, format: 'webp' },
+      sourceSize: 10,
+      createdAt: new Date().toISOString()
+    }
+    const createTasks = vi.fn(async () => [task])
+    vi.stubGlobal('window', {
+      api: {
+        inspectTasks: vi.fn(async () => [
+          {
+            sourcePath: task.sourcePath,
+            outputPath: '/tmp/photo_1.webp',
+            valid: true,
+            sourceSize: 10
+          }
+        ]),
+        createTasks
+      }
+    })
+    setActivePinia(createPinia())
+    const store = useAppStore()
+
+    const result = await store.submitTasks({
+      kind: 'image',
+      sources: [{ path: task.sourcePath, relativeDirectory: '' }],
+      batchItemIds: ['image-row'],
+      outputMode: 'custom',
+      outputDirectory: '/tmp',
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS, format: 'webp' }
+    })
+
+    expect(result).toEqual({ handledPaths: ['/tmp/photo.png'], handledBatchItemIds: ['image-row'] })
+    expect(store.errorMessage).toBe('')
+    expect(store.currentBatchTasks.image).toEqual([task])
+    expect(createTasks).toHaveBeenCalledOnce()
+  })
+
+  it('only handles the created font row when duplicate sources have different formats', async () => {
+    const sourcePath = '/tmp/photo.ttf'
+    const task: MediaTask = {
+      id: 'created-font',
+      kind: 'font',
+      batchInputId: 'row-woff2',
+      batchItemId: 'row-woff2',
+      sourcePath,
+      outputPath: '/tmp/photo_1.woff2',
+      status: 'pending',
+      progress: 0,
+      options: { ...DEFAULT_FONT_OPTIONS, outputFormat: 'woff2' },
+      sourceSize: 10,
+      createdAt: new Date().toISOString()
+    }
+    vi.stubGlobal('window', {
+      api: {
+        inspectTasks: vi.fn(async () => [
+          { sourcePath, outputPath: '/tmp/photo.woff', valid: true, sourceSize: 10 },
+          { sourcePath, outputPath: '/tmp/photo.woff2', valid: true, sourceSize: 10 }
+        ]),
+        createTasks: vi.fn(async () => [task])
+      }
+    })
+    setActivePinia(createPinia())
+    const store = useAppStore()
+
+    const result = await store.submitTasks({
+      kind: 'font',
+      sources: [
+        { path: sourcePath, outputFormat: 'woff' },
+        { path: sourcePath, outputFormat: 'woff2' }
+      ],
+      batchItemIds: ['row-woff', 'row-woff2'],
+      outputMode: 'custom',
+      outputDirectory: '/tmp',
+      outputSuffix: '',
+      options: { ...DEFAULT_FONT_OPTIONS }
+    })
+
+    expect(result).toEqual({ handledPaths: [sourcePath], handledBatchItemIds: ['row-woff2'] })
+    expect(store.currentBatchTasks.font).toEqual([task])
+    expect(store.errorMessage).toBe('1 个文件因输出已存在而未开始，已保留在待处理列表')
   })
 
   it('removes Electron IPC details from errors shown to users', async () => {

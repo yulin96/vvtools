@@ -23,6 +23,8 @@ import { FailureLogService } from './failure-log'
 import { MediaProcessError, TaskCancelledError, TaskSkippedError } from '../media/errors'
 import {
   getOutputExtension,
+  getProtectedSourcePaths,
+  outputContainsSourcePath,
   resolveOutputPath,
   resolvePdfImageOutput,
   resolveSpriteOutput
@@ -102,9 +104,29 @@ export class TaskQueue extends EventEmitter {
               batchItemId: request.batchItemIds?.[index]
             }))
     const metadata = new Map(request.inputMetadata?.map((item) => [item.path, item]))
-    const created = sources.flatMap((source) => {
+    const activeTasks = [...this.tasks.values()].filter(
+      (task) => task.status === 'pending' || task.status === 'processing'
+    )
+    const blockedSource = sources.find((source) =>
+      activeTasks.some(
+        (task) =>
+          task.outputConflictPolicy === 'overwrite' &&
+          outputContainsSourcePath(task.outputPath, source.path)
+      )
+    )
+    if (blockedSource) {
+      throw new Error(`源文件正在被其他任务覆盖，暂时无法提交：${blockedSource.path}`)
+    }
+    const activeSourcePaths = new Set(activeTasks.map((task) => task.sourcePath))
+    const sourcePaths = sources.map((source) => source.path)
+    const created = sources.flatMap((source, sourceIndex) => {
       const sourcePath = source.path
       const sourceMetadata = metadata.get(sourcePath)
+      const protectedSourcePaths = getProtectedSourcePaths(
+        sourcePaths,
+        sourceIndex,
+        activeSourcePaths
+      )
       const outputDirectory =
         request.outputMode === 'source'
           ? dirname(sourcePath)
@@ -122,6 +144,7 @@ export class TaskQueue extends EventEmitter {
           imageFormat: request.options.imageFormat,
           pageNumbers,
           reservedPaths: stagedReservedPaths,
+          protectedSourcePaths,
           outputSuffix: request.outputSuffix,
           nameTemplate: request.outputNameTemplate,
           conflictPolicy: request.outputConflictPolicy,
@@ -163,6 +186,7 @@ export class TaskQueue extends EventEmitter {
           imageFormat: request.options.imageFormat,
           sheetCount: sourceMetadata?.sheetCount ?? 1,
           reservedPaths: stagedReservedPaths,
+          protectedSourcePaths,
           outputSuffix: request.outputSuffix,
           nameTemplate: request.outputNameTemplate,
           conflictPolicy: request.outputConflictPolicy,
@@ -199,8 +223,8 @@ export class TaskQueue extends EventEmitter {
       const units = expandTaskUnits(request, sourceMetadata)
       const sourceTaskIds: string[] = []
       const sourceReservedPaths: string[] = []
-      let skippedSource = false
-      const sourceCreated = units.flatMap((unit, unitIndex) => {
+      const sourceCreated: MediaTask[] = []
+      for (const [unitIndex, unit] of units.entries()) {
         mkdirSync(outputDirectory, { recursive: true })
         const extension = getOutputExtension(
           request.kind,
@@ -220,6 +244,7 @@ export class TaskQueue extends EventEmitter {
           outputDirectory,
           extension,
           reservedPaths: stagedReservedPaths,
+          protectedSourcePaths,
           outputSuffix: request.outputSuffix,
           nameTemplate: request.outputNameTemplate,
           conflictPolicy: request.outputConflictPolicy,
@@ -231,7 +256,6 @@ export class TaskQueue extends EventEmitter {
           instance: unit.fontInstance?.name
         })
         if (output.skipped) {
-          skippedSource = true
           for (const taskId of sourceTaskIds) stagedTasks.delete(taskId)
           for (const path of sourceReservedPaths) stagedReservedPaths.delete(path)
           return []
@@ -270,9 +294,9 @@ export class TaskQueue extends EventEmitter {
         stagedTasks.set(task.id, task)
         sourceTaskIds.push(task.id)
         sourceReservedPaths.push(output.path)
-        return [structuredClone(task)]
-      })
-      return skippedSource ? [] : sourceCreated
+        sourceCreated.push(structuredClone(task))
+      }
+      return sourceCreated
     })
     for (const taskId of discardedTaskIds) this.tasks.delete(taskId)
     for (const task of stagedTasks.values()) this.tasks.set(task.id, task)

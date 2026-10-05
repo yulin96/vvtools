@@ -10,6 +10,7 @@ import type {
 } from '../../shared/types'
 import {
   getOutputExtension,
+  getProtectedSourcePaths,
   resolveOutputPath,
   resolvePdfImageOutput,
   resolveSpriteOutput
@@ -29,7 +30,8 @@ interface InspectionSource {
 
 export async function inspectTasks(
   request: CreateTasksRequest,
-  existingReservedPaths: ReadonlySet<string> = new Set()
+  existingReservedPaths: ReadonlySet<string> = new Set(),
+  activeSourcePaths: ReadonlySet<string> = new Set()
 ): Promise<MediaInspection[]> {
   const sources: InspectionSource[] =
     request.kind === 'image'
@@ -42,6 +44,7 @@ export async function inspectTasks(
           }))
         : request.sourcePaths.map((path) => ({ path, relativeDirectory: '' }))
   const reservedPaths = new Set(existingReservedPaths)
+  const sourcePaths = sources.map((source) => source.path)
 
   const inspections = await mapWithConcurrency(sources, 4, async (source) => {
     try {
@@ -182,6 +185,7 @@ export async function inspectTasks(
   return inspections.map((inspection, index) => {
     const source = sources[index]
     if (!inspection.valid) return inspection
+    const protectedSourcePaths = getProtectedSourcePaths(sourcePaths, index, activeSourcePaths)
     if (request.kind === 'sprite') {
       const output = resolveSpriteOutput({
         sourcePath: source.path,
@@ -189,6 +193,7 @@ export async function inspectTasks(
         imageFormat: request.options.imageFormat,
         sheetCount: inspection.sheetCount ?? 1,
         reservedPaths,
+        protectedSourcePaths,
         outputSuffix: request.outputSuffix,
         nameTemplate: request.outputNameTemplate,
         conflictPolicy: request.outputConflictPolicy,
@@ -216,6 +221,7 @@ export async function inspectTasks(
         imageFormat: request.options.imageFormat,
         pageNumbers,
         reservedPaths,
+        protectedSourcePaths,
         outputSuffix: request.outputSuffix,
         nameTemplate: request.outputNameTemplate,
         conflictPolicy: request.outputConflictPolicy,
@@ -261,6 +267,7 @@ export async function inspectTasks(
         outputDirectory: outputDirectoryFor(request, source),
         extension,
         reservedPaths,
+        protectedSourcePaths,
         outputSuffix: request.outputSuffix,
         nameTemplate: request.outputNameTemplate,
         conflictPolicy: request.outputConflictPolicy,

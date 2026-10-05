@@ -1,5 +1,5 @@
 import { existsSync } from 'fs'
-import { extname, join, parse } from 'path'
+import { extname, join, parse, resolve, sep } from 'path'
 import type {
   AudioFormat,
   FontFormat,
@@ -71,6 +71,7 @@ interface ResolveOutputPathOptions {
   outputDirectory: string
   extension: string
   reservedPaths: Set<string>
+  protectedSourcePaths?: ReadonlySet<string>
   outputSuffix?: string
   nameTemplate?: string
   conflictPolicy?: OutputConflictPolicy
@@ -95,6 +96,7 @@ interface ResolvePdfImageOutputOptions {
   imageFormat: PdfImageFormat
   pageNumbers: number[]
   reservedPaths: Set<string>
+  protectedSourcePaths?: ReadonlySet<string>
   outputSuffix?: string
   nameTemplate?: string
   conflictPolicy?: OutputConflictPolicy
@@ -109,6 +111,7 @@ interface ResolveSpriteOutputOptions {
   imageFormat: SpriteImageFormat
   sheetCount: number
   reservedPaths: Set<string>
+  protectedSourcePaths?: ReadonlySet<string>
   outputSuffix?: string
   nameTemplate?: string
   conflictPolicy?: OutputConflictPolicy
@@ -128,6 +131,7 @@ export function resolveSpriteOutput(options: ResolveSpriteOutputOptions): Resolv
     outputDirectory: options.outputDirectory,
     extension: '',
     reservedPaths: options.reservedPaths,
+    protectedSourcePaths: options.protectedSourcePaths,
     outputSuffix: options.outputSuffix,
     nameTemplate: '{name}{suffix}',
     conflictPolicy: options.conflictPolicy
@@ -167,6 +171,7 @@ export function resolvePdfImageOutput(
     outputDirectory: options.outputDirectory,
     extension: '',
     reservedPaths: options.reservedPaths,
+    protectedSourcePaths: options.protectedSourcePaths,
     outputSuffix: options.outputSuffix,
     nameTemplate: '{name}{suffix}',
     conflictPolicy: options.conflictPolicy
@@ -209,7 +214,12 @@ export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOu
   while (true) {
     const numberedSuffix = index === 0 ? '' : `_${index}`
     const candidate = join(outputDirectory, `${baseName}${numberedSuffix}${extension}`)
-    if (hasReservedPath(reservedPaths, candidate)) {
+    if (
+      hasReservedPath(reservedPaths, candidate) ||
+      [...(options.protectedSourcePaths ?? [])].some((path) =>
+        outputContainsSourcePath(candidate, path)
+      )
+    ) {
       if (conflictPolicy === 'skip') {
         return { path: candidate, skipped: true, overwritesExisting: false }
       }
@@ -233,9 +243,29 @@ export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOu
 
 function hasReservedPath(reservedPaths: ReadonlySet<string>, candidate: string): boolean {
   if (reservedPaths.has(candidate)) return true
-  if (process.platform !== 'win32') return false
-  const normalizedCandidate = candidate.toLowerCase()
-  return [...reservedPaths].some((path) => path.toLowerCase() === normalizedCandidate)
+  const normalizedCandidate = pathKey(candidate)
+  return [...reservedPaths].some((path) => pathKey(path) === normalizedCandidate)
+}
+
+function pathKey(path: string): string {
+  const absolute = resolve(path)
+  return process.platform === 'win32' || process.platform === 'darwin'
+    ? absolute.normalize('NFC').toLowerCase()
+    : absolute
+}
+
+export function outputContainsSourcePath(outputPath: string, sourcePath: string): boolean {
+  const output = pathKey(outputPath)
+  const source = pathKey(sourcePath)
+  return source === output || source.startsWith(`${output}${sep}`)
+}
+
+export function getProtectedSourcePaths(
+  sourcePaths: string[],
+  sourceIndex: number,
+  activeSourcePaths: ReadonlySet<string>
+): Set<string> {
+  return new Set([...activeSourcePaths, ...sourcePaths.filter((_, index) => index !== sourceIndex)])
 }
 
 export function renderOutputBaseName(

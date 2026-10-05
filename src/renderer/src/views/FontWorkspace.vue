@@ -412,16 +412,8 @@ async function startProcessing(): Promise<void> {
   try {
     const result = await store.submitTasks(request)
     if (!result) return
-    const handledCounts = new Map<string, number>()
-    for (const path of result.handledPaths) {
-      handledCounts.set(path, (handledCounts.get(path) ?? 0) + 1)
-    }
-    pendingItems.value = pendingItems.value.filter((item) => {
-      const count = handledCounts.get(item.path) ?? 0
-      if (count === 0) return true
-      handledCounts.set(item.path, count - 1)
-      return false
-    })
+    const handledIds = new Set(result.handledBatchItemIds)
+    pendingItems.value = pendingItems.value.filter((item) => !handledIds.has(item.id))
   } finally {
     starting.value = false
   }

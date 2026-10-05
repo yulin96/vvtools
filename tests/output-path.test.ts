@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createAvailableOutputPath,
   getOutputExtension,
@@ -13,6 +13,7 @@ import {
 const directories: string[] = []
 
 afterEach(() => {
+  vi.unstubAllGlobals()
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
 })
 
@@ -46,6 +47,62 @@ describe('output paths', () => {
     expect(
       createAvailableOutputPath('/input/photo.jpg', directory, '.webp', reserved, '_optimized')
     ).toBe(join(directory, 'photo_optimized.webp'))
+  })
+
+  it.each(['rename', 'overwrite', 'skip'] as const)(
+    'treats case aliases as reserved on macOS with the %s policy',
+    (conflictPolicy) => {
+      vi.stubGlobal('process', { ...process, platform: 'darwin' })
+      const directory = mkdtempSync(join(tmpdir(), 'vvtools-output-'))
+      directories.push(directory)
+      const reservedPaths = new Set([join(directory, 'photo.webp')])
+
+      const output = resolveOutputPath({
+        sourcePath: '/input/PHOTO.jpg',
+        outputDirectory: directory,
+        extension: '.webp',
+        reservedPaths,
+        conflictPolicy
+      })
+
+      expect(output).toEqual({
+        path: join(directory, conflictPolicy === 'skip' ? 'PHOTO.webp' : 'PHOTO_1.webp'),
+        skipped: conflictPolicy === 'skip',
+        overwritesExisting: false
+      })
+      expect(reservedPaths.has(join(directory, 'photo.webp'))).toBe(true)
+    }
+  )
+
+  it('treats Unicode normalization aliases as reserved on macOS', () => {
+    vi.stubGlobal('process', { ...process, platform: 'darwin' })
+    const directory = mkdtempSync(join(tmpdir(), 'vvtools-output-'))
+    directories.push(directory)
+
+    expect(
+      resolveOutputPath({
+        sourcePath: '/input/caf\u00e9.jpg',
+        outputDirectory: directory,
+        extension: '.webp',
+        reservedPaths: new Set([join(directory, 'cafe\u0301.webp')]),
+        conflictPolicy: 'overwrite'
+      }).path
+    ).toBe(join(directory, 'caf\u00e9_1.webp'))
+  })
+
+  it('preserves distinct case-sensitive names on Linux', () => {
+    vi.stubGlobal('process', { ...process, platform: 'linux' })
+    const directory = mkdtempSync(join(tmpdir(), 'vvtools-output-'))
+    directories.push(directory)
+
+    expect(
+      resolveOutputPath({
+        sourcePath: '/input/PHOTO.jpg',
+        outputDirectory: directory,
+        extension: '.webp',
+        reservedPaths: new Set([join(directory, 'photo.webp')])
+      }).path
+    ).toBe(join(directory, 'PHOTO.webp'))
   })
 
   it('renders supported naming variables and can skip conflicts', () => {

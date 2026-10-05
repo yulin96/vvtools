@@ -90,4 +90,32 @@ describe('media preflight', () => {
       outputPath: source
     })
   })
+
+  it('numbers outputs that would overwrite another input in the batch', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-preflight-'))
+    directories.push(root)
+    const png = join(root, 'photo.png')
+    const jpeg = join(root, 'photo.jpg')
+    await sharp({ create: { width: 16, height: 16, channels: 3, background: '#cc3388' } })
+      .png()
+      .toFile(png)
+    await sharp({ create: { width: 32, height: 32, channels: 3, background: '#3388cc' } })
+      .jpeg()
+      .toFile(jpeg)
+
+    const inspections = await inspectTasks({
+      kind: 'image',
+      sources: [png, jpeg].map((path) => ({ path, relativeDirectory: '' })),
+      outputMode: 'source',
+      outputDirectory: root,
+      outputSuffix: '',
+      outputConflictPolicy: 'overwrite',
+      options: { ...DEFAULT_IMAGE_OPTIONS, format: 'jpeg' }
+    })
+
+    expect(inspections.map(({ valid, outputPath }) => ({ valid, outputPath }))).toEqual([
+      { valid: true, outputPath: join(root, 'photo_1.jpg') },
+      { valid: true, outputPath: jpeg }
+    ])
+  })
 })

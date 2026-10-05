@@ -3,7 +3,7 @@ import { join } from 'path'
 import type { MediaTask, TaskCommand, TaskFailure } from '../../shared/types'
 
 export interface TaskLogWriter {
-  path: string
+  path: string | undefined
   stream: WriteStream
   appendTail: (text: string) => void
   getTail: () => string
@@ -21,6 +21,11 @@ export class FailureLogService {
   create(task: MediaTask, command: TaskCommand): TaskLogWriter {
     const path = join(this.directory, `${task.id}.log`)
     const stream = createWriteStream(path, { flags: 'w' })
+    let writeError = ''
+    const recordError = (error: unknown): void => {
+      writeError = `日志保存失败：${error instanceof Error ? error.message : String(error)}`
+    }
+    stream.on('error', recordError)
     stream.write(
       [
         `时间: ${new Date().toISOString()}`,
@@ -34,19 +39,27 @@ export class FailureLogService {
     let tail = ''
 
     return {
-      path,
+      get path() {
+        return writeError ? undefined : path
+      },
       stream,
       appendTail(text: string) {
         tail = (tail + text).slice(-20_000)
       },
-      getTail: () => tail.trim(),
+      getTail: () => [tail.trim(), writeError].filter(Boolean).join('\n'),
       discard() {
-        stream.end(() => rmSync(path, { force: true }))
+        stream.end(() => {
+          try {
+            rmSync(path, { force: true })
+          } catch (error) {
+            recordError(error)
+          }
+        })
       }
     }
   }
 
-  writeFailure(task: MediaTask, failure: TaskFailure): string {
+  writeFailure(task: MediaTask, failure: TaskFailure): string | undefined {
     const path = failure.logPath || join(this.directory, `${task.id}.log`)
     if (!failure.logPath) {
       const content = [
@@ -59,7 +72,18 @@ export class FailureLogService {
       ]
         .filter(Boolean)
         .join('\n')
-      writeFileSync(path, content, 'utf8')
+      try {
+        mkdirSync(this.directory, { recursive: true })
+        writeFileSync(path, content, 'utf8')
+      } catch (error) {
+        failure.stderrTail = [
+          failure.stderrTail,
+          `日志保存失败：${error instanceof Error ? error.message : String(error)}`
+        ]
+          .filter(Boolean)
+          .join('\n')
+        return undefined
+      }
     }
     return path
   }

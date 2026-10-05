@@ -403,6 +403,147 @@ describe('TaskQueue', () => {
     )
   })
 
+  it('preserves other batch inputs until their own tasks read them', async () => {
+    const paths = fixture()
+    const root = dirname(paths.source)
+    const png = join(root, 'photo.png')
+    const jpeg = join(root, 'photo.jpg')
+    const trashed = join(root, 'original-photo.jpg')
+    writeFileSync(png, 'original png')
+    writeFileSync(jpeg, 'original jpeg')
+    const reads: string[] = []
+    const runner: TaskRunner = async (task) => {
+      const contents = readFileSync(task.sourcePath, 'utf8')
+      reads.push(contents)
+      writeFileSync(task.outputPath, `converted ${contents}`)
+      return 24
+    }
+    const moveToTrash = vi.fn(async (path: string) => renameSync(path, trashed))
+    const queue = new TaskQueue(
+      concurrency(1),
+      runner,
+      new FailureLogService(paths.userData),
+      moveToTrash
+    )
+    const created = queue.create({
+      kind: 'image',
+      sources: [png, jpeg].map((path) => ({ path, relativeDirectory: '' })),
+      outputMode: 'source',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      outputConflictPolicy: 'overwrite',
+      options: { ...DEFAULT_IMAGE_OPTIONS, format: 'jpeg' }
+    })
+
+    await waitFor(() => queue.list().every((task) => task.status === 'completed'))
+    expect(created.map((task) => task.outputPath)).toEqual([join(root, 'photo_1.jpg'), jpeg])
+    expect(reads).toEqual(['original png', 'original jpeg'])
+    expect(readFileSync(join(root, 'photo_1.jpg'), 'utf8')).toBe('converted original png')
+    expect(readFileSync(jpeg, 'utf8')).toBe('converted original jpeg')
+    expect(readFileSync(trashed, 'utf8')).toBe('original jpeg')
+    expect(moveToTrash).toHaveBeenCalledExactlyOnceWith(jpeg)
+  })
+
+  it('protects an input already being read by another batch', async () => {
+    const paths = fixture()
+    const root = dirname(paths.source)
+    const png = join(root, 'photo.png')
+    const jpeg = join(root, 'photo.jpg')
+    writeFileSync(png, 'png input')
+    writeFileSync(jpeg, 'jpeg input')
+    let release!: () => void
+    const blocker = new Promise<void>((resolve) => (release = resolve))
+    const runner: TaskRunner = async (task) => {
+      if (task.sourcePath === jpeg) await blocker
+      writeFileSync(task.outputPath, readFileSync(task.sourcePath))
+      return 10
+    }
+    const moveToTrash = vi.fn(async (path: string) => renameSync(path, join(root, 'trashed.jpg')))
+    const queue = new TaskQueue(
+      concurrency(2),
+      runner,
+      new FailureLogService(paths.userData),
+      moveToTrash
+    )
+    queue.create({
+      kind: 'image',
+      sources: [{ path: jpeg, relativeDirectory: '' }],
+      outputMode: 'source',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS, format: 'webp' }
+    })
+
+    try {
+      const [created] = queue.create({
+        kind: 'image',
+        sources: [{ path: png, relativeDirectory: '' }],
+        outputMode: 'source',
+        outputDirectory: paths.output,
+        outputSuffix: '',
+        outputConflictPolicy: 'overwrite',
+        options: { ...DEFAULT_IMAGE_OPTIONS, format: 'jpeg' }
+      })
+      await waitFor(
+        () => queue.list().find((task) => task.id === created.id)?.status === 'completed'
+      )
+      expect(created.outputPath).toBe(join(root, 'photo_1.jpg'))
+      expect(readFileSync(jpeg, 'utf8')).toBe('jpeg input')
+      expect(moveToTrash).not.toHaveBeenCalled()
+    } finally {
+      release()
+      await waitFor(() => queue.list().every((task) => task.status === 'completed'))
+    }
+  })
+
+  it('rejects a new input while another task is about to overwrite it', async () => {
+    const paths = fixture()
+    const root = dirname(paths.source)
+    const png = join(root, 'photo.png')
+    const jpeg = join(root, 'photo.jpg')
+    writeFileSync(png, 'png input')
+    writeFileSync(jpeg, 'jpeg input')
+    let release!: () => void
+    const blocker = new Promise<void>((resolve) => (release = resolve))
+    const runner: TaskRunner = async (task) => {
+      await blocker
+      writeFileSync(task.outputPath, readFileSync(task.sourcePath))
+      return 10
+    }
+    const queue = new TaskQueue(
+      concurrency(1),
+      runner,
+      new FailureLogService(paths.userData),
+      async (path) => renameSync(path, join(root, 'trashed.jpg'))
+    )
+    const [original] = queue.create({
+      kind: 'image',
+      sources: [{ path: png, relativeDirectory: '' }],
+      outputMode: 'source',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      outputConflictPolicy: 'overwrite',
+      options: { ...DEFAULT_IMAGE_OPTIONS, format: 'jpeg' }
+    })
+
+    try {
+      expect(() =>
+        queue.create({
+          kind: 'image',
+          sources: [{ path: jpeg, relativeDirectory: '' }],
+          outputMode: 'source',
+          outputDirectory: paths.output,
+          outputSuffix: '',
+          options: { ...DEFAULT_IMAGE_OPTIONS, format: 'webp' }
+        })
+      ).toThrow('源文件正在被其他任务覆盖')
+      expect(queue.list().map((task) => task.id)).toEqual([original.id])
+    } finally {
+      release()
+      await waitFor(() => queue.list().every((task) => task.status === 'completed'))
+    }
+  })
+
   it('preserves an existing output when moving it to the trash fails', async () => {
     const paths = fixture()
     const queue = new TaskQueue(
@@ -490,7 +631,7 @@ describe('TaskQueue', () => {
     )
   })
 
-  it('numbers duplicate outputs within an overwrite batch', () => {
+  it('numbers duplicate inputs without overwriting the shared source', async () => {
     const paths = fixture()
     const queue = new TaskQueue(
       concurrency(1),
@@ -508,9 +649,11 @@ describe('TaskQueue', () => {
     })
 
     expect(tasks.map((task) => task.outputPath)).toEqual([
-      paths.source,
-      join(dirname(paths.source), 'source_1.jpg')
+      join(dirname(paths.source), 'source_1.jpg'),
+      join(dirname(paths.source), 'source_2.jpg')
     ])
+    await waitFor(() => queue.list().every((task) => task.status === 'completed'))
+    expect(readFileSync(paths.source, 'utf8')).toBe('fixture')
   })
 
   it('writes video output to the selected output directory', () => {
@@ -696,6 +839,71 @@ describe('TaskQueue', () => {
       join(paths.output, 'collection-font-1.woff2'),
       join(paths.output, 'collection-font-3.woff2')
     ])
+  })
+
+  it.each([1, 2])(
+    'skips the complete font source when output %i conflicts',
+    async (conflictingIndex) => {
+      const paths = fixture()
+      const source = join(dirname(paths.source), 'collection.ttc')
+      writeFileSync(source, 'font collection fixture')
+      mkdirSync(paths.output)
+      const existingName = `collection-font-${conflictingIndex}.woff2`
+      writeFileSync(join(paths.output, existingName), 'existing font')
+      const runner = vi.fn(successfulRunner)
+      const queue = new TaskQueue(concurrency(1), runner, new FailureLogService(paths.userData))
+      const created = queue.create({
+        kind: 'font',
+        sources: [{ path: source, outputFormat: 'woff2' }],
+        batchItemIds: ['font-row'],
+        outputMode: 'custom',
+        outputDirectory: paths.output,
+        outputSuffix: '',
+        outputNameTemplate: '{name}-font-{index}',
+        outputConflictPolicy: 'skip',
+        fontIndexes: [0, 1, 2],
+        options: { ...DEFAULT_FONT_OPTIONS, operation: 'splitCollection' }
+      })
+
+      await waitFor(() => queue.list().every((task) => task.status === 'completed'))
+      expect(created).toEqual([])
+      expect(queue.list()).toEqual([])
+      expect(runner).not.toHaveBeenCalled()
+      expect(readdirSync(paths.output)).toEqual([existingName])
+      expect(readFileSync(join(paths.output, existingName), 'utf8')).toBe('existing font')
+    }
+  )
+
+  it('retains the processing error and continues the queue when logging is unavailable', async () => {
+    const paths = fixture()
+    const secondSource = join(dirname(paths.source), 'second.jpg')
+    writeFileSync(secondSource, 'fixture')
+    const failureLogs = new FailureLogService(paths.userData)
+    const logDirectory = join(paths.userData, 'logs', 'tasks')
+    rmSync(logDirectory, { recursive: true })
+    writeFileSync(logDirectory, 'blocks log directory')
+    const runner: TaskRunner = async (task) => {
+      if (task.sourcePath === paths.source) throw new Error('original processing error')
+      writeFileSync(task.outputPath, 'processed')
+      return 9
+    }
+    const queue = new TaskQueue(concurrency(1), runner, failureLogs)
+    queue.create({
+      kind: 'image',
+      sources: [paths.source, secondSource].map((path) => ({ path, relativeDirectory: '' })),
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: { ...DEFAULT_IMAGE_OPTIONS }
+    })
+
+    await waitFor(() => queue.list().every((task) => ['failed', 'completed'].includes(task.status)))
+    const [failed, completed] = queue.list()
+    expect(failed.failure?.message).toBe('original processing error')
+    expect(failed.failure?.logPath).toBeUndefined()
+    expect(failed.failure?.stderrTail).toContain('日志保存失败')
+    expect(completed.status).toBe('completed')
+    expect(readFileSync(completed.outputPath, 'utf8')).toBe('processed')
   })
 
   it('creates independent font tasks for per-file output formats', () => {

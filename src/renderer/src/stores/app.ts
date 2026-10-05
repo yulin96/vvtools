@@ -6,6 +6,7 @@ import type {
   CreateTasksRequest,
   FontConversionSubsetPreset,
   FontFormat,
+  FontOptions,
   ImageInputFile,
   MediaInspection,
   MediaTask,
@@ -17,6 +18,7 @@ import type {
 
 interface TaskSubmissionResult {
   handledPaths: string[]
+  handledBatchItemIds: string[]
 }
 
 export interface PendingFontItem {
@@ -252,7 +254,7 @@ export const useAppStore = defineStore('app', () => {
       const rejected = inspections.filter((item) => !item.valid && !item.skipped)
       if (processable.length === 0) {
         errorMessage.value = submissionNotice(skipped.length, rejected)
-        return { handledPaths: [] }
+        return { handledPaths: [], handledBatchItemIds: [] }
       }
 
       const inputMetadata = [
@@ -304,23 +306,34 @@ export const useAppStore = defineStore('app', () => {
               }
 
       const createdTasks = await window.api.createTasks(serializable(submission))
-      const handledInspections = processable.filter((inspection) =>
-        createdTasks.some(
-          (task) =>
-            task.sourcePath === inspection.sourcePath &&
-            (task.outputPath === inspection.outputPath ||
-              inspection.outputPaths?.includes(task.outputPath))
-        )
+      const handledInputs = inspections.flatMap((inspection, index) => {
+        if (!inspection.valid) return []
+        const batchInputId = inspectedRequest.batchItemIds?.[index]
+        const handled = createdTasks.some((task) => {
+          if (task.sourcePath !== inspection.sourcePath) return false
+          if (batchInputId !== undefined) {
+            return (task.batchInputId ?? task.batchItemId) === batchInputId
+          }
+          return (
+            inspectedRequest.kind !== 'font' ||
+            (task.options as FontOptions).outputFormat ===
+              inspectedRequest.sources[index].outputFormat
+          )
+        })
+        return handled ? [{ inspection, batchInputId }] : []
+      })
+      const handledPaths = handledInputs.map(({ inspection }) => inspection.sourcePath)
+      const handledBatchItemIds = handledInputs.flatMap(({ batchInputId }) =>
+        batchInputId === undefined ? [] : [batchInputId]
       )
-      const handledPaths = handledInspections.map((item) => item.sourcePath)
       const createdIds = new Set(createdTasks.map((task) => task.id))
       tasks.value = [...tasks.value.filter((task) => !createdIds.has(task.id)), ...createdTasks]
       appendCurrentBatchTasks(createdTasks)
-      const skippedCount = skipped.length + (processable.length - handledInspections.length)
+      const skippedCount = skipped.length + (processable.length - handledInputs.length)
       if (skippedCount > 0 || rejected.length > 0) {
         errorMessage.value = submissionNotice(skippedCount, rejected)
       }
-      return { handledPaths }
+      return { handledPaths, handledBatchItemIds }
     } catch (error) {
       reportError(error)
       return null

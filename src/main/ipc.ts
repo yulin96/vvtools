@@ -904,11 +904,14 @@ export function registerIpc(
   })
   handle(IPC_CHANNELS.inspectTasks, (event, request: unknown) => {
     assertTrusted(event, window())
-    const activeOutputPaths = queue
+    const activeTasks = queue
       .list()
       .filter((task) => task.status === 'pending' || task.status === 'processing')
-      .map((task) => task.outputPath)
-    return inspectTasks(validateCreateRequest(request), new Set(activeOutputPaths))
+    return inspectTasks(
+      validateCreateRequest(request),
+      new Set(activeTasks.map((task) => task.outputPath)),
+      new Set(activeTasks.map((task) => task.sourcePath))
+    )
   })
   handle(IPC_CHANNELS.getTasks, (event) => {
     assertTrusted(event, window())
