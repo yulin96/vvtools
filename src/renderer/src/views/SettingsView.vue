@@ -1,13 +1,21 @@
 <script setup lang="ts">
-import { Cpu, ExternalLink, FileOutput, RefreshCw } from '@lucide/vue'
+import { inject } from 'vue'
+import { Cpu, ExternalLink, FileOutput, Monitor, Moon, RefreshCw, Sun } from '@lucide/vue'
 import type { AppSettings, TaskKind } from '../../../shared/types'
 import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
 import Badge from '../components/ui/Badge.vue'
 import Button from '../components/ui/Button.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import { useAppStore } from '../stores/app'
+import { themeModeKey, type ThemeMode } from '../lib/theme'
 
 const store = useAppStore()
+const themeMode = inject(themeModeKey)!
+const themeOptions = [
+  { value: 'system' as const, label: '跟随系统', icon: Monitor },
+  { value: 'light' as const, label: '浅色模式', icon: Sun },
+  { value: 'dark' as const, label: '深色模式', icon: Moon }
+]
 const concurrencyModeOptions = [
   { value: 'auto', label: '自动调度', title: '根据任务类型和处理器核心数分配并发' },
   { value: 'custom', label: '自定义', title: '分别设置各类处理任务的并发数' }
@@ -150,6 +158,26 @@ function openSourcePage(): void {
             />
             {{ store.updateButtonLabel }}
           </Button>
+        </div>
+      </section>
+
+      <section class="settings-card">
+        <div class="settings-card-title">
+          <Monitor class="size-4" />
+          <div>
+            <h2>界面主题</h2>
+            <p>选择浅色、深色或跟随系统。</p>
+          </div>
+        </div>
+        <div class="settings-card-controls">
+          <SegmentedControl
+            class="settings-theme-segments w-72"
+            label="主题模式"
+            hide-label
+            :model-value="themeMode"
+            :options="themeOptions"
+            @update:model-value="themeMode = $event as ThemeMode"
+          />
         </div>
       </section>
 

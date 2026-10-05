@@ -1,18 +1,15 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import {
   Images,
   Download,
   FileText,
   FilePenLine,
-  Monitor,
-  Moon,
   Music,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
   Sheet,
-  Sun,
   Type,
   Video,
   X
@@ -20,9 +17,9 @@ import {
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from './stores/app'
 import appIcon from '../../../resources/icon.png'
-import SegmentedControl from './components/ui/SegmentedControl.vue'
 import Button from './components/ui/Button.vue'
 import Modal from './components/ui/Modal.vue'
+import { themeModeKey, type ThemeMode } from './lib/theme'
 import {
   detectMediaWorkspacePath,
   queueRoutedDrop,
@@ -33,7 +30,6 @@ import {
 const store = useAppStore()
 const route = useRoute()
 const router = useRouter()
-type ThemeMode = 'system' | 'light' | 'dark'
 
 const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
 const storedTheme = localStorage.getItem('vvtools-theme')
@@ -42,6 +38,7 @@ const themeMode = ref<ThemeMode>(
     ? storedTheme
     : 'system'
 )
+provide(themeModeKey, themeMode)
 const systemIsDark = ref(colorSchemeQuery.matches)
 const isDark = computed(() =>
   themeMode.value === 'system' ? systemIsDark.value : themeMode.value === 'dark'
@@ -50,14 +47,6 @@ const sidebarCollapsed = ref(localStorage.getItem('vvtools-sidebar-collapsed') =
 const isMac = window.api.platform === 'darwin'
 const isWindows = window.api.platform === 'win32'
 const releaseNotesOpen = ref(false)
-const themes = [
-  { value: 'system' as const, label: '跟随系统', icon: Monitor },
-  { value: 'light' as const, label: '浅色模式', icon: Sun },
-  { value: 'dark' as const, label: '深色模式', icon: Moon }
-]
-const currentTheme = computed(
-  () => themes.find((theme) => theme.value === themeMode.value) ?? themes[0]
-)
 const workspaceNavigation = [
   { to: '/image', label: '图片处理', icon: Images },
   { to: '/video', label: '视频处理', icon: Video },
@@ -211,50 +200,31 @@ onBeforeUnmount(() => {
             <span class="sidebar-label">{{ item.label }}</span>
           </button>
         </nav>
-        <Transition name="sidebar-footer-swap" mode="out-in">
-          <SegmentedControl
-            v-if="!sidebarCollapsed"
-            class="sidebar-theme-segments"
-            label="主题模式"
-            hide-label
-            icon-only
-            :model-value="themeMode"
-            :options="themes"
-            @update:model-value="themeMode = $event as ThemeMode"
-          />
-          <div
-            v-else
-            class="sidebar-theme-current"
-            role="img"
-            :aria-label="currentTheme.label"
-            :title="currentTheme.label"
+        <div class="sidebar-version-slot">
+          <button
+            v-if="store.appVersion && !sidebarCollapsed"
+            class="sidebar-version"
+            type="button"
+            :class="{
+              'has-update': ['available', 'downloading', 'downloaded'].includes(
+                store.updateState.status
+              )
+            }"
+            :title="
+              ['available', 'downloading', 'downloaded'].includes(store.updateState.status)
+                ? '发现新版本 · 查看更新日志'
+                : '查看更新日志'
+            "
+            @click="releaseNotesOpen = true"
           >
-            <component :is="currentTheme.icon" class="size-4" aria-hidden="true" />
-          </div>
-        </Transition>
-        <button
-          v-if="store.appVersion && !sidebarCollapsed"
-          class="sidebar-label sidebar-version"
-          type="button"
-          :class="{
-            'has-update': ['available', 'downloading', 'downloaded'].includes(
-              store.updateState.status
-            )
-          }"
-          :title="
-            ['available', 'downloading', 'downloaded'].includes(store.updateState.status)
-              ? '发现新版本 · 查看更新日志'
-              : '查看更新日志'
-          "
-          @click="releaseNotesOpen = true"
-        >
-          VVTools · v{{ store.appVersion }}
-          <span
-            v-if="['available', 'downloading', 'downloaded'].includes(store.updateState.status)"
-            class="sidebar-version-dot"
-            aria-hidden="true"
-          />
-        </button>
+            VVTools · v{{ store.appVersion }}
+            <span
+              v-if="['available', 'downloading', 'downloaded'].includes(store.updateState.status)"
+              class="sidebar-version-dot"
+              aria-hidden="true"
+            />
+          </button>
+        </div>
       </div>
     </aside>
 
