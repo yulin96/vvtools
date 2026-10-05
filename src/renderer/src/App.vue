@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import {
   Images,
   Download,
@@ -16,6 +16,7 @@ import {
 } from '@lucide/vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from './stores/app'
+import type { DesktopNavigation } from '../../shared/types'
 import appIcon from '../../../resources/icon.png'
 import Button from './components/ui/Button.vue'
 import Modal from './components/ui/Modal.vue'
@@ -30,6 +31,28 @@ import {
 const store = useAppStore()
 const route = useRoute()
 const router = useRouter()
+let unsubscribeDesktop: (() => void) | null = null
+let desktopNavigationSerial: Promise<void> = Promise.resolve()
+const handledDesktopNavigationIds = new Set<string>()
+
+async function receiveDesktopNavigation(request: DesktopNavigation): Promise<void> {
+  if (!store.settings) return
+  if (handledDesktopNavigationIds.has(request.id)) return
+  handledDesktopNavigationIds.add(request.id)
+  if (request.path !== '/settings' && request.paths?.length && !request.preserveBatch)
+    queueRoutedDrop(request.path, request.paths)
+  await router.push({
+    path: request.path,
+    ...(request.path === '/settings' && request.section ? { hash: '#' + request.section } : {})
+  })
+  if (request.path === '/settings' && request.section) {
+    await nextTick()
+    document.getElementById(request.section)?.scrollIntoView({ block: 'start' })
+  }
+  if (request.preserveBatch || !request.paths?.length) store.stageDesktopFiles(request)
+  else if (request.notice) store.reportError(request.notice)
+  await window.api.acknowledgeDesktopNavigation(request.id)
+}
 
 const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
 const storedTheme = localStorage.getItem('vvtools-theme')
@@ -115,15 +138,34 @@ function handleWorkspaceDrop(event: DragEvent): void {
 window.addEventListener('dragover', handleWorkspaceDragOver, true)
 window.addEventListener('drop', handleWorkspaceDrop, true)
 
-onMounted(() => {
+onMounted(async () => {
   colorSchemeQuery.addEventListener('change', handleSystemThemeChange)
-  void store.initialize()
+  const initialized = store.initialize()
+  unsubscribeDesktop = window.api.onDesktopNavigation((request) => {
+    desktopNavigationSerial = desktopNavigationSerial
+      .then(async () => {
+        await initialized
+        await receiveDesktopNavigation(request)
+      })
+      .catch(store.reportError)
+  })
+  await initialized
+  try {
+    const request = await window.api.getDesktopNavigation()
+    if (request)
+      desktopNavigationSerial = desktopNavigationSerial
+        .then(() => receiveDesktopNavigation(request))
+        .catch(store.reportError)
+  } catch (error) {
+    store.reportError(error)
+  }
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('dragover', handleWorkspaceDragOver, true)
   window.removeEventListener('drop', handleWorkspaceDrop, true)
   colorSchemeQuery.removeEventListener('change', handleSystemThemeChange)
+  unsubscribeDesktop?.()
   store.dispose()
 })
 </script>

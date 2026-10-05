@@ -27,6 +27,7 @@ import {
 } from '../shared/constants'
 import { sanitizeFontInstances } from './media/font-metadata'
 import { isConcurrencySettings } from './services/task-concurrency'
+import { normalizeDesktopSettings } from '../shared/desktop-settings'
 
 const VIDEO_QUALITIES = new Set<VideoQuality>(['high', 'balanced', 'small'])
 const VIDEO_RESOLUTIONS = new Set<VideoResolution>(['source', '1080p', '720p', 'custom'])
@@ -117,6 +118,11 @@ export function validateCreateRequest(value: unknown): CreateTasksRequest {
       if (!source || typeof source !== 'object') throw new Error('图片来源参数无效')
       validateSourcePath(source.path, 'image')
       validateRelativeDirectory(source.relativeDirectory)
+      if (
+        source.outputFormat !== undefined &&
+        (!IMAGE_FORMATS.has(source.outputFormat) || String(source.outputFormat) === 'original')
+      )
+        throw new Error('图片输出格式无效')
     }
     validateImageOptions(request.options, '图片任务参数无效')
   } else if (request.kind === 'audio') {
@@ -487,6 +493,50 @@ function validateFontOptions(
 export function sanitizeSettings(input: unknown): AppSettingsPatch {
   if (!isRecord(input)) throw new Error('设置参数无效')
   const result: AppSettingsPatch = {}
+  if (input.desktop !== undefined) {
+    if (!isRecord(input.desktop)) throw new Error('系统集成设置无效')
+    const desktop = input.desktop
+    for (const key of ['contextMenuEnabled', 'notifyOnComplete', 'revealOnComplete']) {
+      if (desktop[key] !== undefined && typeof desktop[key] !== 'boolean')
+        throw new Error('系统集成开关无效')
+    }
+    if (desktop.actions !== undefined) {
+      if (
+        !Array.isArray(desktop.actions) ||
+        desktop.actions.length !== 2 ||
+        new Set(desktop.actions.map((action) => (isRecord(action) ? action.id : null))).size !== 2
+      )
+        throw new Error('快捷动作列表无效')
+      for (const action of desktop.actions) {
+        if (
+          !isRecord(action) ||
+          !['image-share', 'image-web'].includes(String(action.id)) ||
+          typeof action.name !== 'string' ||
+          !action.name.trim() ||
+          action.name.length > 40 ||
+          [...action.name].some((character) => character.charCodeAt(0) < 32) ||
+          typeof action.enabled !== 'boolean'
+        )
+          throw new Error('快捷动作参数无效')
+        validateImageOptions(action.options as ImageOptions, '快捷动作图片参数无效')
+        if (
+          !['source', 'custom'].includes(String(action.outputMode)) ||
+          typeof action.outputDirectory !== 'string' ||
+          (action.outputMode === 'custom' && !isAbsolute(action.outputDirectory))
+        )
+          throw new Error('快捷动作输出位置无效')
+        if (!['rename', 'skip'].includes(String(action.outputConflictPolicy)))
+          throw new Error('快捷动作必须保留原文件')
+        sanitizeOutputSuffix(action.outputSuffix)
+      }
+    }
+    const normalized = normalizeDesktopSettings(desktop)
+    result.desktop = Object.fromEntries(
+      Object.keys(desktop)
+        .filter((key) => key in normalized)
+        .map((key) => [key, normalized[key as keyof typeof normalized]])
+    )
+  }
 
   if (input.common !== undefined) {
     if (!isRecord(input.common)) throw new Error('通用设置参数无效')

@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { IPC_CHANNELS } from '../shared/constants'
-import type { TaskStateUpdate, TaskProgressUpdate, UpdateState, VVToolsApi } from '../shared/types'
+import type {
+  DesktopNavigation,
+  TaskStateUpdate,
+  TaskProgressUpdate,
+  UpdateState,
+  VVToolsApi
+} from '../shared/types'
 
 const api: VVToolsApi = {
   platform: process.platform as VVToolsApi['platform'],
@@ -39,6 +45,18 @@ const api: VVToolsApi = {
   installUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.installUpdate),
   openReleasePage: () => ipcRenderer.invoke(IPC_CHANNELS.openReleasePage),
   openSourcePage: () => ipcRenderer.invoke(IPC_CHANNELS.openSourcePage),
+  getDesktopIntegration: () => ipcRenderer.invoke(IPC_CHANNELS.getDesktopIntegration),
+  repairDesktopIntegration: () => ipcRenderer.invoke(IPC_CHANNELS.repairDesktopIntegration),
+  openDesktopSystemSettings: () => ipcRenderer.invoke(IPC_CHANNELS.openDesktopSystemSettings),
+  getDesktopNavigation: () => ipcRenderer.invoke(IPC_CHANNELS.getDesktopNavigation),
+  acknowledgeDesktopNavigation: (id) =>
+    ipcRenderer.invoke(IPC_CHANNELS.acknowledgeDesktopNavigation, id),
+  onDesktopNavigation: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, request: DesktopNavigation): void =>
+      callback(request)
+    ipcRenderer.on(IPC_CHANNELS.desktopNavigation, listener)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.desktopNavigation, listener)
+  },
   onTasksChanged: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, update: TaskStateUpdate): void =>
       callback(update)

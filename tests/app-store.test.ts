@@ -1,3 +1,4 @@
+import { normalizeDesktopSettings } from '../src/shared/desktop-settings'
 import { createPinia, setActivePinia } from 'pinia'
 import { reactive } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -35,6 +36,7 @@ describe('app store task submission', () => {
       font: DEFAULT_FONT_OPTIONS
     }
     const settings: AppSettings = {
+      desktop: normalizeDesktopSettings(undefined),
       common: {
         concurrency: DEFAULT_CONCURRENCY_SETTINGS,
         closeBehavior: 'ask',

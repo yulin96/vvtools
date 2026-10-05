@@ -3,6 +3,7 @@ import { inject } from 'vue'
 import { Cpu, ExternalLink, FileOutput, Monitor, Moon, RefreshCw, Sun } from '@lucide/vue'
 import type { AppSettings, TaskKind } from '../../../shared/types'
 import OutputConflictPolicyField from '../components/OutputConflictPolicyField.vue'
+import SystemIntegrationSettings from '../components/SystemIntegrationSettings.vue'
 import Badge from '../components/ui/Badge.vue'
 import Button from '../components/ui/Button.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
@@ -10,6 +11,7 @@ import { useAppStore } from '../stores/app'
 import { themeModeKey, type ThemeMode } from '../lib/theme'
 
 const store = useAppStore()
+const hasDesktopIntegration = window.api.platform === 'darwin' || window.api.platform === 'win32'
 const themeMode = inject(themeModeKey)!
 const themeOptions = [
   { value: 'system' as const, label: '跟随系统', icon: Monitor },
@@ -180,6 +182,8 @@ function openSourcePage(): void {
           />
         </div>
       </section>
+
+      <SystemIntegrationSettings v-if="hasDesktopIntegration" />
 
       <div class="settings-group-heading">
         <span>通用</span>

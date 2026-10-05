@@ -100,6 +100,10 @@ jobs:
       - name: Stage media binaries
         run: pnpm stage:media
 
+      - name: Stage Windows shell integration
+        if: runner.os == 'Windows'
+        run: pnpm stage:desktop
+
       - name: Compile application
         run: pnpm exec electron-vite build
 

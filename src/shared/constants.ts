@@ -249,5 +249,11 @@ export const IPC_CHANNELS = {
   installUpdate: 'updates:install',
   openReleasePage: 'updates:open-release-page',
   openSourcePage: 'system:open-source-page',
+  getDesktopIntegration: 'desktop:integration-state',
+  repairDesktopIntegration: 'desktop:repair-integration',
+  openDesktopSystemSettings: 'desktop:open-system-settings',
+  getDesktopNavigation: 'desktop:get-navigation',
+  acknowledgeDesktopNavigation: 'desktop:acknowledge-navigation',
+  desktopNavigation: 'desktop:navigation',
   updatesChanged: 'updates:changed'
 } as const

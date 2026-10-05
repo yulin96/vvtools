@@ -1,3 +1,4 @@
+import { normalizeDesktopSettings } from '../../../shared/desktop-settings'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
@@ -23,6 +24,7 @@ import type {
 import { useAppStore } from './app'
 
 const settings: AppSettings = {
+  desktop: normalizeDesktopSettings(undefined),
   common: {
     concurrency: DEFAULT_CONCURRENCY_SETTINGS,
     closeBehavior: 'ask',
@@ -256,5 +258,81 @@ describe('task state deltas', () => {
     expect(store.errorMessage).toBe('snapshot failed')
     expect(disposeTasks).toHaveBeenCalledOnce()
     expect(disposeProgress).toHaveBeenCalledOnce()
+  })
+  it('mirrors settled desktop rows on initial load without exposing unrelated settled tasks', async () => {
+    const first = { ...imageTask('native-first', 'completed'), desktopRequestId: 'request' }
+    const second = { ...imageTask('native-second', 'failed'), desktopRequestId: 'request' }
+    const { store } = fixture({
+      sequence: 2,
+      tasks: [imageTask('old', 'completed'), first, second]
+    })
+    try {
+      await store.initialize()
+      expect(store.currentBatchTasks.image.map((task) => task.id)).toEqual([
+        'native-first',
+        'native-second'
+      ])
+      store.stageDesktopFiles({
+        id: 'show-result',
+        path: '/image',
+        paths: ['/tmp/conflict.png', '/tmp/conflict.png'],
+        notice: '输出已存在',
+        preserveBatch: true
+      })
+      expect(store.currentBatchTasks.image.map((task) => task.id)).toEqual([
+        'native-first',
+        'native-second'
+      ])
+      expect(store.pendingImageInputs).toEqual([
+        { path: '/tmp/conflict.png', relativeDirectory: '' }
+      ])
+      expect(store.errorMessage).toBe('输出已存在')
+    } finally {
+      store.dispose()
+    }
+  })
+
+  it('appends external rows to an active batch and replaces settled results only for a new batch', async () => {
+    const existing = imageTask('existing')
+    const native = { ...imageTask('native'), desktopRequestId: 'request' }
+    const { store, updateTasks } = fixture({ sequence: 0, tasks: [existing] })
+    try {
+      await store.initialize()
+      updateTasks({ sequence: 1, tasks: [native], removedTaskIds: [] })
+      expect(store.currentBatchTasks.image.map((task) => task.id)).toEqual(['existing', 'native'])
+      updateTasks({
+        sequence: 2,
+        tasks: [
+          { ...existing, status: 'completed' },
+          { ...native, status: 'completed' }
+        ],
+        removedTaskIds: []
+      })
+      expect(store.currentBatchTasks.image.map((task) => task.id)).toEqual(['existing', 'native'])
+      const next = { ...imageTask('next'), desktopRequestId: 'next-request' }
+      updateTasks({ sequence: 3, tasks: [next], removedTaskIds: ['existing', 'native'] })
+      expect(store.currentBatchTasks.image.map((task) => task.id)).toEqual(['next'])
+    } finally {
+      store.dispose()
+    }
+  })
+
+  it('keeps other native rows and their order when a settled native row is retried', async () => {
+    const original = { ...imageTask('failed', 'failed'), desktopRequestId: 'request' }
+    const completed = { ...imageTask('completed', 'completed'), desktopRequestId: 'request' }
+    const { store, updateTasks } = fixture({ sequence: 0, tasks: [original, completed] })
+    try {
+      await store.initialize()
+      const retry = {
+        ...original,
+        id: 'retry',
+        retryOf: original.id,
+        status: 'processing' as const
+      }
+      updateTasks({ sequence: 1, tasks: [retry], removedTaskIds: [original.id] })
+      expect(store.currentBatchTasks.image.map((task) => task.id)).toEqual(['retry', 'completed'])
+    } finally {
+      store.dispose()
+    }
   })
 })

@@ -153,6 +153,7 @@ export interface FontOptions {
 }
 
 export interface ImageInputFile {
+  outputFormat?: Exclude<ImageFormat, 'original'>
   path: string
   relativeDirectory: string
   sourceSize?: number
@@ -337,6 +338,7 @@ export interface RenamePlanInspection {
 }
 
 export interface AppSettings {
+  desktop: DesktopSettings
   common: CommonSettings
   image: ImageSettings
   video: VideoSettings
@@ -348,6 +350,7 @@ export interface AppSettings {
 }
 
 export interface AppSettingsPatch {
+  desktop?: Partial<DesktopSettings>
   common?: Partial<CommonSettings>
   image?: {
     outputSuffix?: string
@@ -391,6 +394,7 @@ export interface TaskFailure {
 }
 
 export interface MediaTask {
+  desktopRequestId?: string
   id: string
   kind: TaskKind
   batchInputId?: string
@@ -591,6 +595,12 @@ export interface UpdateState {
 }
 
 export interface VVToolsApi {
+  getDesktopIntegration: () => Promise<DesktopIntegrationState>
+  repairDesktopIntegration: () => Promise<DesktopIntegrationState>
+  openDesktopSystemSettings: () => Promise<void>
+  getDesktopNavigation: () => Promise<DesktopNavigation | null>
+  acknowledgeDesktopNavigation: (id: string) => Promise<void>
+  onDesktopNavigation: (callback: (request: DesktopNavigation) => void) => () => void
   platform: 'darwin' | 'win32' | 'linux'
   selectFiles: (kind: TaskKind) => Promise<string[]>
   selectFontForInspection: () => Promise<string | null>
@@ -629,4 +639,41 @@ export interface VVToolsApi {
   onTasksChanged: (callback: (update: TaskStateUpdate) => void) => () => void
   onTaskProgressChanged: (callback: (update: TaskProgressUpdate) => void) => () => void
   onUpdateChanged: (callback: (state: UpdateState) => void) => () => void
+}
+
+export type DesktopActionId = 'image-share' | 'image-web'
+export interface DesktopQuickAction {
+  id: DesktopActionId
+  name: string
+  enabled: boolean
+  options: ImageOptions
+  outputMode: OutputMode
+  outputDirectory: string
+  outputSuffix: string
+  outputConflictPolicy: 'rename' | 'skip'
+}
+export interface DesktopSettings {
+  contextMenuEnabled: boolean
+  notifyOnComplete: boolean
+  revealOnComplete: boolean
+  actions: DesktopQuickAction[]
+}
+export interface DesktopIntegrationState {
+  platform: 'darwin' | 'win32' | 'linux'
+  status: 'installed' | 'not-installed' | 'needs-repair' | 'unavailable'
+  message: string
+}
+export interface DesktopActionRequest {
+  version: 1
+  id: string
+  actionId: DesktopActionId | 'open'
+  paths: string[]
+}
+export interface DesktopNavigation {
+  id: string
+  path: '/image' | '/video' | '/sprite' | '/audio' | '/pdf' | '/font' | '/rename' | '/settings'
+  section?: 'desktop-integration'
+  paths?: string[]
+  notice?: string
+  preserveBatch?: boolean
 }

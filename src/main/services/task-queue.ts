@@ -68,11 +68,22 @@ export class TaskQueue extends EventEmitter {
     return count
   }
 
-  create(request: CreateTasksRequest): MediaTask[] {
-    return this.createInternal(request, true)
+  clearSettledBatch(kind: MediaTask['kind']): void {
+    const ids = this.settledBatchTaskIds(kind)
+    if (!ids.length) return
+    for (const id of ids) this.tasks.delete(id)
+    this.changed([], ids)
   }
 
-  private createInternal(request: CreateTasksRequest, replaceSettledBatch: boolean): MediaTask[] {
+  create(request: CreateTasksRequest, desktopRequestId?: string): MediaTask[] {
+    return this.createInternal(request, true, desktopRequestId)
+  }
+
+  private createInternal(
+    request: CreateTasksRequest,
+    replaceSettledBatch: boolean,
+    desktopRequestId?: string
+  ): MediaTask[] {
     const discardedTaskIds = replaceSettledBatch ? this.settledBatchTaskIds(request.kind) : []
     const stagedTasks = new Map<string, MediaTask>()
     const stagedReservedPaths = new Set(this.reservedPaths)
@@ -115,6 +126,7 @@ export class TaskQueue extends EventEmitter {
       )
       return plan.units.map((unit, unitIndex) => {
         const task: MediaTask = {
+          ...(desktopRequestId ? { desktopRequestId } : {}),
           id: randomUUID(),
           kind: request.kind,
           batchInputId: source.batchItemId,
@@ -138,7 +150,9 @@ export class TaskQueue extends EventEmitter {
           options:
             request.kind === 'font'
               ? fontOptionsForSource(request.options, source)
-              : structuredClone(request.options),
+              : request.kind === 'image' && source.outputFormat
+                ? { ...structuredClone(request.options), format: source.outputFormat }
+                : structuredClone(request.options),
           outputSuffix: request.outputSuffix,
           outputNameTemplate: request.outputNameTemplate,
           outputConflictPolicy: request.outputConflictPolicy,
@@ -309,7 +323,7 @@ export class TaskQueue extends EventEmitter {
                     options: structuredClone(original.options) as FontOptions
                   }
     if (original.batchItemId) request.batchItemIds = [original.batchItemId]
-    const task = this.createInternal(request, false)[0]
+    const task = this.createInternal(request, false, original.desktopRequestId)[0]
     if (!task) return null
     const stored = this.tasks.get(task.id)
     if (stored) {

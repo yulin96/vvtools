@@ -1,3 +1,4 @@
+import { normalizeDesktopSettings } from '../shared/desktop-settings'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -147,5 +148,46 @@ describe('IPC payload validation', () => {
     expect(() =>
       sanitizeRenameRequests([{ sourcePath: 'relative.png', targetName: 'renamed.png' }])
     ).toThrow('批量重命名参数无效')
+  })
+  it('accepts complete quick-action snapshots but rejects overwrite, invalid paths, names, and duplicate actions', () => {
+    const desktop = normalizeDesktopSettings({ contextMenuEnabled: true })
+    expect(sanitizeSettings({ desktop: { notifyOnComplete: false } })).toEqual({
+      desktop: { notifyOnComplete: false }
+    })
+    expect(sanitizeSettings({ desktop })).toEqual({ desktop })
+    for (const changes of [
+      { outputConflictPolicy: 'overwrite' },
+      { outputMode: 'custom', outputDirectory: 'relative' },
+      { name: 'a\0b' },
+      { options: { ...desktop.actions[0].options, quality: 0 } }
+    ]) {
+      const changed = {
+        ...desktop,
+        actions: [{ ...desktop.actions[0], ...changes }, desktop.actions[1]]
+      }
+      expect(() => sanitizeSettings({ desktop: changed })).toThrow()
+    }
+    expect(() =>
+      sanitizeSettings({ desktop: { actions: [desktop.actions[0], desktop.actions[0]] } })
+    ).toThrow('快捷动作列表无效')
+  })
+
+  it('validates per-source image format overrides before output planning', () => {
+    const { source } = fixture()
+    const request = {
+      kind: 'image',
+      sources: [{ path: source, relativeDirectory: '', outputFormat: 'png' }],
+      outputMode: 'source',
+      outputDirectory: '',
+      outputSuffix: '_share',
+      options: { ...DEFAULT_IMAGE_OPTIONS, format: 'jpeg' }
+    }
+    expect(validateCreateRequest(request)).toMatchObject({ sources: [{ outputFormat: 'png' }] })
+    expect(() =>
+      validateCreateRequest({
+        ...request,
+        sources: [{ ...request.sources[0], outputFormat: 'original' }]
+      })
+    ).toThrow('图片输出格式无效')
   })
 })

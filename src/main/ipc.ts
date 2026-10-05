@@ -3,6 +3,10 @@ import { existsSync, mkdirSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { basename, dirname, extname, isAbsolute, join, normalize } from 'path'
 import type {
+  AppSettings,
+  AppSettingsPatch,
+  DesktopIntegrationState,
+  DesktopNavigation,
   PdfOptions,
   RuntimeCapabilities,
   TaskProgressUpdate,
@@ -42,11 +46,21 @@ function assertTrusted(event: IpcMainInvokeEvent, window: BrowserWindow): void {
   }
 }
 
+export interface DesktopIpc {
+  updateSettings: (input: AppSettingsPatch) => Promise<AppSettings>
+  integrationState: () => Promise<DesktopIntegrationState>
+  repairIntegration: () => Promise<DesktopIntegrationState>
+  openSystemSettings: () => Promise<void>
+  getNavigation: () => DesktopNavigation | null
+  acknowledgeNavigation: (id: string) => void
+}
+
 export function registerIpc(
   getWindow: () => BrowserWindow | null,
   queue: TaskQueue,
   settings: SettingsStore,
-  updates: UpdateService
+  updates: UpdateService,
+  desktop?: DesktopIpc
 ): () => void {
   const window = (): BrowserWindow => {
     const current = getWindow()
@@ -271,9 +285,37 @@ export function registerIpc(
   })
   handle(IPC_CHANNELS.updateSettings, (event, input: unknown) => {
     assertTrusted(event, window())
-    const updated = settings.update(sanitizeSettings(input))
-    queue.setConcurrency(resolveTaskConcurrency(updated.common.concurrency))
-    return updated
+    const patch = sanitizeSettings(input)
+    const apply = (updated: AppSettings): AppSettings => {
+      queue.setConcurrency(resolveTaskConcurrency(updated.common.concurrency))
+      return updated
+    }
+    return desktop ? desktop.updateSettings(patch).then(apply) : apply(settings.update(patch))
+  })
+  const desktopRuntime = (): DesktopIpc => {
+    if (!desktop) throw new Error('系统集成不可用')
+    return desktop
+  }
+  handle(IPC_CHANNELS.getDesktopIntegration, (event) => {
+    assertTrusted(event, window())
+    return desktopRuntime().integrationState()
+  })
+  handle(IPC_CHANNELS.repairDesktopIntegration, (event) => {
+    assertTrusted(event, window())
+    return desktopRuntime().repairIntegration()
+  })
+  handle(IPC_CHANNELS.openDesktopSystemSettings, (event) => {
+    assertTrusted(event, window())
+    return desktopRuntime().openSystemSettings()
+  })
+  handle(IPC_CHANNELS.getDesktopNavigation, (event) => {
+    assertTrusted(event, window())
+    return desktopRuntime().getNavigation()
+  })
+  handle(IPC_CHANNELS.acknowledgeDesktopNavigation, (event, id: unknown) => {
+    assertTrusted(event, window())
+    if (typeof id !== 'string' || id.length > 100) throw new Error('导航请求无效')
+    desktopRuntime().acknowledgeNavigation(id)
   })
   handle(IPC_CHANNELS.getCapabilities, async (event): Promise<RuntimeCapabilities> => {
     assertTrusted(event, window())
@@ -357,6 +399,7 @@ export function registerIpc(
       if (
         channel !== IPC_CHANNELS.tasksChanged &&
         channel !== IPC_CHANNELS.taskProgressChanged &&
+        channel !== IPC_CHANNELS.desktopNavigation &&
         channel !== IPC_CHANNELS.updatesChanged
       ) {
         ipcMain.removeHandler(channel)

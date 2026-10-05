@@ -4,7 +4,8 @@ import type {
   FontConversionSubsetPreset,
   FontFormat,
   FontInstance,
-  MediaInputMetadata
+  MediaInputMetadata,
+  ImageFormat
 } from '../../shared/types'
 import {
   getOutputExtension,
@@ -15,6 +16,7 @@ import {
 } from './output-path'
 
 export interface TaskSource {
+  outputFormat?: Exclude<ImageFormat, 'original'>
   path: string
   relativeDirectory: string
   batchItemId?: string
@@ -132,7 +134,7 @@ export function planSourceOutputs(
   const extension = getOutputExtension(
     request.kind,
     source.path,
-    request.kind === 'image' ? request.options.format : undefined,
+    request.kind === 'image' ? (source.outputFormat ?? request.options.format) : undefined,
     request.kind === 'video' ? request.options.format : undefined,
     request.kind === 'audio' ? request.options.format : undefined,
     undefined,

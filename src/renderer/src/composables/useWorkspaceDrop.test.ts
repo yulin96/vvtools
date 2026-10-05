@@ -109,14 +109,16 @@ describe('workspace drop lifecycle', () => {
     expect(add.mock.calls.map(([type, , capture]) => [type, capture])).toEqual([
       ['dragover', true],
       ['dragleave', true],
-      ['drop', true]
+      ['drop', true],
+      ['vvtools:routed-files', undefined]
     ])
 
     unmount()
     expect(remove.mock.calls.map(([type, , capture]) => [type, capture])).toEqual([
       ['dragover', true],
       ['dragleave', true],
-      ['drop', true]
+      ['drop', true],
+      ['vvtools:routed-files', undefined]
     ])
     target.dispatchEvent(dragEvent('dragover'))
     target.dispatchEvent(dragEvent('drop', ['/tmp/late.ttf']))
@@ -136,5 +138,25 @@ describe('workspace drop lifecycle', () => {
     expect(routed).toHaveBeenCalledExactlyOnceWith(['/tmp/first.ttf', '/tmp/second.otf'])
     expect(dropped).not.toHaveBeenCalled()
     expect(takeRoutedDrop('/font')).toEqual([])
+  })
+  it('delivers shell-routed files to an already mounted workspace and removes that listener on unmount', () => {
+    windowFixture()
+    const routed = vi.fn()
+    const { unmount } = mountDrop(vi.fn(), { path: '/font', receivePaths: routed })
+    routed.mockClear()
+    queueRoutedDrop('/font', ['/tmp/shell.ttf', '/tmp/another.ttf'])
+    expect(routed).toHaveBeenCalledExactlyOnceWith(['/tmp/shell.ttf', '/tmp/another.ttf'])
+    unmount()
+    queueRoutedDrop('/font', ['/tmp/late.ttf'])
+    expect(routed).toHaveBeenCalledOnce()
+    expect(takeRoutedDrop('/font')).toEqual(['/tmp/late.ttf'])
+    unmounts.splice(unmounts.indexOf(unmount), 1)
+  })
+
+  it('does not stage an empty routed import when the workspace mounts with no incoming files', () => {
+    windowFixture()
+    const routed = vi.fn()
+    mountDrop(vi.fn(), { path: '/font', receivePaths: routed })
+    expect(routed).not.toHaveBeenCalled()
   })
 })

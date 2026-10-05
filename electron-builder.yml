@@ -27,7 +27,11 @@ asarUnpack:
   - 'node_modules/@img/**'
 win:
   executableName: vvtools
+  extraResources:
+    - from: .release/shell/vvtools-shell.dll
+      to: shell/vvtools-shell.dll
 nsis:
+  include: build/desktop-integration.nsh
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}

@@ -5,6 +5,7 @@ import type {
   AppSettings,
   AppSettingsPatch,
   CreateTasksRequest,
+  DesktopNavigation,
   FontConversionSubsetPreset,
   FontFormat,
   FontOptions,
@@ -194,12 +195,26 @@ export const useAppStore = defineStore('app', () => {
       const removed = new Set(update.removedTaskIds)
       const replacements = new Map(update.tasks.map((task) => [task.id, task]))
       const knownIds = new Set(tasks.value.map((task) => task.id))
+      const desktopTasks = update.tasks.filter(
+        (task) => task.desktopRequestId && !knownIds.has(task.id)
+      )
+      const newDesktopBatch = desktopTasks.filter(
+        (task) =>
+          !tasks.value.some(
+            (previous) =>
+              previous.desktopRequestId === task.desktopRequestId &&
+              previous.batchItemId === task.batchItemId
+          )
+      )
+      for (const kind of new Set(newDesktopBatch.map((task) => task.kind)))
+        prepareCurrentBatch(kind)
       applyTasksSnapshot([
         ...tasks.value
           .filter((task) => !removed.has(task.id))
           .map((task) => replacements.get(task.id) ?? task),
         ...update.tasks.filter((task) => !knownIds.has(task.id))
       ])
+      appendCurrentBatchTasks(desktopTasks)
     } else {
       const index = tasks.value.findIndex((task) => task.id === update.id)
       if (index < 0 || tasks.value[index].progress === update.progress) return
@@ -234,7 +249,9 @@ export const useAppStore = defineStore('app', () => {
       taskSequence = snapshot.sequence
       tasks.value = snapshot.tasks
       appendCurrentBatchTasks(
-        snapshot.tasks.filter((task) => ['pending', 'processing'].includes(task.status))
+        snapshot.tasks.filter(
+          (task) => task.desktopRequestId || ['pending', 'processing'].includes(task.status)
+        )
       )
       for (const update of pendingUpdates) applyTaskUpdate(update)
       appendCurrentBatchTasks(
@@ -480,6 +497,35 @@ export const useAppStore = defineStore('app', () => {
     errorMessage.value = friendlyErrorMessage(error)
   }
 
+  function stageDesktopFiles(navigation: DesktopNavigation): void {
+    if (navigation.path === '/settings' || !settings.value) return
+    const kind = navigation.path.slice(1) as TaskKind
+    const paths = [...new Set(navigation.paths ?? [])]
+    if (paths.length && !navigation.preserveBatch) prepareCurrentBatch(kind)
+    if (kind === 'image') {
+      const known = new Set(pendingImageInputs.value.map((input) => input.path))
+      pendingImageInputs.value.push(
+        ...paths.filter((path) => !known.has(path)).map((path) => ({ path, relativeDirectory: '' }))
+      )
+    } else if (kind === 'font') {
+      const known = new Set(pendingFontItems.value.map((input) => input.path))
+      pendingFontItems.value.push(
+        ...paths
+          .filter((path) => !known.has(path))
+          .map((path, index) => ({
+            id: navigation.id + ':' + index,
+            path,
+            outputFormat: settings.value!.font.lastOptions.outputFormat
+          }))
+      )
+    } else {
+      const targets = { video: pendingVideoPaths, audio: pendingAudioPaths, pdf: pendingPdfPaths }
+      const target = targets[kind as keyof typeof targets]
+      if (target) target.value = [...new Set([...target.value, ...paths])]
+    }
+    if (navigation.notice) reportError(navigation.notice)
+  }
+
   return {
     tasks,
     settings,
@@ -499,6 +545,8 @@ export const useAppStore = defineStore('app', () => {
     pendingFontItems,
     pendingRenameFiles,
     currentBatchTasks,
+    stageDesktopFiles,
+    reportError,
     prepareCurrentBatch,
     activeCount,
     initialize,

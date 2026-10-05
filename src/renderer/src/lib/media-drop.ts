@@ -50,6 +50,7 @@ export function workspaceAcceptsDrop(path: MediaWorkspacePath, paths: string[]):
 
 export function queueRoutedDrop(path: MediaWorkspacePath, paths: string[]): void {
   routedDropPaths.set(path, [...(routedDropPaths.get(path) ?? []), ...paths])
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('vvtools:routed-files'))
 }
 
 export function takeRoutedDrop(path: MediaWorkspacePath): string[] {

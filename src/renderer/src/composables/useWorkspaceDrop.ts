@@ -8,6 +8,11 @@ export function useWorkspaceDrop(
   routedDrop?: { path: MediaWorkspacePath; receivePaths: ReceivePaths }
 ): Ref<boolean> {
   const dragging = ref(false)
+  function receiveRoutedFiles(): void {
+    if (!routedDrop) return
+    const paths = takeRoutedDrop(routedDrop.path)
+    if (paths.length) void routedDrop.receivePaths(paths)
+  }
 
   function hasFiles(event: DragEvent): boolean {
     return [...(event.dataTransfer?.types ?? [])].includes('Files')
@@ -38,13 +43,15 @@ export function useWorkspaceDrop(
     window.addEventListener('dragover', handleDragOver, true)
     window.addEventListener('dragleave', handleDragLeave, true)
     window.addEventListener('drop', handleDrop, true)
-    if (routedDrop) void routedDrop.receivePaths(takeRoutedDrop(routedDrop.path))
+    window.addEventListener('vvtools:routed-files', receiveRoutedFiles)
+    receiveRoutedFiles()
   })
 
   onBeforeUnmount(() => {
     window.removeEventListener('dragover', handleDragOver, true)
     window.removeEventListener('dragleave', handleDragLeave, true)
     window.removeEventListener('drop', handleDrop, true)
+    window.removeEventListener('vvtools:routed-files', receiveRoutedFiles)
   })
 
   return dragging

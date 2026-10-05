@@ -22,6 +22,7 @@ import {
   DEFAULT_VIDEO_OPTIONS
 } from '../../shared/constants'
 import { normalizeConcurrencySettings } from './task-concurrency'
+import { normalizeDesktopSettings } from '../../shared/desktop-settings'
 
 export class SettingsStore {
   private readonly path: string
@@ -31,6 +32,7 @@ export class SettingsStore {
   constructor(userDataPath: string, downloadsPath: string) {
     this.path = join(userDataPath, 'settings.json')
     const defaults: AppSettings = {
+      desktop: normalizeDesktopSettings(undefined),
       common: {
         concurrency: structuredClone(DEFAULT_CONCURRENCY_SETTINGS),
         closeBehavior: 'ask',
@@ -80,6 +82,7 @@ export class SettingsStore {
     const common = input.common
     const imageOptions = input.image?.lastOptions
     const nextSettings: AppSettings = {
+      desktop: normalizeDesktopSettings(input.desktop, this.settings.desktop),
       common: {
         concurrency: normalizeConcurrencySettings(
           common?.concurrency,
@@ -232,6 +235,7 @@ function migrateSettings(value: unknown, defaults: AppSettings): AppSettings {
     typeof common.outputSuffix === 'string' ? common.outputSuffix : undefined
 
   return {
+    desktop: normalizeDesktopSettings((value as Record<string, unknown>).desktop, defaults.desktop),
     common: migrateCommonSettings(common, defaults.common),
     image: {
       outputSuffix: migrateOutputSuffix(image, defaults.image.outputSuffix, legacyOutputSuffix),
