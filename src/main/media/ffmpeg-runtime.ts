@@ -1,7 +1,8 @@
 import { app } from 'electron'
 import { spawn } from 'child_process'
-import { basename, join } from 'path'
-import type { RuntimeCapabilities, TaskCommand } from '../../shared/types'
+import { join } from 'path'
+import type { RuntimeCapabilities } from '../../shared/types'
+export { createTaskCommand } from './task-command'
 
 let hardwareEncodersPromise: Promise<string[]> | null = null
 
@@ -26,19 +27,6 @@ export function getFfmpegPath(): string {
 export function getFfprobePath(): string {
   const path = app.isPackaged ? packagedBinaryPath('ffprobe') : developmentBinaryPath('ffprobe')
   return path
-}
-
-function quote(value: string): string {
-  if (!/[\s"']/u.test(value)) return value
-  return `"${value.replaceAll('"', '\\"')}"`
-}
-
-export function createTaskCommand(executable: string, args: string[]): TaskCommand {
-  return {
-    executable,
-    args: [...args],
-    display: [quote(basename(executable)), ...args.map(quote)].join(' ')
-  }
 }
 
 function readVersion(executable: string): Promise<string> {

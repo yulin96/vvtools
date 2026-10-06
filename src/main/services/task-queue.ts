@@ -378,22 +378,32 @@ export class TaskQueue extends EventEmitter {
         const activeTasks = [...this.tasks.values()].filter(
           (item) => item.status === 'pending' || item.status === 'processing'
         )
-        const parallelJobs = TASK_KINDS.reduce(
-          (count, kind) =>
-            count +
-            Math.min(
-              this.concurrency[kind],
-              activeTasks.filter((item) => item.kind === kind).length
-            ),
-          0
-        )
-        allocation = taskResources(task, this.resourceBudget, parallelJobs)
         const used = [...this.resources.values()].reduce(
           (total, item) => ({
             cpu: total.cpu + item.cpu,
             memoryBytes: total.memoryBytes + item.memoryBytes
           }),
           { cpu: 0, memoryBytes: 0 }
+        )
+        const waitingJobs = TASK_KINDS.reduce(
+          (count, kind) =>
+            count +
+            Math.min(
+              Math.max(0, this.concurrency[kind] - this.runningCount(kind)),
+              activeTasks.filter((item) => item.kind === kind && item.status === 'pending').length
+            ),
+          0
+        )
+        const memoryPerJob = taskResources(task, this.resourceBudget, 1).memoryBytes
+        const memorySlots = Math.max(
+          1,
+          Math.floor((this.resourceBudget.memoryBytes - used.memoryBytes) / memoryPerJob)
+        )
+        allocation = taskResources(
+          task,
+          this.resourceBudget,
+          Math.min(waitingJobs, memorySlots),
+          Math.max(1, this.resourceBudget.cpu - used.cpu)
         )
         if (
           used.cpu + allocation.cpu > this.resourceBudget.cpu ||

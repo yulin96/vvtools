@@ -17,8 +17,9 @@ const image: MediaTask = {
 }
 
 describe('task resource estimates', () => {
-  it('reserves device resources for the interface and caps the memory budget', () => {
+  it('reserves device resources for the interface and scales the memory budget with the device', () => {
     expect(deviceTaskBudget(10, 16 * 1024 * MIB)).toEqual({ cpu: 8, memoryBytes: 4096 * MIB })
+    expect(deviceTaskBudget(32, 64 * 1024 * MIB)).toEqual({ cpu: 25, memoryBytes: 16384 * MIB })
     expect(deviceTaskBudget(1, 1024 * MIB)).toEqual({ cpu: 1, memoryBytes: 256 * MIB })
   })
 
@@ -26,6 +27,7 @@ describe('task resource estimates', () => {
     const budget = { cpu: 8, memoryBytes: 4096 * MIB }
     expect(taskResources(image, budget, 1)).toMatchObject({ cpu: 8, threads: 8 })
     expect(taskResources(image, budget, 4)).toMatchObject({ cpu: 2, threads: 2 })
+    expect(taskResources(image, budget, 1, 3)).toMatchObject({ cpu: 3, threads: 3 })
     expect(
       taskResources({ ...image, options: { ...DEFAULT_IMAGE_OPTIONS, format: 'avif' } }, budget, 8)
     ).toMatchObject({ cpu: 4, threads: 1 })
@@ -55,7 +57,7 @@ describe('task resource estimates', () => {
         budget,
         4
       ).memoryBytes
-    ).toBe(64 * MIB + 8000 * 6000 * 4 + 1000 * 750 * 8)
+    ).toBe(128 * MIB + 8000 * 6000 * 4 + 1000 * 750 * 8)
     expect(
       taskResources({ ...image, inputWidth: 32768, inputHeight: 32768 }, budget, 4).memoryBytes
     ).toBe(4096 * MIB)

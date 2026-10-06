@@ -126,11 +126,11 @@ describe('TaskQueue', () => {
       ]
     })
     expect(queue.list().map((task) => task.status)).toEqual(['processing', 'pending'])
-    expect(startedThreads).toEqual([2])
+    expect(startedThreads).toEqual([4])
     releases[0]()
     await waitFor(() => releases.length === 2)
     expect(queue.list().map((task) => task.status)).toEqual(['completed', 'processing'])
-    expect(startedThreads).toEqual([2, 4])
+    expect(startedThreads).toEqual([4, 4])
     releases[1]()
     await waitFor(() => queue.activeCount() === 0)
     expect(queue.list().every((task) => task.processingThreads === undefined)).toBe(true)

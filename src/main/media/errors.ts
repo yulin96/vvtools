@@ -31,3 +31,27 @@ export class MediaProcessError extends Error {
     this.name = 'MediaProcessError'
   }
 }
+
+export interface ProcessFailure {
+  name?: string
+  error?: string
+  details?: MediaProcessError['details']
+  outputSize?: number
+}
+
+export function processFailure(error: unknown): ProcessFailure {
+  return {
+    name: error instanceof Error ? error.name : 'Error',
+    error: error instanceof Error ? error.message : String(error),
+    details: error instanceof MediaProcessError ? error.details : undefined,
+    outputSize: error instanceof TaskSkippedError ? error.outputSize : undefined
+  }
+}
+
+export function restoreProcessFailure(failure: ProcessFailure): Error {
+  const message = failure.error || '后台处理失败'
+  if (failure.name === 'TaskSkippedError') return new TaskSkippedError(message, failure.outputSize)
+  if (failure.name === 'TaskCancelledError') return new TaskCancelledError()
+  if (failure.name === 'MediaProcessError') return new MediaProcessError(message, failure.details)
+  return new Error(message)
+}

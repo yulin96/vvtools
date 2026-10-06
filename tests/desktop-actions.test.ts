@@ -3,15 +3,16 @@ import { mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import sharp from 'sharp'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 import { DesktopActions } from '../src/main/services/desktop-actions'
 import { TaskQueue, type TaskRunner } from '../src/main/services/task-queue'
 import { FailureLogService } from '../src/main/services/failure-log'
-import { processImage } from '../src/main/media/image-processor'
+import { imageProcesses, processImage } from '../src/main/media/image-processor'
 import { normalizeDesktopSettings } from '../src/shared/desktop-settings'
 import type { DesktopSettings } from '../src/shared/types'
 
 const cleanups: Array<() => void | Promise<void>> = []
+afterAll(() => imageProcesses.shutdown())
 async function fixture(
   settings: DesktopSettings = normalizeDesktopSettings(undefined),
   runner: TaskRunner = processImage

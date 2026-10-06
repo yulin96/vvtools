@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess, type Serializable } from 'child_process'
-import { TaskCancelledError } from './errors'
+import { restoreProcessFailure, TaskCancelledError, type ProcessFailure } from './errors'
 
 interface Job {
   request: Serializable
@@ -7,6 +7,7 @@ interface Job {
   resolve: (value: unknown) => void
   reject: (error: unknown) => void
   abort: () => void
+  onProgress?: (progress: number) => void
 }
 interface ProcessSlot {
   child: ChildProcess
@@ -25,12 +26,17 @@ export class MediaProcessPool {
     private readonly maximum: number
   ) {}
 
-  run<T>(request: Serializable, signal = new AbortController().signal): Promise<T> {
+  run<T>(
+    request: Serializable,
+    signal = new AbortController().signal,
+    onProgress?: (progress: number) => void
+  ): Promise<T> {
     if (signal.aborted || this.stopped) return Promise.reject(new TaskCancelledError())
     return new Promise<T>((resolve, reject) => {
       const job: Job = {
         request,
         signal,
+        onProgress,
         resolve: (value) => resolve(value as T),
         reject,
         abort: () => {
@@ -99,12 +105,21 @@ export class MediaProcessPool {
     child.on('message', (message: unknown) => {
       const job = slot.job
       if (!job || !message || typeof message !== 'object') return
-      const reply = message as { ok?: boolean; result?: unknown; error?: string }
+      const reply = message as ProcessFailure & {
+        ok?: boolean
+        result?: unknown
+        progress?: number
+      }
       if (job.signal.aborted) return
+      if (typeof reply.progress === 'number') {
+        job.onProgress?.(reply.progress)
+        return
+      }
+      if (typeof reply.ok !== 'boolean') return
       slot.job = null
       this.settle(job, () => {
         if (reply.ok) job.resolve(reply.result)
-        else job.reject(new Error(reply.error || '后台处理失败'))
+        else job.reject(restoreProcessFailure(reply))
       })
       this.pump()
       if (!slot.job && this.slots.has(slot)) {

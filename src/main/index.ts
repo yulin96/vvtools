@@ -21,7 +21,7 @@ import {
   registerFontPreviewProtocol,
   registerFontPreviewScheme
 } from './media/font-preview-protocol'
-import { processImage } from './media/image-processor'
+import { imageProcesses, processImage } from './media/image-processor'
 import { processPdf, shutdownPdfProcesses } from './media/pdf-processor'
 import { processVideo } from './media/video-processor'
 import { processSprite } from './media/sprite-processor'
@@ -562,6 +562,7 @@ app.on('before-quit', () => {
   queue?.shutdown()
   shutdownPdfProcesses()
   fontMetadataProcesses.shutdown()
+  imageProcesses.shutdown()
   clearFontPreview()
   unregisterIpc?.()
   applicationIcons.dispose()
