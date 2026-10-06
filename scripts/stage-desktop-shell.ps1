@@ -13,7 +13,7 @@ $object = Join-Path $target 'vvtools-shell.obj'
 $dll = Join-Path $target 'vvtools-shell.dll'
 $compilerArgs = @(
   '/nologo', '/utf-8', '/std:c++17', '/EHsc', '/W4', '/LD', '/MT',
-  $source, "/Fo$object", '/link', "/OUT:$dll",
+  $source, "/Fo$object", '/link', "/OUT:$dll", "/DEF:$(Join-Path $project 'build/shell/vvtools-shell.def')",
   'ole32.lib', 'shell32.lib', 'shlwapi.lib', 'advapi32.lib'
 )
 & cl.exe @compilerArgs

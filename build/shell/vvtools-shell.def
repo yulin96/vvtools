@@ -1,0 +1,4 @@
+LIBRARY vvtools-shell
+EXPORTS
+  DllGetClassObject PRIVATE
+  DllCanUnloadNow PRIVATE

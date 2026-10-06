@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include <windows.h>
 #include <shobjidl.h>
 #include <shlwapi.h>
@@ -216,9 +217,9 @@ class Factory final : public RuntimeClass<RuntimeClassFlags<ClassicCom>, IClassF
   }
   IFACEMETHODIMP LockServer(BOOL lock) override { lock ? ++locks : --locks; return S_OK; }
 };
-extern "C" __declspec(dllexport) HRESULT __stdcall DllGetClassObject(REFCLSID clsid, REFIID iid, void** out) {
+STDAPI DllGetClassObject(REFCLSID clsid, REFIID iid, void** out) {
   if (clsid != ShellClsid) return CLASS_E_CLASSNOTAVAILABLE;
   const auto factory = Make<Factory>();
   return factory ? factory.CopyTo(iid, out) : E_OUTOFMEMORY;
 }
-extern "C" __declspec(dllexport) HRESULT __stdcall DllCanUnloadNow() { return objects == 0 && locks == 0 ? S_OK : S_FALSE; }
+STDAPI DllCanUnloadNow() { return objects == 0 && locks == 0 ? S_OK : S_FALSE; }
