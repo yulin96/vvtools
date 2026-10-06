@@ -86,10 +86,11 @@ pnpm build:linux
 
 向 `main` 推送 `v*` 标签后，[`.github/workflows/release.yml`](./.github/workflows/release.yml)
 会分别构建 macOS ARM64、macOS x64、Windows x64 和 Linux x64 安装包，随后创建
-GitHub Release，并将安装包与更新元数据上传到 OSS。Windows、macOS 和 Linux 均从
-OSS/CDN 检查、下载并安装新版本。macOS 会为 ARM64 和 x64 分别生成 ZIP 更新包、blockmap
-及 `latest-mac.yml`，并使用 Ad-hoc 签名；若自动更新失败，可从界面转到 GitHub Release
-手动下载 DMG。
+GitHub Release。安装包、blockmap 和更新清单均由 GitHub Releases 提供，不再上传到 OSS。
+Windows NSIS 和 Linux AppImage 可在应用内检查、下载和安装更新；macOS 当前使用 Ad-hoc
+签名，检查更新后会打开对应版本、对应架构的 GitHub DMG，下载后手动替换应用。
+macOS ARM64/x64 的文件信息合并到同一份 `latest-mac.yml`，并保留架构清单与 Homebrew
+使用的稳定 DMG 别名。
 
 日常开发把用户可见的功能、界面、行为、兼容性或缺陷修复写入
 [`release-notes.md`](./release-notes.md) 顶部的 `未发布` 章节。发布时执行：
@@ -105,54 +106,18 @@ pnpm release 0.1.0
 日志、运行 typecheck/lint/test、提交、创建带注释的标签，并原子推送分支和标签。Action
 只把目标版本的日志写入应用、更新元数据和 GitHub Release，不会发布完整历史。
 
-### OSS 更新配置
+### GitHub 更新配置
 
-在 GitHub 仓库的 `Settings > Secrets and variables > Actions` 中配置：
+更新源已在 `electron-builder.yml` 中配置为公开仓库 `yulin96/vvtools` 的 GitHub provider。
+本地打包不再需要 `VVTOOLS_UPDATE_BASE_URL`。发布 Action 使用仓库内置的 `GITHUB_TOKEN`
+和 `contents: write` 权限，无需 OSS 密钥、Bucket 或 CDN 配置；应用端无需 GitHub Token。
+新 Release 先以草稿上传完整资源，再对外发布。
 
-- Secrets：`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`。
-- Variables：`OSS_BUCKET`、`OSS_REGION`、`OSS_RELEASE_PREFIX`、
-  `VVTOOLS_UPDATE_BASE_URL`。
-- 可选 Variable：使用自定义或内网 Endpoint 时配置 `OSS_ENDPOINT`。
+已安装的旧版本仍内置 OSS 更新地址，无法因仓库配置变化而自动切换；需要从 GitHub
+手动安装一次切换后的新版本，之后使用 GitHub 更新。旧 OSS 文件和账号配置不会被发布
+流程自动删除，迁移结束后可自行清理；仓库中原有 OSS Secrets/Variables 也可移除。
 
-`VVTOOLS_UPDATE_BASE_URL` 必须是终端用户可匿名访问的 HTTPS 地址，且它的路径必须与
-`OSS_RELEASE_PREFIX` 指向同一目录。例如：
-
-```text
-OSS_RELEASE_PREFIX=vvtools/releases
-VVTOOLS_UPDATE_BASE_URL=https://download.example.com/vvtools/releases
-```
-
-OSS Bucket 或绑定的 CDN 域名需要允许匿名 `GET`/`HEAD`，并正确处理 Range 请求。更新清单
-会使用 5 分钟缓存，带版本号的安装包会使用长期不可变缓存。若域名开启 CDN，请不要为
-`latest.yml`、`latest-mac.yml` 和 `latest-linux.yml` 设置长期缓存。
-
-建议为 Action 单独创建 RAM 用户，并将写权限限制到发布前缀：
-
-```json
-{
-  "Version": "1",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["oss:PutObject", "oss:AbortMultipartUpload", "oss:ListParts"],
-      "Resource": ["acs:oss:*:*:<bucket>/<release-prefix>/*"]
-    }
-  ]
-}
-```
-
-将 `<bucket>` 和 `<release-prefix>` 替换为实际值。应用的更新请求来自 Electron 主进程和
-原生 updater，不需要浏览器 CORS；如果 Bucket 保持私有，需要通过带回源鉴权的 CDN
-向用户公开下载地址。
-
-本地执行打包命令时也必须提供 `VVTOOLS_UPDATE_BASE_URL`：
-
-```bash
-VVTOOLS_UPDATE_BASE_URL=https://download.example.com/vvtools/releases pnpm build:mac
-```
-
-GitHub Release 仍使用仓库内置的 `GITHUB_TOKEN`，无需额外 Token。macOS 当前使用 Ad-hoc
-签名，不等同于 Apple Developer ID 签名和公证；直接下载 DMG 时 Gatekeeper 仍可能提示
+macOS 当前使用 Ad-hoc 签名，不等同于 Apple Developer ID 签名和公证；直接下载 DMG 时 Gatekeeper 仍可能提示
 风险。Homebrew Cask 安装会自动清除自身安装应用的 quarantine 属性，手动安装可执行：
 
 ```bash

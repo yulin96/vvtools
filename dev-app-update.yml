@@ -1,3 +1,5 @@
-provider: generic
-url: https://example.com/vvtools-updates/mac-arm64
+provider: github
+owner: yulin96
+repo: vvtools
+private: false
 updaterCacheDirName: vvtools-updater

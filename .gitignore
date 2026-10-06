@@ -3,6 +3,8 @@ dist
 out
 .media-bin
 .release
+release-assets
+github-assets
 .DS_Store
 .eslintcache
 *.log*

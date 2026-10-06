@@ -150,7 +150,8 @@ export const useAppStore = defineStore('app', () => {
   })
   const updateButtonLabel = computed(() => {
     if (updateState.value.status === 'checking') return '检查中'
-    if (updateState.value.status === 'available') return '下载更新'
+    if (updateState.value.status === 'available')
+      return updateState.value.manualInstall ? '下载安装包' : '下载更新'
     if (updateState.value.status === 'downloading') return `${updateState.value.percent ?? 0}%`
     if (updateState.value.status === 'downloaded') return '重启安装'
     if (updateState.value.status === 'error' && updateState.value.version) return '手动下载'
@@ -493,6 +494,7 @@ export const useAppStore = defineStore('app', () => {
     } catch (error) {
       updateState.value = {
         status: 'error',
+        manualInstall: updateState.value.manualInstall,
         message: error instanceof Error ? error.message : String(error)
       }
     }

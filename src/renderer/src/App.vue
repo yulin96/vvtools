@@ -344,7 +344,9 @@ onBeforeUnmount(() => {
           ? '程序将关闭并安装新版本，是否立即重启？'
           : store.updateDialog === 'failed'
             ? '自动更新未能完成，可前往 GitHub 手动下载。'
-            : `新版本 ${store.updateState.version ?? ''} 已发布，是否现在下载？`
+            : store.updateState.manualInstall
+              ? `新版本 ${store.updateState.version ?? ''} 已发布。将在浏览器中打开安装包，下载后替换应用程序中的 VVTools。`
+              : `新版本 ${store.updateState.version ?? ''} 已发布，是否现在下载？`
       "
       @update:open="!$event && (store.updateDialog = null)"
     >
@@ -375,7 +377,7 @@ onBeforeUnmount(() => {
               ? '重启安装'
               : store.updateDialog === 'failed'
                 ? '手动下载'
-                : '下载更新'
+                : store.updateButtonLabel
           }}
         </Button>
       </div>

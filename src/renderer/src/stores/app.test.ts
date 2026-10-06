@@ -299,6 +299,20 @@ describe('task state deltas', () => {
     expect(disposeTasks).toHaveBeenCalledOnce()
     expect(disposeProgress).toHaveBeenCalledOnce()
   })
+  it('labels manual installation as a package download while retaining the automatic download label', async () => {
+    const { store } = fixture()
+    try {
+      await store.initialize()
+      store.updateState = { status: 'available', version: '0.1.0', manualInstall: true }
+      expect(store.updateButtonLabel).toBe('下载安装包')
+      await store.requestUpdateAction()
+      expect(store.updateDialog).toBe('available')
+      store.updateState = { status: 'available', version: '0.1.0', manualInstall: false }
+      expect(store.updateButtonLabel).toBe('下载更新')
+    } finally {
+      store.dispose()
+    }
+  })
   it('mirrors settled desktop rows on initial load without exposing unrelated settled tasks', async () => {
     const first = { ...imageTask('native-first', 'completed'), desktopRequestId: 'request' }
     const second = { ...imageTask('native-second', 'failed'), desktopRequestId: 'request' }

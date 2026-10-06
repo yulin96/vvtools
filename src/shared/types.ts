@@ -593,6 +593,7 @@ export type UpdateStatus =
   | 'unsupported'
 
 export interface UpdateState {
+  manualInstall?: boolean
   status: UpdateStatus
   version?: string
   percent?: number

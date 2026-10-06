@@ -14,8 +14,6 @@ cask "vvtools" do
     strategy :github_latest
   end
 
-  auto_updates true
-
   app "VVTools.app"
 
   postflight_steps do
