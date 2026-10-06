@@ -1,9 +1,8 @@
-import sharp from 'sharp'
+import sharp from './sharp-runtime'
 import type { MediaTask } from '../../shared/types'
 import { processFailure } from './errors'
 import { processImageCore } from './image-processor-core'
 
-sharp.cache(false)
 process.on('message', async (task: MediaTask) => {
   try {
     sharp.concurrency(task.processingThreads ?? 2)

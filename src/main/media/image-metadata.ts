@@ -1,5 +1,5 @@
 import { statSync } from 'fs'
-import sharp from 'sharp'
+import sharp from './sharp-runtime'
 import type { ImageSourceMetadata } from '../../shared/types'
 
 export async function inspectImageMetadata(

@@ -71,7 +71,7 @@ async function main(): Promise<void> {
     run('git', ['diff', '--check'])
 
     run('git', ['add', '--', 'package.json', 'release-notes.md'])
-    run('git', ['commit', '-m', nextVersion])
+    run('git', ['commit', '-m', `chore(release): 发布 ${tag}`])
     commitCreated = true
     run('git', ['tag', '-a', tag, '-m', tag])
     tagCreated = true

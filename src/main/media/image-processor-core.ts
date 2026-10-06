@@ -1,6 +1,7 @@
 import { rename, rm, stat } from 'fs/promises'
 import { extname } from 'path'
-import sharp, { type Metadata, type Sharp } from 'sharp'
+import type { Metadata, Sharp } from 'sharp'
+import sharp from './sharp-runtime'
 import type { ImageFormat, ImageOptions, MediaTask } from '../../shared/types'
 import { MediaProcessError, TaskCancelledError, TaskSkippedError } from './errors'
 import { createTaskCommand } from './task-command'

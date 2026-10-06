@@ -1,4 +1,4 @@
-import sharp from 'sharp'
+import sharp from '../media/sharp-runtime'
 import { randomUUID } from 'crypto'
 import { extname } from 'path'
 import type {

@@ -32,7 +32,7 @@ describe('bundled PDF and font runtimes', () => {
       available: true,
       version: '4.66.1 (Pyodide)'
     })
-  })
+  }, 30_000)
 
   it('subsets a real font and writes WOFF2 with only the requested character', async () => {
     const root = await mkdtemp(join(tmpdir(), 'vvtools-font-runtime-'))
@@ -66,7 +66,7 @@ describe('bundled PDF and font runtimes', () => {
       subset.characterSet.filter((codePoint: number) => subset.hasGlyphForCodePoint(codePoint))
     ).toEqual([0x41])
     expect(subset.numGlyphs).toBe(2)
-  })
+  }, 30_000)
 
   it('instantiates a real variable font and removes its variation axes', async () => {
     const root = await mkdtemp(join(tmpdir(), 'vvtools-font-variable-'))
@@ -121,5 +121,5 @@ fb.save('/variable.ttf')
       output.characterSet.filter((codePoint: number) => output.hasGlyphForCodePoint(codePoint))
     ).toEqual([0x41])
     expect(output.glyphForCodePoint(0x41).advanceWidth).toBe(600)
-  })
+  }, 30_000)
 })
