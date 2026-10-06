@@ -38,6 +38,7 @@ const runtime = vi.hoisted(() => ({
     .fn<(options: unknown) => Promise<{ response: number }>>()
     .mockResolvedValue({ response: 1 }),
   quit: vi.fn(),
+  shutdownImages: vi.fn(),
   enqueue: vi.fn<(request: DesktopActionRequest) => Promise<void>>().mockResolvedValue(undefined),
   reportError: vi.fn(),
   result: vi.fn<() => DesktopResult | null>(() => null),
@@ -181,7 +182,10 @@ vi.mock('./services/update-service', () => ({
 }))
 vi.mock('./media/audio-processor', () => ({ processAudio: vi.fn() }))
 vi.mock('./media/font-processor', () => ({ processFont: vi.fn() }))
-vi.mock('./media/image-processor', () => ({ processImage: vi.fn() }))
+vi.mock('./media/image-processor', () => ({
+  processImage: vi.fn(),
+  imageProcesses: { shutdown: runtime.shutdownImages }
+}))
 vi.mock('./media/pdf-processor', () => ({ processPdf: vi.fn(), shutdownPdfProcesses: vi.fn() }))
 vi.mock('./media/video-processor', () => ({ processVideo: vi.fn() }))
 vi.mock('./media/sprite-processor', () => ({ processSprite: vi.fn() }))
@@ -228,6 +232,11 @@ async function start(): Promise<void> {
 }
 
 describe('desktop lifecycle orchestration', () => {
+  it('stops the image background processes when the application quits', async () => {
+    await start()
+    runtime.events.get('before-quit')!()
+    expect(runtime.shutdownImages).toHaveBeenCalledOnce()
+  })
   it('never creates a Windows tray or its queue listener, including background close and second launch', async () => {
     await start()
     expect(runtime.windows).toHaveLength(1)
