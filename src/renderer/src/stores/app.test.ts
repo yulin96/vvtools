@@ -1,5 +1,6 @@
 import { normalizeDesktopSettings } from '../../../shared/desktop-settings'
 import { createPinia, setActivePinia } from 'pinia'
+import { computed } from 'vue'
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
   DEFAULT_AUDIO_OPTIONS,
@@ -113,6 +114,45 @@ function fixture(snapshot: TaskSnapshot | Promise<TaskSnapshot> = { sequence: 0,
 afterEach(() => vi.unstubAllGlobals())
 
 describe('task state deltas', () => {
+  it('updates progress and state in place without rebuilding batch rows', async () => {
+    const first = imageTask('first')
+    const second = imageTask('second')
+    const { store, updateTasks, updateProgress } = fixture({ sequence: 0, tasks: [first, second] })
+    try {
+      await store.initialize()
+      const task = store.tasks[0]
+      const taskList = store.tasks
+      const batch = store.currentBatchTasks
+      const batchRows = batch.image
+      const buildRows = vi.fn(() => store.currentBatchTasks.image.map((item) => item.id))
+      const rows = computed(buildRows)
+      expect(rows.value).toEqual(['first', 'second'])
+      for (let sequence = 1; sequence <= 40; sequence += 1) {
+        updateProgress({ sequence, id: first.id, progress: sequence })
+        expect(rows.value).toEqual(['first', 'second'])
+      }
+      expect(store.tasks[0]).toBe(task)
+      expect(store.tasks).toBe(taskList)
+      expect(store.currentBatchTasks).toBe(batch)
+      expect(store.currentBatchTasks.image).toBe(batchRows)
+      expect(buildRows).toHaveBeenCalledOnce()
+      expect(task.progress).toBe(40)
+      updateTasks({
+        sequence: 41,
+        tasks: [{ ...first, status: 'completed', progress: 100 }],
+        removedTaskIds: []
+      })
+      expect(store.tasks[0]).toBe(task)
+      expect(store.currentBatchTasks.image).toBe(batchRows)
+      expect(rows.value).toEqual(['first', 'second'])
+      expect(buildRows).toHaveBeenCalledOnce()
+      expect(store.activeCount).toBe(1)
+      expect(task.status).toBe('completed')
+    } finally {
+      store.dispose()
+    }
+  })
+
   it('merges changed tasks and removals without disturbing row order or unchanged task identity', async () => {
     const first = imageTask('first')
     const second = imageTask('second')

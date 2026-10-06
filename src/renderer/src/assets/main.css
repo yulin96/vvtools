@@ -2021,6 +2021,25 @@ input {
   transition: background-color var(--duration-quick) var(--ease-out);
 }
 
+.batch-task-table-virtual td {
+  height: var(--batch-row-height);
+}
+
+.batch-task-table-virtual .batch-col-spec {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-task-table .batch-task-spacer td {
+  border: 0;
+  padding: 0;
+}
+
+.batch-task-table tbody .batch-task-spacer:hover {
+  background: transparent;
+}
+
 .batch-task-table tbody tr:hover {
   background: var(--surface-raised);
 }

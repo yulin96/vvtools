@@ -24,6 +24,8 @@ import type {
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
 import { taskProgressText, taskProgressValue } from '../lib/task-progress'
+import { BATCH_ROW_HEIGHT } from '../lib/virtual-rows'
+import { useVirtualRows } from '../composables/useVirtualRows'
 import { fileName, formatBytes } from '../lib/utils'
 import Badge from './ui/Badge.vue'
 import Button from './ui/Button.vue'
@@ -95,6 +97,9 @@ const rows = computed<BatchRow[]>(() => {
   return result
 })
 const totalCount = computed(() => rows.value.length)
+const viewport = ref<HTMLDivElement>()
+const { range, onScroll } = useVirtualRows(totalCount, viewport)
+const visibleRows = computed(() => rows.value.slice(range.value.start, range.value.end))
 const pendingCount = computed(() => rows.value.filter((row) => !row.task).length)
 const activeCount = computed(
   () => props.tasks.filter((task) => ['pending', 'processing'].includes(task.status)).length
@@ -212,8 +217,20 @@ function taskFontCompression(task: MediaTask): string {
       </div>
     </header>
 
-    <div class="batch-task-table-wrap">
-      <table class="batch-task-table" :class="{ 'batch-task-table-font': kind === 'font' }">
+    <div
+      ref="viewport"
+      class="batch-task-table-wrap"
+      :style="{ '--batch-row-height': `${BATCH_ROW_HEIGHT}px` }"
+      tabindex="0"
+      role="region"
+      aria-label="当前任务列表"
+      @scroll.passive="onScroll"
+    >
+      <table
+        class="batch-task-table batch-task-table-virtual"
+        :class="{ 'batch-task-table-font': kind === 'font' }"
+        :aria-rowcount="totalCount + 1"
+      >
         <thead>
           <tr>
             <th class="batch-col-name">名称</th>
@@ -226,9 +243,13 @@ function taskFontCompression(task: MediaTask): string {
           </tr>
         </thead>
         <tbody>
+          <tr v-if="range.before" aria-hidden="true" class="batch-task-spacer">
+            <td :colspan="kind === 'font' ? 7 : 6" :style="{ height: `${range.before}px` }" />
+          </tr>
           <tr
-            v-for="row in rows"
+            v-for="(row, index) in visibleRows"
             :key="row.key"
+            :aria-rowindex="range.start + index + 2"
             :class="{ 'batch-task-row-skipped': row.task?.status === 'skipped' }"
           >
             <td class="batch-col-name">
@@ -298,7 +319,7 @@ function taskFontCompression(task: MediaTask): string {
                 <span>—</span>
               </div>
             </td>
-            <td class="batch-col-spec">
+            <td class="batch-col-spec" :title="row.task ? taskSpec(row.task) : row.pending?.spec">
               <template v-if="row.task">{{ taskSpec(row.task) }}</template>
               <slot v-else-if="row.pending" name="pending-spec" :item="row.pending">
                 {{
@@ -392,6 +413,9 @@ function taskFontCompression(task: MediaTask): string {
                 <X class="size-4" />
               </Button>
             </td>
+          </tr>
+          <tr v-if="range.after" aria-hidden="true" class="batch-task-spacer">
+            <td :colspan="kind === 'font' ? 7 : 6" :style="{ height: `${range.after}px` }" />
           </tr>
         </tbody>
       </table>

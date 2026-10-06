@@ -115,13 +115,13 @@ export const useAppStore = defineStore('app', () => {
   const activeCount = computed(
     () => tasks.value.filter((task) => ['pending', 'processing'].includes(task.status)).length
   )
+  const tasksById = computed(() => new Map(tasks.value.map((task) => [task.id, task])))
   const currentBatchTasks = computed<Record<TaskKind, MediaTask[]>>(() => {
-    const tasksById = new Map(tasks.value.map((task) => [task.id, task]))
     return Object.fromEntries(
       TASK_KINDS.map((kind) => [
         kind,
         currentBatchTaskIds.value[kind].flatMap((id) => {
-          const task = tasksById.get(id)
+          const task = tasksById.value.get(id)
           return task ? [task] : []
         })
       ])
@@ -177,21 +177,50 @@ export const useAppStore = defineStore('app', () => {
 
   function applyTasksSnapshot(nextTasks: MediaTask[]): void {
     const previousTasks = tasks.value
+    const previousById = tasksById.value
     for (const kind of TASK_KINDS) {
-      currentBatchTaskIds.value[kind] = reconcileCurrentBatchTaskIds(
+      const nextIds = reconcileCurrentBatchTaskIds(
         currentBatchTaskIds.value[kind],
         previousTasks,
         nextTasks,
         kind
       )
+      const currentIds = currentBatchTaskIds.value[kind]
+      if (
+        nextIds.length !== currentIds.length ||
+        nextIds.some((id, index) => id !== currentIds[index])
+      ) {
+        currentBatchTaskIds.value[kind] = nextIds
+      }
     }
-    tasks.value = nextTasks
+    tasks.value = nextTasks.map((task) => {
+      const previous = previousById.get(task.id)
+      if (!previous) return task
+      updateExistingTask(previous, task)
+      return previous
+    })
+  }
+
+  function updateExistingTask(previous: MediaTask, next: MediaTask): void {
+    if (previous === next) return
+    for (const key of Object.keys(previous)) {
+      if (!(key in next)) delete (previous as unknown as Record<string, unknown>)[key]
+    }
+    Object.assign(previous, next)
   }
 
   function applyTaskUpdate(update: TaskStateUpdate | TaskProgressUpdate): void {
     if (update.sequence <= taskSequence) return
     taskSequence = update.sequence
     if ('tasks' in update) {
+      const existing = tasksById.value
+      if (
+        !update.removedTaskIds.some((id) => existing.has(id)) &&
+        update.tasks.every((task) => existing.has(task.id))
+      ) {
+        for (const task of update.tasks) updateExistingTask(existing.get(task.id)!, task)
+        return
+      }
       const removed = new Set(update.removedTaskIds)
       const replacements = new Map(update.tasks.map((task) => [task.id, task]))
       const knownIds = new Set(tasks.value.map((task) => task.id))
@@ -216,9 +245,8 @@ export const useAppStore = defineStore('app', () => {
       ])
       appendCurrentBatchTasks(desktopTasks)
     } else {
-      const index = tasks.value.findIndex((task) => task.id === update.id)
-      if (index < 0 || tasks.value[index].progress === update.progress) return
-      tasks.value[index] = { ...tasks.value[index], progress: update.progress }
+      const task = tasksById.value.get(update.id)
+      if (task) task.progress = update.progress
     }
   }
 
