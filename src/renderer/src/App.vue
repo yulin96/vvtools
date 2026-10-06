@@ -1,19 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
+import { Download, PanelLeftClose, PanelLeftOpen, Settings, X } from '@lucide/vue'
 import {
-  Images,
-  Download,
-  FileText,
-  FilePenLine,
-  Music,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Settings,
-  Sheet,
-  Type,
-  Video,
-  X
-} from '@lucide/vue'
+  ImageWorkspaceIcon,
+  VideoWorkspaceIcon,
+  SpriteWorkspaceIcon,
+  AudioWorkspaceIcon,
+  PdfWorkspaceIcon,
+  FontWorkspaceIcon,
+  RenameWorkspaceIcon
+} from './lib/workspace-icons'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from './stores/app'
 import type { DesktopNavigation } from '../../shared/types'
@@ -71,15 +67,15 @@ const isMac = window.api.platform === 'darwin'
 const isWindows = window.api.platform === 'win32'
 const releaseNotesOpen = ref(false)
 const workspaceNavigation = [
-  { to: '/image', label: '图片处理', icon: Images },
-  { to: '/video', label: '视频处理', icon: Video },
-  { to: '/sprite', label: '视频雪碧图', icon: Sheet },
-  { to: '/audio', label: '音频处理', icon: Music },
-  { to: '/pdf', label: 'PDF 处理', icon: FileText },
-  { to: '/font', label: '字体处理', icon: Type }
+  { to: '/image', label: '图片处理', icon: ImageWorkspaceIcon },
+  { to: '/video', label: '视频处理', icon: VideoWorkspaceIcon },
+  { to: '/sprite', label: '视频雪碧图', icon: SpriteWorkspaceIcon },
+  { to: '/audio', label: '音频处理', icon: AudioWorkspaceIcon },
+  { to: '/pdf', label: 'PDF 处理', icon: PdfWorkspaceIcon },
+  { to: '/font', label: '字体处理', icon: FontWorkspaceIcon }
 ]
 const utilityNavigation = [
-  { to: '/rename', label: '批量重命名', icon: FilePenLine },
+  { to: '/rename', label: '批量重命名', icon: RenameWorkspaceIcon },
   { to: '/settings', label: '设置', icon: Settings }
 ]
 const currentPage = computed(

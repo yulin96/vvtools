@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FileAudio, Play, Plus, UploadCloud } from '@lucide/vue'
+import { Play, Plus, FolderInput } from '@lucide/vue'
+import { AudioWorkspaceIcon } from '../lib/workspace-icons'
 import type {
   AudioChannels,
   AudioFormat,
@@ -243,8 +244,8 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/audio', receivePaths: st
 
       <div v-else class="video-drop-prompt" :class="{ 'video-drop-prompt-active': dragging }">
         <div class="video-drop-icon">
-          <UploadCloud v-if="dragging" class="size-8" />
-          <FileAudio v-else class="size-8" />
+          <FolderInput v-if="dragging" class="size-8" />
+          <AudioWorkspaceIcon v-else class="size-8" />
         </div>
         <p class="text-lg font-semibold">
           {{ dragging ? '松开即可添加文件' : '拖入音频或视频文件' }}

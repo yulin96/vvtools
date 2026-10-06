@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FolderPlus, Images, Play, Plus, UploadCloud } from '@lucide/vue'
+import { FolderPlus, Play, Plus, FolderInput } from '@lucide/vue'
+import { ImageWorkspaceIcon } from '../lib/workspace-icons'
 import type {
   CreateTasksRequest,
   ImageCompressionMode,
@@ -531,8 +532,8 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
 
       <div v-else class="video-drop-prompt" :class="{ 'video-drop-prompt-active': dragging }">
         <div class="video-drop-icon">
-          <UploadCloud v-if="dragging" class="size-8" />
-          <Images v-else class="size-8" />
+          <FolderInput v-if="dragging" class="size-8" />
+          <ImageWorkspaceIcon v-else class="size-8" />
         </div>
         <p class="text-lg font-semibold">
           {{ dragging ? '松开即可添加图片或文件夹' : '拖入图片或文件夹' }}

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FileVideo2, Grid2X2, Play, Plus, UploadCloud } from '@lucide/vue'
+import { FileVideo2, Play, Plus, FolderInput } from '@lucide/vue'
+import { SpriteWorkspaceIcon } from '../lib/workspace-icons'
 import type {
   CreateTasksRequest,
   SpriteExportMode,
@@ -374,7 +375,10 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
       </CurrentBatchTable>
       <div v-else class="video-drop-prompt" :class="{ 'video-drop-prompt-active': dragging }">
         <div class="video-drop-icon">
-          <UploadCloud v-if="dragging" class="size-8" /><Grid2X2 v-else class="size-8" />
+          <FolderInput v-if="dragging" class="size-8" /><SpriteWorkspaceIcon
+            v-else
+            class="size-8"
+          />
         </div>
         <p class="text-lg font-semibold">
           {{ dragging ? '松开即可添加视频' : '拖入视频生成雪碧图' }}

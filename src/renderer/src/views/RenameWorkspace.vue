@@ -4,7 +4,6 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
-  Files,
   ListOrdered,
   Play,
   Plus,
@@ -12,6 +11,7 @@ import {
   TriangleAlert,
   X
 } from '@lucide/vue'
+import { RenameWorkspaceIcon } from '../lib/workspace-icons'
 import type {
   RenameFileInfo,
   RenameFileRequest,
@@ -628,7 +628,7 @@ onBeforeUnmount(() => {
         :class="{ 'video-drop-prompt-active': dragging }"
         @click="chooseFiles"
       >
-        <span class="video-drop-icon"><Files class="size-7" /></span>
+        <span class="video-drop-icon"><RenameWorkspaceIcon class="size-7" /></span>
         <span class="text-lg font-semibold">{{ resultMessage || '拖入需要重命名的文件' }}</span>
         <span class="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
           支持不同类型、不同文件夹的普通文件；点击名称、大小、创建时间或修改时间即可调整编号顺序。

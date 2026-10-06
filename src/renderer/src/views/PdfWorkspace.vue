@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { FileText, Play, Plus, UploadCloud } from '@lucide/vue'
+import { Play, Plus, FolderInput } from '@lucide/vue'
+import { PdfWorkspaceIcon } from '../lib/workspace-icons'
 import type {
   CreateTasksRequest,
   PdfCompressionMode,
@@ -324,8 +325,8 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/pdf', receivePaths: stag
 
       <div v-else class="video-drop-prompt" :class="{ 'video-drop-prompt-active': dragging }">
         <div class="video-drop-icon">
-          <UploadCloud v-if="dragging" class="size-8" />
-          <FileText v-else class="size-8" />
+          <FolderInput v-if="dragging" class="size-8" />
+          <PdfWorkspaceIcon v-else class="size-8" />
         </div>
         <p class="text-lg font-semibold">
           {{ dragging ? '松开即可添加 PDF' : emptyStateCopy.title }}

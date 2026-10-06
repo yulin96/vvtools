@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
-import { FileVideo2, Play, Plus, UploadCloud } from '@lucide/vue'
+import { Play, Plus, FolderInput } from '@lucide/vue'
+import { VideoWorkspaceIcon } from '../lib/workspace-icons'
 import type {
   CreateTasksRequest,
   VideoAudioMode,
@@ -521,8 +522,8 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
 
       <div v-else class="video-drop-prompt" :class="{ 'video-drop-prompt-active': dragging }">
         <div class="video-drop-icon">
-          <UploadCloud v-if="dragging" class="size-8" />
-          <FileVideo2 v-else class="size-8" />
+          <FolderInput v-if="dragging" class="size-8" />
+          <VideoWorkspaceIcon v-else class="size-8" />
         </div>
         <p class="text-lg font-semibold">{{ dragging ? '松开即可添加视频' : '拖入视频文件' }}</p>
         <p class="mt-1 text-sm text-muted-foreground">
