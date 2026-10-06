@@ -13,7 +13,6 @@ import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import Button from '../components/ui/Button.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
-import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
@@ -166,7 +165,6 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/audio', receivePaths: st
         <div class="video-config-actions">
           <OutputLocationControls />
           <div class="start-processing-actions">
-            <SourceOverwriteWarning />
             <Button
               size="sm"
               :disabled="audioStartItems.length === 0 || starting"

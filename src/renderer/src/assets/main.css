@@ -1286,10 +1286,20 @@ input {
 
 .config-heading-main {
   display: flex;
+  flex: 1 1 420px;
   min-width: 0;
   max-width: 100%;
   align-items: center;
   gap: 8px;
+}
+
+.config-heading-main > .compact-field {
+  flex-shrink: 0;
+}
+
+.config-summary {
+  min-width: 0;
+  flex: 1 1 0;
 }
 
 .config-expand-toggle {
@@ -1446,19 +1456,22 @@ input {
 }
 
 .source-overwrite-warning {
-  display: inline-flex;
-  height: 32px;
-  flex: 0 0 auto;
+  display: flex;
+  min-width: 0;
+  min-height: 28px;
+  flex: 0 1 auto;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   border: 1px solid color-mix(in srgb, var(--warning-fg) 30%, transparent);
   border-radius: 9px;
   background: var(--warning-bg);
-  padding: 0 9px;
+  padding: 5px 9px;
   color: var(--warning-fg);
   font-size: 11px;
   font-weight: 600;
+  line-height: 1.5;
   white-space: nowrap;
+  -webkit-app-region: no-drag;
 }
 
 .start-processing-actions {

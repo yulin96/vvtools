@@ -20,7 +20,6 @@ import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
-import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 
 const store = useAppStore()
 const pendingPaths = computed<string[]>({
@@ -253,7 +252,6 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
         <div class="video-config-actions">
           <OutputLocationControls />
           <div class="start-processing-actions">
-            <SourceOverwriteWarning />
             <Button size="sm" :disabled="!startItems.length || starting" @click="startProcessing">
               <Play class="size-4" />
               {{

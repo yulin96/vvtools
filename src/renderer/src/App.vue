@@ -16,6 +16,7 @@ import type { DesktopNavigation } from '../../shared/types'
 import appIcon from '../../../resources/logo.png'
 import Button from './components/ui/Button.vue'
 import Modal from './components/ui/Modal.vue'
+import SourceOverwriteWarning from './components/SourceOverwriteWarning.vue'
 import { themeModeKey, type ThemeMode } from './lib/theme'
 import {
   detectMediaWorkspacePath,
@@ -280,6 +281,7 @@ onBeforeUnmount(() => {
           <component :is="currentPage.icon" class="size-5" aria-hidden="true" />
           <h1 class="app-titlebar-page">{{ currentPage.label }}</h1>
         </div>
+        <SourceOverwriteWarning v-if="workspaceNavigation.some((item) => item.to === route.path)" />
         <span
           class="app-titlebar-task-status"
           :class="{ 'app-titlebar-task-status-active': store.activeCount > 0 }"

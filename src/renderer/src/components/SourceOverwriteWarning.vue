@@ -18,6 +18,6 @@ const visible = computed(() => store.settings?.common.outputConflictPolicy === '
     title="处理成功后，已有同名文件会先移入系统回收站；与源文件同名时，原文件也会移入回收站"
   >
     <TriangleAlert class="size-3.5 shrink-0" aria-hidden="true" />
-    同名文件将移到回收站
+    <span class="truncate">覆盖模式 · 同名文件移入回收站</span>
   </span>
 </template>

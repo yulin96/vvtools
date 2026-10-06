@@ -20,7 +20,6 @@ import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
-import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
@@ -350,7 +349,6 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
         <div class="video-config-actions">
           <OutputLocationControls />
           <div class="start-processing-actions">
-            <SourceOverwriteWarning />
             <Button
               size="sm"
               :disabled="videoStartItems.length === 0 || starting"

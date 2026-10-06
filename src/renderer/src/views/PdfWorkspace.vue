@@ -15,7 +15,6 @@ import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
-import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import { useWorkspaceDrop } from '../composables/useWorkspaceDrop'
 import { useTaskSubmission } from '../composables/useTaskSubmission'
@@ -176,7 +175,6 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/pdf', receivePaths: stag
         <div class="video-config-actions">
           <OutputLocationControls />
           <div class="start-processing-actions">
-            <SourceOverwriteWarning />
             <Button
               size="sm"
               :disabled="pdfStartItems.length === 0 || starting"
