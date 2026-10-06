@@ -167,6 +167,7 @@ async function renderSheet(
       )
       return
     }
+    child.stdout.resume()
     const cancel = (): void => {
       child.kill()
     }
