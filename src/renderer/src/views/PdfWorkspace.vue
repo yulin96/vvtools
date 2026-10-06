@@ -9,6 +9,7 @@ import type {
   PdfOptions
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
+import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
@@ -161,6 +162,16 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/pdf', receivePaths: stag
             hide-label
             @update:model-value="setWorkspaceMode($event as PdfWorkspaceMode)"
           />
+          <AdvancedSettingsPanel label="PDF更多设置">
+            <div class="advanced-settings-groups">
+              <fieldset class="config-group advanced-settings-list">
+                <legend>输出命名</legend>
+                <div class="config-group-fields">
+                  <OutputSuffixField kind="pdf" />
+                </div>
+              </fieldset>
+            </div>
+          </AdvancedSettingsPanel>
         </div>
         <div class="video-config-actions">
           <OutputLocationControls />
@@ -181,128 +192,96 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/pdf', receivePaths: stag
           </div>
         </div>
       </div>
-
-      <div
-        v-if="store.settings.pdf.lastOptions.operation === 'toImage'"
-        class="image-config-primary pdf-config-primary"
-      >
-        <fieldset class="config-group">
-          <legend class="sr-only">图片格式</legend>
-          <div class="config-group-fields">
-            <SegmentedControl
-              label="图片格式"
-              :model-value="store.settings.pdf.lastOptions.imageFormat"
-              :options="imageFormatOptions"
-              @update:model-value="updatePdf({ imageFormat: $event as PdfImageFormat })"
-            />
-          </div>
-        </fieldset>
-
-        <fieldset class="config-group">
-          <legend class="sr-only">图片质量</legend>
-          <div class="config-group-fields">
-            <label class="compact-field">
-              <span>分辨率</span>
-              <select
-                :value="store.settings.pdf.lastOptions.dpi"
-                @change="updatePdf({ dpi: Number(($event.target as HTMLSelectElement).value) })"
-              >
-                <option :value="72">72 DPI</option>
-                <option :value="96">96 DPI</option>
-                <option :value="144">144 DPI</option>
-                <option :value="200">200 DPI</option>
-                <option :value="300">300 DPI</option>
-                <option :value="600">600 DPI</option>
-              </select>
-            </label>
-            <label
-              class="compact-field"
-              :class="{ 'opacity-45': store.settings.pdf.lastOptions.imageFormat === 'png' }"
+      <div class="config-switch-region">
+        <Transition name="config-swap">
+          <div :key="workspaceMode" class="config-mode-content">
+            <div
+              v-if="workspaceMode === 'toImage'"
+              class="image-config-primary workspace-config-fields"
             >
-              <span>有损质量</span>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                :value="store.settings.pdf.lastOptions.imageQuality"
-                :disabled="store.settings.pdf.lastOptions.imageFormat === 'png'"
-                @change="
-                  updatePdf({ imageQuality: Number(($event.target as HTMLInputElement).value) })
-                "
+              <SegmentedControl
+                label="图片格式"
+                :model-value="store.settings.pdf.lastOptions.imageFormat"
+                :options="imageFormatOptions"
+                @update:model-value="updatePdf({ imageFormat: $event as PdfImageFormat })"
               />
-            </label>
-          </div>
-        </fieldset>
-
-        <fieldset class="config-group">
-          <legend class="sr-only">输出命名</legend>
-          <div class="config-group-fields config-group-fields-single">
-            <OutputSuffixField kind="pdf" />
-          </div>
-        </fieldset>
-      </div>
-
-      <div
-        v-else-if="store.settings.pdf.lastOptions.compressionMode === 'lossy'"
-        class="image-config-primary pdf-lossy-config"
-      >
-        <fieldset class="config-group">
-          <legend class="sr-only">有损压缩参数</legend>
-          <div class="config-group-fields">
-            <label class="compact-field">
-              <span>页面分辨率</span>
-              <select
-                :value="store.settings.pdf.lastOptions.compressionDpi"
-                @change="
-                  updatePdf({
-                    compressionDpi: Number(($event.target as HTMLSelectElement).value)
-                  })
-                "
+              <label class="compact-field">
+                <span>分辨率</span>
+                <select
+                  :value="store.settings.pdf.lastOptions.dpi"
+                  @change="updatePdf({ dpi: Number(($event.target as HTMLSelectElement).value) })"
+                >
+                  <option :value="72">72 DPI</option>
+                  <option :value="96">96 DPI</option>
+                  <option :value="144">144 DPI</option>
+                  <option :value="200">200 DPI</option>
+                  <option :value="300">300 DPI</option>
+                  <option :value="600">600 DPI</option>
+                </select>
+              </label>
+              <label
+                class="compact-field"
+                :class="{ 'opacity-45': store.settings.pdf.lastOptions.imageFormat === 'png' }"
               >
-                <option :value="96">96 DPI</option>
-                <option :value="144">144 DPI</option>
-                <option :value="200">200 DPI</option>
-                <option :value="300">300 DPI</option>
-              </select>
-            </label>
-            <label class="compact-field">
-              <span>图片质量</span>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                :value="store.settings.pdf.lastOptions.compressionQuality"
-                @change="
-                  updatePdf({
-                    compressionQuality: Number(($event.target as HTMLInputElement).value)
-                  })
-                "
-              />
-            </label>
+                <span>有损质量</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  :value="store.settings.pdf.lastOptions.imageQuality"
+                  :disabled="store.settings.pdf.lastOptions.imageFormat === 'png'"
+                  @change="
+                    updatePdf({ imageQuality: Number(($event.target as HTMLInputElement).value) })
+                  "
+                />
+              </label>
+            </div>
+            <div
+              v-else-if="workspaceMode === 'lossy'"
+              class="image-config-primary workspace-config-fields"
+            >
+              <label class="compact-field">
+                <span>页面分辨率</span>
+                <select
+                  :value="store.settings.pdf.lastOptions.compressionDpi"
+                  @change="
+                    updatePdf({
+                      compressionDpi: Number(($event.target as HTMLSelectElement).value)
+                    })
+                  "
+                >
+                  <option :value="96">96 DPI</option>
+                  <option :value="144">144 DPI</option>
+                  <option :value="200">200 DPI</option>
+                  <option :value="300">300 DPI</option>
+                </select>
+              </label>
+              <label class="compact-field">
+                <span>图片质量</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  :value="store.settings.pdf.lastOptions.compressionQuality"
+                  @change="
+                    updatePdf({
+                      compressionQuality: Number(($event.target as HTMLInputElement).value)
+                    })
+                  "
+                />
+              </label>
+              <p class="pdf-lossy-note">
+                页面将重建为 JPEG 图片，可显著缩小图片型
+                PDF，但文字将无法选择，矢量内容也会被栅格化。
+              </p>
+            </div>
+            <p v-else class="config-mode-note">
+              保留页面清晰度、文字和矢量内容，自动整理 PDF 内部结构，无需额外配置。
+            </p>
           </div>
-          <p class="pdf-lossy-note">
-            页面将重建为 JPEG 图片，可显著缩小图片型 PDF，但文字将无法选择，矢量内容也会被栅格化。
-          </p>
-        </fieldset>
-
-        <fieldset class="config-group">
-          <legend class="sr-only">输出命名</legend>
-          <div class="config-group-fields config-group-fields-single">
-            <OutputSuffixField kind="pdf" />
-          </div>
-        </fieldset>
-      </div>
-
-      <div v-else class="image-config-primary pdf-lossless-config">
-        <fieldset class="config-group">
-          <legend class="sr-only">输出命名</legend>
-          <div class="config-group-fields config-group-fields-single">
-            <OutputSuffixField kind="pdf" />
-          </div>
-        </fieldset>
+        </Transition>
       </div>
     </section>
-
     <div class="video-workspace-content workspace-scroll-content">
       <CurrentBatchTable
         v-if="pendingPaths.length || pdfTasks.length"

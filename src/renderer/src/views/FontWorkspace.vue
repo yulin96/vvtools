@@ -19,6 +19,7 @@ import {
 } from '../../../shared/font-subset-presets'
 import { useAppStore, type PendingFontItem } from '../stores/app'
 import { fileName } from '../lib/utils'
+import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
@@ -437,7 +438,6 @@ const dragging = useWorkspaceDrop(
         @update:model-value="workspaceSection = $event as FontWorkspaceSection"
       />
     </section>
-
     <section
       v-if="store.settings"
       v-show="workspaceSection === 'process'"
@@ -454,6 +454,16 @@ const dragging = useWorkspaceDrop(
             hide-label
             @update:model-value="setMode($event as FontWorkspaceMode)"
           />
+          <AdvancedSettingsPanel label="字体更多设置">
+            <div class="advanced-settings-groups">
+              <fieldset class="config-group advanced-settings-list">
+                <legend>输出命名</legend>
+                <div class="config-group-fields">
+                  <OutputSuffixField kind="font" />
+                </div>
+              </fieldset>
+            </div>
+          </AdvancedSettingsPanel>
         </div>
         <div class="video-config-actions">
           <OutputLocationControls />
@@ -474,125 +484,127 @@ const dragging = useWorkspaceDrop(
           </div>
         </div>
       </div>
-
-      <div
-        class="image-config-primary font-config-primary"
-        :class="{ 'font-config-primary-subset': operation === 'subset' }"
-      >
-        <fieldset class="config-group">
-          <legend class="sr-only">{{ quickConvert ? '快速转换规则' : '输出格式' }}</legend>
-          <div class="config-group-fields">
-            <SegmentedControl
-              v-if="!quickConvert"
-              label="输出格式"
-              :model-value="store.settings.font.lastOptions.outputFormat"
-              :options="formatOptions"
-              @update:model-value="updateFont({ outputFormat: $event as FontFormat })"
-            />
-            <div v-else class="font-quick-convert-summary" aria-label="快速转换规则">
-              <span><strong>TTF</strong> → TTF、WOFF、WOFF2</span>
-              <span><strong>OTF</strong> → OTF、WOFF、WOFF2</span>
-              <span><strong>WOFF</strong> → WOFF、WOFF2</span>
-              <span class="text-muted-foreground">统一压缩：中文 8105</span>
-            </div>
-            <SegmentedControl
-              v-if="operation === 'variableStatic'"
-              label="实例"
-              :model-value="store.settings.font.lastOptions.variableInstanceMode"
-              :options="variableModeOptions"
-              @update:model-value="
-                updateFont({ variableInstanceMode: $event as 'named' | 'default' })
-              "
-            />
-            <OutputSuffixField kind="font" />
-          </div>
-        </fieldset>
-
-        <fieldset v-if="operation === 'subset'" class="config-group">
-          <legend class="sr-only">字体子集文本</legend>
-          <div class="font-subset-config">
-            <SegmentedControl
-              class="font-subset-mode-control"
-              label="字符范围"
-              :model-value="subsetMode"
-              :options="subsetModeOptions"
-              @update:model-value="updateFont({ subsetMode: $event as FontSubsetMode })"
-            />
-
-            <SegmentedControl
-              v-if="subsetMode === 'chinese'"
-              class="font-subset-level-control"
-              label="中文范围"
-              :model-value="subsetChineseLevel"
-              :options="subsetChineseLevelOptions"
-              @update:model-value="
-                updateFont({ subsetChineseLevel: $event as FontSubsetChineseLevel })
-              "
-            />
-
-            <p class="font-subset-summary">{{ subsetScopeDescription }}</p>
-
-            <label v-if="subsetMode !== 'custom'" class="font-subset-extra-field">
-              <span>补充字符（可选）</span>
-              <input
-                :value="subsetExtraTextDraft"
-                placeholder="品牌名、生僻字或特殊符号"
-                @input="updateSubsetExtraTextDraft(($event.target as HTMLInputElement).value)"
-                @change="saveSubsetExtraText"
-              />
-            </label>
-
-            <div v-else class="font-subset-custom-fields">
-              <label class="font-subset-textarea">
-                <span>自定义字符</span>
-                <textarea
-                  ref="subsetTextarea"
-                  :value="subsetTextDraft"
-                  rows="2"
-                  placeholder="输入实际会使用的文字，或选择 TXT 文本文件"
-                  :aria-invalid="Boolean(subsetValidationMessage)"
-                  :aria-describedby="subsetValidationMessage ? 'font-subset-error' : undefined"
-                  @input="updateSubsetTextDraft(($event.target as HTMLTextAreaElement).value)"
-                  @change="saveSubsetText"
+      <div class="config-switch-region">
+        <Transition name="config-swap">
+          <div
+            :key="selectedMode"
+            class="image-config-primary font-config-primary"
+            :class="{ 'font-config-primary-subset': operation === 'subset' }"
+          >
+            <fieldset v-if="operation === 'subset'" class="config-group">
+              <legend class="sr-only">字体子集文本</legend>
+              <div class="font-subset-config">
+                <SegmentedControl
+                  class="font-subset-mode-control"
+                  label="字符范围"
+                  :model-value="subsetMode"
+                  :options="subsetModeOptions"
+                  @update:model-value="updateFont({ subsetMode: $event as FontSubsetMode })"
                 />
-              </label>
-              <p
-                v-if="subsetValidationMessage"
-                id="font-subset-error"
-                class="font-subset-error"
-                role="alert"
-              >
-                {{ subsetValidationMessage }}
-              </p>
-              <div class="font-subset-file-picker">
-                <Button variant="secondary" size="sm" @click="chooseTextFile">
-                  {{ subsetTextFileDraft ? '更换 TXT 文件' : '选择 TXT 文件' }}
-                </Button>
-                <span v-if="subsetTextFileDraft" class="truncate text-xs text-muted-foreground">
-                  {{ fileName(subsetTextFileDraft) }}
-                </span>
-                <Button v-if="subsetTextFileDraft" variant="ghost" size="sm" @click="clearTextFile">
-                  清除
-                </Button>
-              </div>
-              <label class="font-subset-latin-checkbox">
-                <input
-                  type="checkbox"
-                  :checked="store.settings.font.lastOptions.subsetIncludeLatin"
-                  @change="
-                    updateFont({
-                      subsetIncludeLatin: ($event.target as HTMLInputElement).checked
-                    })
+                <SegmentedControl
+                  v-if="subsetMode === 'chinese'"
+                  class="font-subset-level-control"
+                  label="中文范围"
+                  :model-value="subsetChineseLevel"
+                  :options="subsetChineseLevelOptions"
+                  @update:model-value="
+                    updateFont({ subsetChineseLevel: $event as FontSubsetChineseLevel })
                   "
                 />
-                <span>同时保留西文基础</span>
-              </label>
-            </div>
+                <p class="font-subset-summary">{{ subsetScopeDescription }}</p>
+                <label v-if="subsetMode !== 'custom'" class="font-subset-extra-field">
+                  <span>补充字符（可选）</span>
+                  <input
+                    :value="subsetExtraTextDraft"
+                    placeholder="品牌名、生僻字或特殊符号"
+                    @input="updateSubsetExtraTextDraft(($event.target as HTMLInputElement).value)"
+                    @change="saveSubsetExtraText"
+                  />
+                </label>
+                <div v-else class="font-subset-custom-fields">
+                  <label class="font-subset-textarea">
+                    <span>自定义字符</span>
+                    <textarea
+                      ref="subsetTextarea"
+                      :value="subsetTextDraft"
+                      rows="2"
+                      placeholder="输入实际会使用的文字，或选择 TXT 文本文件"
+                      :aria-invalid="Boolean(subsetValidationMessage)"
+                      :aria-describedby="subsetValidationMessage ? 'font-subset-error' : undefined"
+                      @input="updateSubsetTextDraft(($event.target as HTMLTextAreaElement).value)"
+                      @change="saveSubsetText"
+                    />
+                  </label>
+                  <p
+                    v-if="subsetValidationMessage"
+                    id="font-subset-error"
+                    class="font-subset-error"
+                    role="alert"
+                  >
+                    {{ subsetValidationMessage }}
+                  </p>
+                  <div class="font-subset-file-picker">
+                    <Button variant="secondary" size="sm" @click="chooseTextFile">
+                      {{ subsetTextFileDraft ? '更换 TXT 文件' : '选择 TXT 文件' }}
+                    </Button>
+                    <span v-if="subsetTextFileDraft" class="truncate text-xs text-muted-foreground">
+                      {{ fileName(subsetTextFileDraft) }}
+                    </span>
+                    <Button
+                      v-if="subsetTextFileDraft"
+                      variant="ghost"
+                      size="sm"
+                      @click="clearTextFile"
+                    >
+                      清除
+                    </Button>
+                  </div>
+                  <label class="font-subset-latin-checkbox">
+                    <input
+                      type="checkbox"
+                      :checked="store.settings.font.lastOptions.subsetIncludeLatin"
+                      @change="
+                        updateFont({
+                          subsetIncludeLatin: ($event.target as HTMLInputElement).checked
+                        })
+                      "
+                    />
+                    <span>同时保留西文基础</span>
+                  </label>
+                </div>
+              </div>
+            </fieldset>
+            <fieldset class="config-group">
+              <legend class="sr-only">{{ quickConvert ? '快速转换规则' : '输出格式' }}</legend>
+              <div class="config-group-fields">
+                <SegmentedControl
+                  v-if="!quickConvert"
+                  label="输出格式"
+                  :model-value="store.settings.font.lastOptions.outputFormat"
+                  :options="formatOptions"
+                  @update:model-value="updateFont({ outputFormat: $event as FontFormat })"
+                />
+                <div v-else class="font-quick-convert-summary" aria-label="快速转换规则">
+                  <span> <strong>TTF</strong> → TTF、WOFF、WOFF2</span>
+                  <span> <strong>OTF</strong> → OTF、WOFF、WOFF2</span>
+                  <span> <strong>WOFF</strong> → WOFF、WOFF2</span>
+                  <span class="text-muted-foreground">统一压缩：中文 8105</span>
+                </div>
+                <SegmentedControl
+                  v-if="operation === 'variableStatic'"
+                  label="实例"
+                  :model-value="store.settings.font.lastOptions.variableInstanceMode"
+                  :options="variableModeOptions"
+                  @update:model-value="
+                    updateFont({ variableInstanceMode: $event as 'named' | 'default' })
+                  "
+                />
+              </div>
+            </fieldset>
           </div>
-        </fieldset>
+        </Transition>
       </div>
     </section>
-
     <div
       v-show="workspaceSection === 'process'"
       class="video-workspace-content workspace-scroll-content"

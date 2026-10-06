@@ -117,52 +117,35 @@ function openSourcePage(): void {
   void window.api.openSourcePage()
 }
 </script>
-
 <template>
   <div class="page-container workspace-scroll-content">
     <p class="settings-intro">管理适用于所有处理页面的输出规则、任务调度和应用行为。</p>
     <template v-if="store.settings">
-      <section class="settings-card settings-update-card">
+      <section class="settings-card">
         <div class="settings-card-title">
-          <RefreshCw class="size-4" />
+          <FileOutput class="size-4" />
           <div>
-            <h2>软件更新</h2>
-            <p>{{ store.updateDescription }}</p>
-            <div
-              v-if="store.updateState.status === 'downloading'"
-              class="mt-2 h-1.5 w-64 overflow-hidden rounded-full bg-muted"
-            >
-              <div
-                class="h-full rounded-full bg-primary transition-[width]"
-                :style="{
-                  width: `${Math.min(100, Math.max(0, store.updateState.percent ?? 0))}%`
-                }"
-              />
-            </div>
+            <h2>文件与输出</h2>
+            <p>统一设置文件名规则和同名文件处理方式；具体后缀在各处理页面配置。</p>
           </div>
         </div>
-        <div class="settings-update-actions">
-          <Button variant="secondary" size="sm" @click="openSourcePage">
-            <ExternalLink class="size-3.5" />
-            GitHub 地址
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            :disabled="
-              store.updateState.status === 'checking' || store.updateState.status === 'downloading'
-            "
-            @click="store.requestUpdateAction"
-          >
-            <RefreshCw
-              class="size-3.5"
-              :class="{ 'animate-spin': store.updateState.status === 'checking' }"
+        <div class="settings-card-controls settings-output-controls">
+          <OutputConflictPolicyField />
+          <label class="field-label settings-template-field">
+            <span>文件名规则</span>
+            <input
+              :value="store.settings.common.outputNameTemplate"
+              class="field-control font-mono"
+              maxlength="100"
+              @change="updateOutputNameTemplate"
             />
-            {{ store.updateButtonLabel }}
-          </Button>
+            <span class="text-[11px] text-muted-foreground">
+              可用：{name} {suffix} {preset} {width} {height} {page} {index} {instance}
+              {date}。模板必须包含 {name}。
+            </span>
+          </label>
         </div>
       </section>
-
       <section class="settings-card">
         <div class="settings-card-title">
           <Monitor class="size-4" />
@@ -182,14 +165,11 @@ function openSourcePage(): void {
           />
         </div>
       </section>
-
       <SystemIntegrationSettings v-if="hasDesktopIntegration" />
-
       <div class="settings-group-heading">
         <span>通用</span>
         <p>这里的修改会同时影响图片、视频、音频、PDF 和字体任务。</p>
       </div>
-
       <section class="settings-card settings-card-stack">
         <div class="settings-card-title">
           <Cpu class="size-4" />
@@ -242,38 +222,50 @@ function openSourcePage(): void {
           </div>
         </div>
       </section>
-
-      <section class="settings-card">
-        <div class="settings-card-title">
-          <FileOutput class="size-4" />
-          <div>
-            <h2>文件与输出</h2>
-            <p>统一设置文件名规则和同名文件处理方式；具体后缀在各处理页面配置。</p>
-          </div>
-        </div>
-        <div class="settings-card-controls settings-output-controls">
-          <OutputConflictPolicyField />
-          <label class="field-label settings-template-field">
-            <span>文件名规则</span>
-            <input
-              :value="store.settings.common.outputNameTemplate"
-              class="field-control font-mono"
-              maxlength="100"
-              @change="updateOutputNameTemplate"
-            />
-            <span class="text-[11px] text-muted-foreground">
-              可用：{name} {suffix} {preset} {width} {height} {page} {index} {instance}
-              {date}。模板必须包含 {name}。
-            </span>
-          </label>
-        </div>
-      </section>
-
       <div class="settings-group-heading">
         <span>应用</span>
-        <p>本机处理组件状态。</p>
+        <p>软件更新与本机处理组件状态。</p>
       </div>
-
+      <section class="settings-card settings-update-card">
+        <div class="settings-card-title">
+          <RefreshCw class="size-4" />
+          <div>
+            <h2>软件更新</h2>
+            <p>{{ store.updateDescription }}</p>
+            <div
+              v-if="store.updateState.status === 'downloading'"
+              class="mt-2 h-1.5 w-64 overflow-hidden rounded-full bg-muted"
+            >
+              <div
+                class="h-full rounded-full bg-primary transition-[width]"
+                :style="{
+                  width: `${Math.min(100, Math.max(0, store.updateState.percent ?? 0))}%`
+                }"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="settings-update-actions">
+          <Button variant="secondary" size="sm" @click="openSourcePage">
+            <ExternalLink class="size-3.5" />
+            GitHub 地址
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            :disabled="
+              store.updateState.status === 'checking' || store.updateState.status === 'downloading'
+            "
+            @click="store.requestUpdateAction"
+          >
+            <RefreshCw
+              class="size-3.5"
+              :class="{ 'animate-spin': store.updateState.status === 'checking' }"
+            />
+            {{ store.updateButtonLabel }}
+          </Button>
+        </div>
+      </section>
       <section class="settings-card settings-capabilities-card">
         <div class="settings-capabilities-heading">
           <div class="settings-card-title">

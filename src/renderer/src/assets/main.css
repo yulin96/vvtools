@@ -49,14 +49,14 @@
   --scale-tiny: 0.99;
   --blur-small: 2px;
   --blur-medium: 3px;
-  --tabs-dur: 250ms;
+  --tabs-dur: var(--duration-fast);
   --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --tabs-text-muted: var(--muted-foreground);
   --tabs-text-active: var(--signal-strong);
   --tabs-bar-bg: var(--background);
   --tabs-pill-bg: var(--accent-soft);
-  --dropdown-open-dur: 250ms;
-  --dropdown-close-dur: 150ms;
+  --dropdown-open-dur: var(--duration-fast);
+  --dropdown-close-dur: var(--duration-quick);
   --dropdown-pre-scale: 0.97;
   --dropdown-closing-scale: 0.99;
   --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -69,9 +69,9 @@
   --drawer-close-dur: var(--duration-quick);
   --drawer-ease: var(--ease-smooth-out);
   --drawer-backdrop: rgb(20 18 34 / 18%);
-  --page-slide-dur: 250ms;
-  --page-fade-dur: 250ms;
-  --page-slide-distance: 12px;
+  --page-slide-dur: var(--duration-fast);
+  --page-fade-dur: var(--duration-fast);
+  --page-slide-distance: var(--distance-base);
   --page-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --page-fade-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --icon-swap-dur: 250ms;
@@ -255,12 +255,22 @@ input[type='submit'] {
 @keyframes settings-popover-in {
   from {
     opacity: 0;
+    transform: scale(var(--dropdown-pre-scale));
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
 @keyframes settings-popover-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
   to {
     opacity: 0;
+    transform: scale(var(--dropdown-closing-scale));
   }
 }
 
@@ -1293,6 +1303,7 @@ input {
 }
 
 .advanced-settings-popover {
+  transform-origin: var(--reka-popover-content-transform-origin);
   z-index: 30;
   width: min(400px, var(--reka-popover-content-available-width));
   max-height: min(560px, var(--reka-popover-content-available-height));
@@ -1309,12 +1320,12 @@ input {
 }
 
 .advanced-settings-popover[data-state='open'] {
-  animation: settings-popover-in var(--duration-quick) var(--ease-out);
+  animation: settings-popover-in var(--dropdown-open-dur) var(--dropdown-ease);
 }
 
 .advanced-settings-popover[data-state='closed'] {
   pointer-events: none;
-  animation: settings-popover-out var(--duration-quick) var(--ease-out);
+  animation: settings-popover-out var(--dropdown-close-dur) var(--dropdown-ease);
 }
 
 .advanced-settings-popover .compact-field:has(> .switch-field-control) {
@@ -1469,10 +1480,6 @@ input {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.pdf-config-primary {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 .font-config-primary {
   grid-template-columns: minmax(0, 560px);
 }
@@ -1485,24 +1492,74 @@ input {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
-.pdf-config-primary .config-group-fields {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.pdf-lossy-config {
-  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
-}
-
-.pdf-lossless-config {
-  grid-template-columns: minmax(220px, 360px);
-}
-
 .pdf-lossy-note {
   max-width: 68ch;
   margin-top: 10px;
   color: var(--muted-foreground);
   font-size: 11px;
   line-height: 1.5;
+}
+
+.advanced-settings-groups {
+  display: grid;
+  gap: 20px;
+}
+
+.sprite-mode-segments {
+  width: 288px;
+  max-width: 100%;
+}
+
+.audio-mode-segments {
+  width: 256px;
+  max-width: 100%;
+}
+
+.audio-config-primary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 760px;
+}
+
+.workspace-config-fields {
+  align-items: start;
+  gap: 16px;
+}
+
+.workspace-config-fields > .pdf-lossy-note {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
+.config-switch-region {
+  position: relative;
+  min-width: 0;
+}
+
+.config-mode-note {
+  margin: 0;
+  padding-bottom: 20px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.config-swap-enter-active,
+.config-swap-leave-active {
+  transition:
+    opacity var(--duration-quick) var(--ease-smooth-out),
+    transform var(--duration-quick) var(--ease-smooth-out);
+}
+
+.config-swap-leave-active {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.config-swap-enter-from,
+.config-swap-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
 }
 
 .config-group {
@@ -2530,7 +2587,9 @@ html[data-theme='dark'] .bg-slate-950 {
   }
 
   .page-swap-enter-active,
-  .page-swap-leave-active {
+  .page-swap-leave-active,
+  .config-swap-enter-active,
+  .config-swap-leave-active {
     transition: none !important;
   }
 

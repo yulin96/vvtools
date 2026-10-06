@@ -302,7 +302,6 @@ onBeforeUnmount(() => {
     :class="{ 'video-drop-workspace-active': dragging }"
   >
     <DropFollowEffect :active="dragging" />
-
     <section v-if="settingsReady" class="video-config-panel" aria-label="批量重命名设置">
       <div class="video-config-heading">
         <div class="config-heading-main">
@@ -317,26 +316,8 @@ onBeforeUnmount(() => {
           <AdvancedSettingsPanel v-if="draft.mode === 'custom'" label="批量重命名更多设置">
             <div class="rename-config-expanded">
               <fieldset class="config-group">
-                <legend>查找与格式</legend>
+                <legend>名称格式</legend>
                 <div class="config-group-fields rename-format-fields">
-                  <label class="compact-field">
-                    <span>查找文字</span>
-                    <input
-                      v-model="draft.findText"
-                      type="text"
-                      maxlength="200"
-                      placeholder="留空则不替换"
-                    />
-                  </label>
-                  <label class="compact-field">
-                    <span>替换为</span>
-                    <input
-                      v-model="draft.replaceText"
-                      type="text"
-                      maxlength="200"
-                      placeholder="可留空以删除"
-                    />
-                  </label>
                   <SegmentedControl
                     class="rename-case-segments"
                     label="大小写"
@@ -349,6 +330,13 @@ onBeforeUnmount(() => {
               <fieldset class="config-group">
                 <legend>顺序编号</legend>
                 <div class="config-group-fields rename-sequence-fields">
+                  <ToggleSwitch
+                    label="顺序编号"
+                    :model-value="draft.sequenceEnabled"
+                    enabled-text="添加编号"
+                    disabled-text="不添加编号"
+                    @update:model-value="draft.sequenceEnabled = $event"
+                  />
                   <SegmentedControl
                     label="位置"
                     :model-value="draft.sequencePosition"
@@ -440,53 +428,86 @@ onBeforeUnmount(() => {
           </Button>
         </div>
       </div>
-
-      <div class="rename-config-primary" :class="`rename-config-${draft.mode}`">
-        <div v-if="draft.mode === 'sequence'" class="rename-sequence-explainer">
-          <ListOrdered class="size-4 shrink-0 text-signal-strong" />
-          <div>
-            <strong>按当前表格顺序编号</strong>
-            <p>文件将命名为 1、2、3、4…，保留原扩展名；点击表头即可改变编号顺序。</p>
+      <div class="config-switch-region">
+        <Transition name="config-swap">
+          <div
+            :key="draft.mode"
+            class="rename-config-primary"
+            :class="`rename-config-${draft.mode}`"
+          >
+            <div v-if="draft.mode === 'sequence'" class="rename-sequence-explainer">
+              <ListOrdered class="size-4 shrink-0 text-signal-strong" />
+              <div>
+                <strong>按当前表格顺序编号</strong>
+                <p>文件将命名为 1、2、3、4…，保留原扩展名；点击表头即可改变编号顺序。</p>
+              </div>
+            </div>
+            <template v-else>
+              <SegmentedControl
+                label="名称来源"
+                :model-value="draft.baseMode"
+                :options="baseModeOptions"
+                @update:model-value="draft.baseMode = $event as RenameBaseMode"
+              />
+              <label class="compact-field">
+                <span>{{ draft.baseMode === 'custom' ? '统一名称' : '名称处理' }}</span>
+                <input
+                  v-if="draft.baseMode === 'custom'"
+                  v-model="draft.customName"
+                  type="text"
+                  maxlength="200"
+                  placeholder="例如：产品图"
+                />
+                <span v-else class="rename-readonly-field">以每个文件的原名称为基础</span>
+              </label>
+              <label class="compact-field">
+                <span>前缀</span>
+                <input
+                  v-model="draft.prefix"
+                  type="text"
+                  maxlength="200"
+                  placeholder="例如：项目_"
+                />
+              </label>
+              <label class="compact-field">
+                <span>后缀</span>
+                <input
+                  v-model="draft.suffix"
+                  type="text"
+                  maxlength="200"
+                  placeholder="例如：_最终版"
+                />
+              </label>
+              <label class="compact-field">
+                <span>查找文字</span>
+                <input
+                  v-model="draft.findText"
+                  type="text"
+                  maxlength="200"
+                  placeholder="留空则不替换"
+                />
+              </label>
+              <label class="compact-field">
+                <span>替换为</span>
+                <input
+                  v-model="draft.replaceText"
+                  type="text"
+                  maxlength="200"
+                  placeholder="可留空以删除"
+                />
+              </label>
+              <ToggleSwitch
+                label="顺序编号"
+                :model-value="draft.sequenceEnabled"
+                enabled-text="添加编号"
+                disabled-text="不添加编号"
+                @update:model-value="draft.sequenceEnabled = $event"
+              />
+            </template>
           </div>
-        </div>
-
-        <template v-else>
-          <SegmentedControl
-            label="名称来源"
-            :model-value="draft.baseMode"
-            :options="baseModeOptions"
-            @update:model-value="draft.baseMode = $event as RenameBaseMode"
-          />
-          <label class="compact-field">
-            <span>{{ draft.baseMode === 'custom' ? '统一名称' : '名称处理' }}</span>
-            <input
-              v-if="draft.baseMode === 'custom'"
-              v-model="draft.customName"
-              type="text"
-              maxlength="200"
-              placeholder="例如：产品图"
-            />
-            <span v-else class="rename-readonly-field">以每个文件的原名称为基础</span>
-          </label>
-          <label class="compact-field">
-            <span>前缀</span>
-            <input v-model="draft.prefix" type="text" maxlength="200" placeholder="例如：项目_" />
-          </label>
-          <label class="compact-field">
-            <span>后缀</span>
-            <input v-model="draft.suffix" type="text" maxlength="200" placeholder="例如：_最终版" />
-          </label>
-          <ToggleSwitch
-            label="顺序编号"
-            :model-value="draft.sequenceEnabled"
-            enabled-text="添加编号"
-            disabled-text="不添加编号"
-            @update:model-value="draft.sequenceEnabled = $event"
-          />
-        </template>
+        </Transition>
       </div>
     </section>
-
     <div class="video-workspace-content workspace-scroll-content rename-workspace-content">
       <section
         v-if="files.length"
@@ -644,9 +665,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .rename-config-primary {
   display: grid;
-  grid-template-columns:
-    minmax(145px, 0.9fr) minmax(165px, 1fr) minmax(130px, 0.85fr) minmax(130px, 0.85fr)
-    minmax(135px, 0.8fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   padding: 0 0 20px;
 }
@@ -712,6 +731,10 @@ onBeforeUnmount(() => {
 
 .rename-sequence-fields {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rename-sequence-fields > .compact-field:has(.switch-field-control) {
+  grid-column: 1 / -1;
 }
 
 .rename-date-fields {

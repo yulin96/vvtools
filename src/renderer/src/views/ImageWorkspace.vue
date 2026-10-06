@@ -331,34 +331,41 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
             @update:model-value="applyPreset"
           />
           <AdvancedSettingsPanel label="图片更多设置">
-            <fieldset class="config-group advanced-settings-list">
-              <legend class="sr-only">处理偏好</legend>
-              <div class="config-group-fields">
-                <SegmentedControl
-                  label="附加信息（元数据）"
-                  :model-value="store.settings.image.lastOptions.metadataMode"
-                  :options="metadataModeOptions"
-                  @update:model-value="
-                    updateImage({ metadataMode: $event as ImageOptions['metadataMode'] })
-                  "
-                />
-                <ToggleSwitch
-                  label="文件夹层级"
-                  :model-value="store.settings.image.lastOptions.preserveStructure"
-                  enabled-text="保留原文件夹"
-                  disabled-text="全部放在一起"
-                  @update:model-value="updateImage({ preserveStructure: $event })"
-                />
-                <ToggleSwitch
-                  label="小图是否放大"
-                  :model-value="store.settings.image.lastOptions.allowEnlargement"
-                  enabled-text="放大到目标尺寸"
-                  disabled-text="保持原尺寸"
-                  @update:model-value="updateImage({ allowEnlargement: $event })"
-                />
-                <OutputSuffixField kind="image" />
-              </div>
-            </fieldset>
+            <div class="advanced-settings-groups">
+              <fieldset class="config-group advanced-settings-list">
+                <legend>文件与命名</legend>
+                <div class="config-group-fields">
+                  <ToggleSwitch
+                    label="文件夹层级"
+                    :model-value="store.settings.image.lastOptions.preserveStructure"
+                    enabled-text="保留原文件夹"
+                    disabled-text="全部放在一起"
+                    @update:model-value="updateImage({ preserveStructure: $event })"
+                  />
+                  <OutputSuffixField kind="image" />
+                </div>
+              </fieldset>
+              <fieldset class="config-group advanced-settings-list">
+                <legend>画面与附加信息</legend>
+                <div class="config-group-fields">
+                  <ToggleSwitch
+                    label="小图是否放大"
+                    :model-value="store.settings.image.lastOptions.allowEnlargement"
+                    enabled-text="放大到目标尺寸"
+                    disabled-text="保持原尺寸"
+                    @update:model-value="updateImage({ allowEnlargement: $event })"
+                  />
+                  <SegmentedControl
+                    label="附加信息（元数据）"
+                    :model-value="store.settings.image.lastOptions.metadataMode"
+                    :options="metadataModeOptions"
+                    @update:model-value="
+                      updateImage({ metadataMode: $event as ImageOptions['metadataMode'] })
+                    "
+                  />
+                </div>
+              </fieldset>
+            </div>
           </AdvancedSettingsPanel>
           <span class="config-summary truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
@@ -383,7 +390,6 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
           </div>
         </div>
       </div>
-
       <div class="image-config-primary">
         <fieldset class="config-group">
           <legend class="sr-only">压缩</legend>

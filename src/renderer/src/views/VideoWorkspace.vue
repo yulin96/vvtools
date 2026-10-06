@@ -288,53 +288,60 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
             @update:model-value="applyPreset"
           />
           <AdvancedSettingsPanel label="视频更多设置">
-            <fieldset class="config-group advanced-settings-list">
-              <legend class="sr-only">编码与音频</legend>
-              <div class="config-group-fields">
-                <SegmentedControl
-                  label="编码加速"
-                  :model-value="store.settings.video.lastOptions.encoderMode"
-                  :options="availableEncoderModeOptions"
-                  @update:model-value="updateVideo({ encoderMode: $event as VideoEncoderMode })"
-                />
-                <label class="compact-field">
-                  <span>视频中的音频</span>
-                  <select
-                    :value="store.settings.video.lastOptions.audioMode"
-                    @change="
-                      updateVideo({
-                        audioMode: ($event.target as HTMLSelectElement).value as VideoAudioMode
-                      })
-                    "
+            <div class="advanced-settings-groups">
+              <fieldset class="config-group advanced-settings-list">
+                <legend>音频轨道</legend>
+                <div class="config-group-fields">
+                  <label class="compact-field">
+                    <span>视频中的音频</span>
+                    <select
+                      :value="store.settings.video.lastOptions.audioMode"
+                      @change="
+                        updateVideo({
+                          audioMode: ($event.target as HTMLSelectElement).value as VideoAudioMode
+                        })
+                      "
+                    >
+                      <option value="aac">转为 AAC</option>
+                      <option value="copy">复制原音频</option>
+                      <option value="none">移除音频</option>
+                    </select>
+                  </label>
+                  <label
+                    class="compact-field"
+                    :class="{ 'opacity-45': store.settings.video.lastOptions.audioMode !== 'aac' }"
                   >
-                    <option value="aac">转为 AAC</option>
-                    <option value="copy">复制原音频</option>
-                    <option value="none">移除音频</option>
-                  </select>
-                </label>
-                <label
-                  class="compact-field"
-                  :class="{ 'opacity-45': store.settings.video.lastOptions.audioMode !== 'aac' }"
-                >
-                  <span>音频码率</span>
-                  <select
-                    :value="store.settings.video.lastOptions.audioBitrateKbps"
-                    :disabled="store.settings.video.lastOptions.audioMode !== 'aac'"
-                    @change="
-                      updateVideo({
-                        audioBitrateKbps: Number(($event.target as HTMLSelectElement).value)
-                      })
-                    "
-                  >
-                    <option :value="96">96 kbps</option>
-                    <option :value="128">128 kbps</option>
-                    <option :value="192">192 kbps</option>
-                    <option :value="256">256 kbps</option>
-                  </select>
-                </label>
-                <OutputSuffixField kind="video" />
-              </div>
-            </fieldset>
+                    <span>音频码率</span>
+                    <select
+                      :value="store.settings.video.lastOptions.audioBitrateKbps"
+                      :disabled="store.settings.video.lastOptions.audioMode !== 'aac'"
+                      @change="
+                        updateVideo({
+                          audioBitrateKbps: Number(($event.target as HTMLSelectElement).value)
+                        })
+                      "
+                    >
+                      <option :value="96">96 kbps</option>
+                      <option :value="128">128 kbps</option>
+                      <option :value="192">192 kbps</option>
+                      <option :value="256">256 kbps</option>
+                    </select>
+                  </label>
+                </div>
+              </fieldset>
+              <fieldset class="config-group advanced-settings-list">
+                <legend>编码与命名</legend>
+                <div class="config-group-fields">
+                  <SegmentedControl
+                    label="编码加速"
+                    :model-value="store.settings.video.lastOptions.encoderMode"
+                    :options="availableEncoderModeOptions"
+                    @update:model-value="updateVideo({ encoderMode: $event as VideoEncoderMode })"
+                  />
+                  <OutputSuffixField kind="video" />
+                </div>
+              </fieldset>
+            </div>
           </AdvancedSettingsPanel>
           <span class="config-summary truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ codecLabel }} · {{ qualityLabel }}
@@ -359,7 +366,6 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
           </div>
         </div>
       </div>
-
       <div class="video-config-primary">
         <fieldset class="config-group">
           <legend class="sr-only">格式与编码</legend>

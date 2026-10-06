@@ -9,6 +9,7 @@ import type {
   CreateTasksRequest
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
+import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
 import Button from '../components/ui/Button.vue'
 import OutputLocationControls from '../components/OutputLocationControls.vue'
 import OutputSuffixField from '../components/OutputSuffixField.vue'
@@ -134,6 +135,30 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/audio', receivePaths: st
     <section v-if="store.settings" class="video-config-panel" aria-label="音频处理设置">
       <div class="video-config-heading">
         <div class="config-heading-main">
+          <SegmentedControl
+            class="audio-mode-segments"
+            hide-label
+            label="输出格式"
+            :model-value="store.settings.audio.lastOptions.format"
+            :options="audioFormatOptions"
+            @update:model-value="updateAudio({ format: $event as AudioFormat })"
+          />
+          <AdvancedSettingsPanel label="音频更多设置">
+            <div class="advanced-settings-groups">
+              <fieldset class="config-group advanced-settings-list">
+                <legend>声道与命名</legend>
+                <div class="config-group-fields">
+                  <SegmentedControl
+                    label="输出声道"
+                    :model-value="store.settings.audio.lastOptions.channels"
+                    :options="channelOptions"
+                    @update:model-value="updateAudio({ channels: $event as AudioChannels })"
+                  />
+                  <OutputSuffixField kind="audio" />
+                </div>
+              </fieldset>
+            </div>
+          </AdvancedSettingsPanel>
           <span class="config-summary truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ bitrateLabel }}
           </span>
@@ -157,71 +182,39 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/audio', receivePaths: st
           </div>
         </div>
       </div>
-
-      <div class="image-config-primary">
-        <fieldset class="config-group">
-          <legend class="sr-only">格式与质量</legend>
-          <div class="config-group-fields">
-            <SegmentedControl
-              label="输出格式"
-              :model-value="store.settings.audio.lastOptions.format"
-              :options="audioFormatOptions"
-              @update:model-value="updateAudio({ format: $event as AudioFormat })"
-            />
-            <label
-              class="compact-field"
-              :class="{
-                'opacity-45': ['wav', 'flac'].includes(store.settings.audio.lastOptions.format)
-              }"
-            >
-              <span>音频码率</span>
-              <select
-                :value="store.settings.audio.lastOptions.bitrateKbps"
-                :disabled="['wav', 'flac'].includes(store.settings.audio.lastOptions.format)"
-                @change="
-                  updateAudio({
-                    bitrateKbps: Number(($event.target as HTMLSelectElement).value)
-                  })
-                "
-              >
-                <option :value="96">96 kbps</option>
-                <option :value="128">128 kbps</option>
-                <option :value="192">192 kbps</option>
-                <option :value="256">256 kbps</option>
-                <option :value="320">320 kbps</option>
-              </select>
-            </label>
-          </div>
-        </fieldset>
-
-        <fieldset class="config-group">
-          <legend class="sr-only">声道与响度</legend>
-          <div class="config-group-fields">
-            <SegmentedControl
-              label="输出声道"
-              :model-value="store.settings.audio.lastOptions.channels"
-              :options="channelOptions"
-              @update:model-value="updateAudio({ channels: $event as AudioChannels })"
-            />
-            <ToggleSwitch
-              label="统一音量"
-              :model-value="store.settings.audio.lastOptions.normalizeLoudness"
-              enabled-text="已开启"
-              disabled-text="已关闭"
-              @update:model-value="updateAudio({ normalizeLoudness: $event })"
-            />
-          </div>
-        </fieldset>
-
-        <fieldset class="config-group">
-          <legend class="sr-only">输出命名</legend>
-          <div class="config-group-fields config-group-fields-single">
-            <OutputSuffixField kind="audio" />
-          </div>
-        </fieldset>
+      <div class="image-config-primary workspace-config-fields audio-config-primary">
+        <label
+          class="compact-field"
+          :class="{
+            'opacity-45': ['wav', 'flac'].includes(store.settings.audio.lastOptions.format)
+          }"
+        >
+          <span>音频码率</span>
+          <select
+            :value="store.settings.audio.lastOptions.bitrateKbps"
+            :disabled="['wav', 'flac'].includes(store.settings.audio.lastOptions.format)"
+            @change="
+              updateAudio({
+                bitrateKbps: Number(($event.target as HTMLSelectElement).value)
+              })
+            "
+          >
+            <option :value="96">96 kbps</option>
+            <option :value="128">128 kbps</option>
+            <option :value="192">192 kbps</option>
+            <option :value="256">256 kbps</option>
+            <option :value="320">320 kbps</option>
+          </select>
+        </label>
+        <ToggleSwitch
+          label="统一音量"
+          :model-value="store.settings.audio.lastOptions.normalizeLoudness"
+          enabled-text="已开启"
+          disabled-text="已关闭"
+          @update:model-value="updateAudio({ normalizeLoudness: $event })"
+        />
       </div>
     </section>
-
     <div class="video-workspace-content workspace-scroll-content">
       <CurrentBatchTable
         v-if="pendingPaths.length || audioTasks.length"
