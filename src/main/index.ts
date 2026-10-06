@@ -15,6 +15,7 @@ import { applicationMenuTemplate } from './application-menu'
 import { ApplicationIcons } from './application-icons'
 import { processAudio } from './media/audio-processor'
 import { processFont } from './media/font-processor'
+import { fontMetadataProcesses } from './media/font-metadata-process'
 import {
   clearFontPreview,
   registerFontPreviewProtocol,
@@ -558,6 +559,7 @@ app.on('before-quit', () => {
   isQuitting = true
   queue?.shutdown()
   shutdownPdfProcesses()
+  fontMetadataProcesses.shutdown()
   clearFontPreview()
   unregisterIpc?.()
   applicationIcons.dispose()

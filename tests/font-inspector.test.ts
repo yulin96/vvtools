@@ -4,11 +4,17 @@ import { mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import {
-  applyFontEdits,
   inspectFontFile,
   saveEditedFontFile,
   validateFontEditValues
 } from '../src/main/media/font-inspector'
+import { applyFontEdits } from '../src/main/media/font-inspector-core'
+import { fontMetadataProcesses } from '../src/main/media/font-metadata-process'
+import { probeFont } from '../src/main/media/font-processor'
+import { DEFAULT_FONT_OPTIONS } from '../src/shared/constants'
+import { afterAll } from 'vitest'
+
+afterAll(() => fontMetadataProcesses.shutdown())
 import {
   filterFontCodePoints,
   formatUnicode,
@@ -78,9 +84,16 @@ describe('font inspector', () => {
       source.set(data)
       await writeFile(sourcePath, source.write({ type: 'ttf', toBuffer: true }))
 
-      const inspected = inspectFontFile(sourcePath)
+      const inspected = await inspectFontFile(sourcePath)
       expect(inspected.codePoints).toContain(0x41)
       expect(inspected.editable).toBe(true)
+      expect(
+        await probeFont(sourcePath, DEFAULT_FONT_OPTIONS, new AbortController().signal)
+      ).toEqual({
+        format: 'TTF',
+        fontCount: 1,
+        fontInstances: []
+      })
 
       await saveEditedFontFile(sourcePath, outputPath, {
         ...inspected.metrics,
@@ -95,6 +108,19 @@ describe('font inspector', () => {
       expect(saved.glyf.find((glyph) => glyph.unicode?.includes(0x41))?.yMin).toBe(
         data.glyf.find((glyph) => glyph.unicode?.includes(0x41))!.yMin + 40
       )
+      const preserved = await readFile(outputPath)
+      await expect(
+        saveEditedFontFile(sourcePath, outputPath, {
+          ...inspected.metrics,
+          offsetX: 0,
+          offsetY: 0,
+          scaleX: 1,
+          scaleY: 1,
+          skewX: 0,
+          advanceWidthDelta: 0
+        })
+      ).rejects.toThrow('EEXIST')
+      expect(await readFile(outputPath)).toEqual(preserved)
     } finally {
       await rm(directory, { recursive: true, force: true })
     }
@@ -110,7 +136,7 @@ describe('font inspector', () => {
         if (format === 'woff2' && !woff2.isInited()) await woff2.init()
         const source = createFont()
         await writeFile(sourcePath, source.write({ type: format, toBuffer: true }))
-        const inspected = inspectFontFile(sourcePath)
+        const inspected = await inspectFontFile(sourcePath)
 
         await saveEditedFontFile(sourcePath, outputPath, {
           ...inspected.metrics,
@@ -123,7 +149,7 @@ describe('font inspector', () => {
         })
 
         expect((await readFile(outputPath)).byteLength).toBeGreaterThan(0)
-        expect(inspectFontFile(outputPath).format).toBe(format)
+        expect((await inspectFontFile(outputPath)).format).toBe(format)
       } finally {
         await rm(directory, { recursive: true, force: true })
       }
