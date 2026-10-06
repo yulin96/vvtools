@@ -1,5 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
-import { mkdirSync, rmSync, statSync } from 'fs'
+import { mkdirSync, statSync } from 'fs'
+import { rename, rm, stat } from 'fs/promises'
+import { join } from 'path'
 import type { MediaTask, SpriteOptions, TaskCommand } from '../../shared/types'
 import { FailureLogService } from '../services/failure-log'
 import { MediaProcessError, TaskCancelledError } from './errors'
@@ -149,8 +151,19 @@ async function renderSheet(
   signal: AbortSignal,
   failureLogs: FailureLogService
 ): Promise<number> {
-  const executable = getFfmpegPath()
   const args = buildSpriteArgs(task, options, plan, sheetIndex, outputPath)
+  await runSpriteCommand(task, args, signal, failureLogs)
+  return statSync(outputPath).size
+}
+
+async function runSpriteCommand(
+  task: MediaTask,
+  args: string[],
+  signal: AbortSignal,
+  failureLogs: FailureLogService,
+  onFrames?: (frames: number) => void
+): Promise<void> {
+  const executable = getFfmpegPath()
   const command = taskCommand(executable, args)
   const log = failureLogs.create(task, command)
   await new Promise<void>((resolve, reject) => {
@@ -168,6 +181,18 @@ async function renderSheet(
       return
     }
     child.stdout.resume()
+    if (onFrames) {
+      let buffer = ''
+      child.stdout.on('data', (chunk: Buffer) => {
+        const lines = (buffer + chunk.toString()).split(/\r?\n/u)
+        buffer = (lines.pop() ?? '').slice(-8192)
+        for (const line of lines) {
+          if (!line.startsWith('frame=')) continue
+          const frames = Number(line.slice(6))
+          if (Number.isFinite(frames)) onFrames(frames)
+        }
+      })
+    }
     const cancel = (): void => {
       child.kill()
     }
@@ -209,7 +234,96 @@ async function renderSheet(
       resolve()
     })
   })
-  return statSync(outputPath).size
+}
+
+export function buildFrameSpriteBatchArgs(
+  task: MediaTask,
+  options: SpriteOptions,
+  plan: SpritePlan,
+  fullOutputPattern: string
+): string[] {
+  const fullSheets = Math.floor(plan.frameCount / plan.framesPerSheet)
+  const fullFrames = fullSheets * plan.framesPerSheet
+  const tailFrames = plan.frameCount - fullFrames
+  const scale = `scale=${plan.frameWidth}:-1:flags=lanczos`
+  const tile = (frames: number): string => {
+    const columns = Math.min(options.columns, frames)
+    return `tile=${columns}x${Math.ceil(frames / columns)}:nb_frames=${frames}:padding=${options.padding}:margin=${options.margin}:color=0x${options.backgroundColor.slice(1)}`
+  }
+  const select = (first: number, last: number): string =>
+    `select='between(n\\,${first}\\,${last})*not(mod(n\\,${options.frameStep}))',setpts=N/FRAME_RATE/TB,${scale}`
+  const filters = tailFrames
+    ? `[0:v]split=2[full][tail];[full]${select(0, (fullFrames - 1) * options.frameStep)},${tile(plan.framesPerSheet)}[sheets];[tail]${select(fullFrames * options.frameStep, (plan.frameCount - 1) * options.frameStep)},${tile(tailFrames)}[last]`
+    : `[0:v]${select(0, (fullFrames - 1) * options.frameStep)},${tile(plan.framesPerSheet)}[sheets]`
+  const qualityArgs =
+    options.imageFormat === 'jpeg'
+      ? ['-q:v', String(Math.max(2, Math.min(31, Math.round(31 - (options.quality / 100) * 29))))]
+      : options.imageFormat === 'webp'
+        ? ['-c:v', 'libwebp', '-quality', String(options.quality)]
+        : ['-compression_level', '9']
+  const args = [
+    '-hide_banner',
+    '-nostdin',
+    '-y',
+    '-ss',
+    String(options.startTimeSeconds),
+    '-t',
+    String(plan.duration),
+    '-i',
+    task.sourcePath,
+    '-filter_complex',
+    filters,
+    '-progress',
+    'pipe:1',
+    '-nostats',
+    '-map',
+    '[sheets]',
+    '-frames:v',
+    String(fullSheets),
+    ...qualityArgs,
+    '-fps_mode',
+    'passthrough',
+    '-f',
+    'image2',
+    '-start_number',
+    '1',
+    fullOutputPattern
+  ]
+  if (tailFrames)
+    args.push('-map', '[last]', '-frames:v', '1', ...qualityArgs, task.outputPaths!.at(-1)!)
+  return args
+}
+
+async function renderFrameBatch(
+  task: MediaTask,
+  options: SpriteOptions,
+  plan: SpritePlan,
+  signal: AbortSignal,
+  onProgress: (progress: number) => void,
+  failureLogs: FailureLogService
+): Promise<number> {
+  const extension = options.imageFormat === 'jpeg' ? 'jpg' : options.imageFormat
+  const prefix = `.frames-${task.id}-`
+  const pattern = join(task.outputPath, `${prefix}%06d.${extension}`)
+  const fullSheets = Math.floor(plan.frameCount / plan.framesPerSheet)
+  const args = buildFrameSpriteBatchArgs(task, options, plan, pattern)
+  await runSpriteCommand(task, args, signal, failureLogs, (frames) =>
+    onProgress(Math.min(99, Math.round((Math.min(frames, fullSheets) / plan.sheetCount) * 100)))
+  )
+  let outputSize = 0
+  for (let index = 0; index < task.outputPaths!.length; index += 1) {
+    if (signal.aborted) throw new TaskCancelledError()
+    const path = task.outputPaths![index]
+    if (index < fullSheets) {
+      await rename(
+        join(task.outputPath, `${prefix}${String(index + 1).padStart(6, '0')}.${extension}`),
+        path
+      )
+    }
+    outputSize += (await stat(path)).size
+  }
+  onProgress(100)
+  return outputSize
 }
 
 export async function processSprite(
@@ -227,6 +341,9 @@ export async function processSprite(
   mkdirSync(task.outputPath, { recursive: true })
   let outputSize = 0
   try {
+    if (options.samplingMode === 'frame' && plan.sheetCount > 1) {
+      return await renderFrameBatch(task, options, plan, signal, onProgress, failureLogs)
+    }
     for (let index = 0; index < outputPaths.length; index += 1) {
       if (signal.aborted) throw new TaskCancelledError()
       outputSize += await renderSheet(
@@ -242,7 +359,7 @@ export async function processSprite(
     }
     return outputSize
   } catch (error) {
-    rmSync(task.outputPath, { recursive: true, force: true })
+    await rm(task.outputPath, { recursive: true, force: true })
     throw error
   }
 }
