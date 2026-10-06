@@ -3,23 +3,29 @@ import { createHash } from 'node:crypto'
 import {
   chmodSync,
   copyFileSync,
+  cpSync,
   createReadStream,
   createWriteStream,
   existsSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   renameSync,
   rmSync,
   statSync,
   writeFileSync
 } from 'node:fs'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
+import { createRequire } from 'node:module'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { spawnSync } from 'node:child_process'
 import extract from 'extract-zip'
 
 const FFMPEG_VERSION = '9.0.2'
+const QPDF_VERSION = '12.4.2'
+const FONTTOOLS_VERSION = '4.66.1'
+const require = createRequire(import.meta.url)
 const root = process.cwd()
 const mediaRoot = join(root, '.media-bin')
 const destination = join(mediaRoot, 'current')
@@ -71,6 +77,30 @@ const platforms = {
   ]
 }
 
+const qpdfPlatforms = {
+  'win32-x64': {
+    url: 'https://github.com/qpdf/qpdf/releases/download/v12.4.2/qpdf-12.4.2-mingw64.zip',
+    sha256: '773d2fa0c7d161e2271430734338e560a07b25d0edf11ceee8e53de435012766'
+  },
+  'darwin-x64': {
+    url: 'https://github.com/qpdf/qpdf/releases/download/v12.4.2/qpdf-12.4.2-bin-macos-x86_64.zip',
+    sha256: 'dd3b01f4414d198529bb0f13bba59c2f016a328bb3506695087a96fb80fc1481'
+  },
+  'darwin-arm64': {
+    url: 'https://github.com/qpdf/qpdf/releases/download/v12.4.2/qpdf-12.4.2-bin-macos-arm64.zip',
+    sha256: '62e46987a30ea167cbc530ccb22690aec3d8c812ed09979a941bcee92e504b79'
+  },
+  'linux-x64': {
+    url: 'https://github.com/qpdf/qpdf/releases/download/v12.4.2/qpdf-12.4.2-bin-linux-x86_64.zip',
+    sha256: 'db367d897829f22c4198ce1094143c9d467bd6ee7dfabc44ba6f02056b24f8b1'
+  }
+}
+
+const fonttoolsWheel = {
+  url: 'https://files.pythonhosted.org/packages/f6/10/d45b74135d5d642cb3a4fb0a957c1613ef93de4c8548671dfc3a5bf38299/fonttools-4.66.1-py3-none-any.whl',
+  sha256: '7234ae9e28db64273fbbfa72caebd0a97e3bdba6b05064114741b9539ef339d0'
+}
+
 /** @returns {Promise<string>} */
 async function sha256(path) {
   const hash = createHash('sha256')
@@ -80,7 +110,7 @@ async function sha256(path) {
 }
 
 /** @returns {Promise<string>} */
-async function downloadArchive(source, index) {
+async function downloadArchive(source, label) {
   mkdirSync(cacheDirectory, { recursive: true })
   const cachePath = join(
     cacheDirectory,
@@ -91,14 +121,14 @@ async function downloadArchive(source, index) {
   rmSync(cachePath, { force: true })
   const response = await fetch(source.url)
   if (!response.ok || !response.body) {
-    throw new Error(`下载 FFmpeg 失败：${response.status} ${response.statusText}`)
+    throw new Error(`下载 ${label} 失败：${response.status} ${response.statusText}`)
   }
-  process.stdout.write(`Downloading FFmpeg ${FFMPEG_VERSION} archive ${index + 1}...\n`)
+  process.stdout.write(`Downloading ${label}...\n`)
   await pipeline(Readable.fromWeb(response.body), createWriteStream(cachePath))
   const actualHash = await sha256(cachePath)
   if (actualHash !== source.sha256) {
     rmSync(cachePath, { force: true })
-    throw new Error(`FFmpeg 下载校验失败：预期 ${source.sha256}，实际 ${actualHash}`)
+    throw new Error(`${label} 下载校验失败：预期 ${source.sha256}，实际 ${actualHash}`)
   }
   return cachePath
 }
@@ -129,9 +159,62 @@ function verifyBinary(path, name) {
   return firstLine
 }
 
+async function stageQpdf(stagingDirectory, extractionDirectory, source) {
+  const archive = await downloadArchive(source, `qpdf ${QPDF_VERSION}`)
+  const extracted = join(extractionDirectory, 'qpdf')
+  await extract(archive, { dir: extracted })
+  const name = process.platform === 'win32' ? 'qpdf.exe' : 'qpdf'
+  const executable = findBinary(extracted, name)
+  if (!executable) throw new Error(`qpdf 下载包中缺少 ${name}`)
+  const packageRoot = dirname(dirname(executable))
+  const target = join(stagingDirectory, 'qpdf')
+  mkdirSync(target, { recursive: true })
+  for (const directory of ['bin', ...(process.platform === 'win32' ? [] : ['lib'])]) {
+    const path = join(packageRoot, directory)
+    if (existsSync(path))
+      cpSync(path, join(target, directory), { recursive: true, verbatimSymlinks: true })
+  }
+  copyFileSync(join(root, 'build', 'licenses', 'qpdf-LICENSE.txt'), join(target, 'LICENSE.txt'))
+  const binary = join(target, 'bin', name)
+  if (process.platform !== 'win32') chmodSync(binary, 0o755)
+  const result = spawnSync(binary, ['--version'], { encoding: 'utf8', windowsHide: true })
+  const version = result.stdout?.split(/\r?\n/u)[0] || ''
+  if (result.status !== 0 || version !== `qpdf version ${QPDF_VERSION}`)
+    throw new Error(
+      `qpdf 版本校验失败：${result.error?.message || result.stderr?.trim() || version}`
+    )
+  return version
+}
+
+async function stageFonttools(stagingDirectory) {
+  const moduleDirectory = dirname(require.resolve('@web-alchemy/fonttools'))
+  const packageDirectory = join(moduleDirectory, '..', 'python_modules')
+  const lockPath = require.resolve('pyodide/pyodide-lock.json', { paths: [moduleDirectory] })
+  const lock = JSON.parse(readFileSync(lockPath, 'utf8'))
+  const target = join(stagingDirectory, 'fonttools')
+  mkdirSync(target, { recursive: true })
+  for (const name of ['brotli', 'lxml']) {
+    const entry = lock.packages[name]
+    const source = join(packageDirectory, entry.file_name)
+    if ((await sha256(source)) !== entry.sha256) throw new Error(`${name} wheel 完整性校验失败`)
+    copyFileSync(source, join(target, entry.file_name))
+  }
+  const archive = await downloadArchive(fonttoolsWheel, `FontTools ${FONTTOOLS_VERSION}`)
+  const fileName = basename(new URL(fonttoolsWheel.url).pathname)
+  copyFileSync(archive, join(target, fileName))
+  Object.assign(lock.packages.fonttools, {
+    file_name: fileName,
+    sha256: fonttoolsWheel.sha256,
+    version: FONTTOOLS_VERSION
+  })
+  writeFileSync(join(target, 'pyodide-lock.json'), JSON.stringify(lock), 'utf8')
+}
+
 const platformKey = `${process.platform}-${process.arch}`
 const sources = platforms[platformKey]
 if (!sources) throw new Error(`当前平台 ${platformKey} 没有固定的 FFmpeg ${FFMPEG_VERSION} 二进制`)
+const qpdfSource = qpdfPlatforms[platformKey]
+if (!qpdfSource) throw new Error(`当前平台 ${platformKey} 没有固定的 qpdf ${QPDF_VERSION} 二进制`)
 
 const stagingDirectory = join(mediaRoot, `staging-${process.pid}`)
 const extractionDirectory = join(stagingDirectory, 'extract')
@@ -141,7 +224,7 @@ mkdirSync(extractionDirectory, { recursive: true })
 try {
   const archives = []
   for (const [index, source] of sources.entries()) {
-    const archive = await downloadArchive(source, index)
+    const archive = await downloadArchive(source, `FFmpeg ${FFMPEG_VERSION} archive ${index + 1}`)
     const archiveDirectory = join(extractionDirectory, String(index))
     mkdirSync(archiveDirectory, { recursive: true })
     await extract(archive, { dir: archiveDirectory })
@@ -162,6 +245,9 @@ try {
     if (process.platform !== 'win32') chmodSync(target, 0o755)
     versions.push(verifyBinary(target, name))
   }
+  versions.push(await stageQpdf(stagingDirectory, extractionDirectory, qpdfSource))
+  await stageFonttools(stagingDirectory)
+  versions.push(`FontTools ${FONTTOOLS_VERSION} (Pyodide)`)
 
   writeFileSync(
     join(stagingDirectory, 'BUILD_INFO.txt'),
@@ -172,9 +258,13 @@ try {
       '',
       'Pinned archives:',
       ...sources.map((source) => `${source.sha256}  ${source.url}`),
+      `${qpdfSource.sha256}  ${qpdfSource.url}`,
+      `${fonttoolsWheel.sha256}  ${fonttoolsWheel.url}`,
       '',
       `FFmpeg source: https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz`,
       'FFmpeg license: https://ffmpeg.org/legal.html',
+      `qpdf source: https://github.com/qpdf/qpdf/tree/v${QPDF_VERSION}`,
+      'qpdf license: https://github.com/qpdf/qpdf/blob/v12.4.2/LICENSE.txt',
       ''
     ].join('\n'),
     'utf8'
@@ -183,7 +273,9 @@ try {
   rmSync(extractionDirectory, { recursive: true, force: true })
   rmSync(destination, { recursive: true, force: true })
   renameSync(stagingDirectory, destination)
-  console.log(`Staged FFmpeg ${FFMPEG_VERSION} for ${platformKey}`)
+  console.log(
+    `Staged FFmpeg ${FFMPEG_VERSION}, qpdf ${QPDF_VERSION} and FontTools ${FONTTOOLS_VERSION} for ${platformKey}`
+  )
 } catch (error) {
   rmSync(stagingDirectory, { recursive: true, force: true })
   throw error

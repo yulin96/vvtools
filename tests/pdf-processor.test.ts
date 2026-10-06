@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'fs'
 import { readFile, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_PDF_OPTIONS } from '../src/shared/constants'
 import type { MediaTask } from '../src/shared/types'
 import {
@@ -11,6 +11,8 @@ import {
   processPdf,
   shutdownPdfProcesses
 } from '../src/main/media/pdf-processor'
+
+vi.mock('electron', () => ({ app: { isPackaged: false } }))
 
 const directories: string[] = []
 

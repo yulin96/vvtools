@@ -72,7 +72,9 @@ pnpm test
 
 ## 打包
 
-安装依赖时会下载并校验当前平台固定版本的 FFmpeg 9.0.2 和 FFprobe；打包脚本会将它们暂存为 `electron-builder` 的外部资源。因此 Windows、macOS 和 Linux 安装包应分别在对应目标平台及架构的构建环境中生成和验证。
+安装依赖时会准备并校验当前平台固定版本的 FFmpeg 9.0.2、FFprobe 和原生 qpdf 12.4.2，以及 Pyodide 使用的 FontTools 4.66.1 和 Python 依赖资源；打包脚本会将它们暂存为 `electron-builder` 的外部资源。因此 Windows、macOS 和 Linux 安装包应分别在对应目标平台及架构的构建环境中生成和验证。
+
+macOS 上的 PDF 无损压缩需要 macOS 15 或更高版本；Linux 官方原生 qpdf 包面向 Ubuntu 22.04 或兼容系统。
 
 ```bash
 pnpm build:win

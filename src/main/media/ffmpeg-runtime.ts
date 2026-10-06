@@ -1,16 +1,18 @@
 import { app } from 'electron'
 import { spawn } from 'child_process'
 import { join } from 'path'
+import { release } from 'os'
 import type { RuntimeCapabilities } from '../../shared/types'
+import { MediaProcessError } from './errors'
 export { createTaskCommand } from './task-command'
 
 let hardwareEncodersPromise: Promise<string[]> | null = null
 
-function packagedBinaryPath(name: 'ffmpeg' | 'ffprobe'): string {
+function packagedBinaryPath(name: 'ffmpeg' | 'ffprobe' | 'qpdf/bin/qpdf'): string {
   return join(process.resourcesPath, 'bin', process.platform === 'win32' ? `${name}.exe` : name)
 }
 
-function developmentBinaryPath(name: 'ffmpeg' | 'ffprobe'): string {
+function developmentBinaryPath(name: 'ffmpeg' | 'ffprobe' | 'qpdf/bin/qpdf'): string {
   return join(
     process.cwd(),
     '.media-bin',
@@ -29,9 +31,23 @@ export function getFfprobePath(): string {
   return path
 }
 
-function readVersion(executable: string): Promise<string> {
+export function getQpdfPath(): string {
+  if (process.platform === 'darwin' && Number(release().split('.')[0]) < 24)
+    throw new MediaProcessError('PDF 无损压缩需要 macOS 15 或更高版本')
+  return app.isPackaged
+    ? packagedBinaryPath('qpdf/bin/qpdf')
+    : developmentBinaryPath('qpdf/bin/qpdf')
+}
+
+export function getFonttoolsDirectory(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'bin', 'fonttools')
+    : join(process.cwd(), '.media-bin', 'current', 'fonttools')
+}
+
+function readVersion(executable: string, args = ['-version']): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, ['-version'], { windowsHide: true })
+    const child = spawn(executable, args, { windowsHide: true })
     let output = ''
     let errorOutput = ''
     child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()))
@@ -163,23 +179,21 @@ async function inspectPdfiumRuntime(): Promise<RuntimeCapabilities['pdfium']> {
   }
 }
 
-async function inspectQpdfRuntime(): Promise<RuntimeCapabilities['qpdf']> {
+export async function inspectQpdfRuntime(): Promise<RuntimeCapabilities['qpdf']> {
   try {
-    const module = await import('@neslinesli93/qpdf-wasm')
-    if (!module.default) throw new Error('qpdf 模块未正确加载')
-    return { available: true, version: 'bundled WASM' }
+    return { available: true, version: await readVersion(getQpdfPath(), ['--version']) }
   } catch (error) {
     return { available: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
-async function inspectFonttoolsRuntime(): Promise<RuntimeCapabilities['fonttools']> {
+export async function inspectFonttoolsRuntime(): Promise<RuntimeCapabilities['fonttools']> {
   try {
-    const module = await import('@web-alchemy/fonttools')
-    if (!module.subset || !module.instantiateVariableFont) {
-      throw new Error('FontTools 模块未正确加载')
+    const { getFonttoolsVersion } = await import('./font-process')
+    return {
+      available: true,
+      version: `${await getFonttoolsVersion(getFonttoolsDirectory())} (Pyodide)`
     }
-    return { available: true, version: 'bundled Pyodide' }
   } catch (error) {
     return { available: false, error: error instanceof Error ? error.message : String(error) }
   }

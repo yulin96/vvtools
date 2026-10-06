@@ -1,6 +1,7 @@
 import type { MediaTask, PdfOptions } from '../../shared/types'
 import { MediaProcessError, TaskCancelledError } from './errors'
-import { createTaskCommand } from './ffmpeg-runtime'
+import { createTaskCommand, getQpdfPath } from './ffmpeg-runtime'
+import { runQpdfProcess } from './qpdf-process'
 import {
   probePdfProcess,
   runPdfProcess,
@@ -39,9 +40,12 @@ export async function processPdf(
   ])
 
   try {
+    if (options.operation === 'compress' && options.compressionMode === 'lossless') {
+      return await runQpdfProcess(getQpdfPath(), task, signal, onProgress)
+    }
     return await runPdfProcess(task, signal, onProgress)
   } catch (error) {
-    if (error instanceof TaskCancelledError) throw error
+    if (error instanceof TaskCancelledError || error instanceof MediaProcessError) throw error
     throw new MediaProcessError('PDF 处理失败，请确认文件未损坏或未加密', {
       command,
       stderrTail: error instanceof Error ? error.message : String(error)
@@ -49,8 +53,5 @@ export async function processPdf(
   }
 }
 
-export function isQpdfSuccessExitCode(exitCode: number): boolean {
-  return exitCode === 0 || exitCode === 3
-}
-
+export { isQpdfSuccessExitCode } from './qpdf-process'
 export { shutdownPdfProcesses }

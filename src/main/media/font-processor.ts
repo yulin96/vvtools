@@ -7,7 +7,7 @@ import {
   uniqueCharacters
 } from '../../shared/font-subset-presets'
 import { MediaProcessError, TaskCancelledError } from './errors'
-import { createTaskCommand } from './ffmpeg-runtime'
+import { createTaskCommand, getFonttoolsDirectory } from './ffmpeg-runtime'
 import { runFontProcess } from './font-process'
 
 import type { FontProbe } from './font-probe-core'
@@ -53,7 +53,8 @@ export async function processFont(
           staticAxes,
           subsetOptions: createConvertOptions(options.outputFormat)
         },
-        signal
+        signal,
+        getFonttoolsDirectory()
       )
     } else {
       outputSize = await processSubsetFont(task, options, signal)
@@ -95,7 +96,8 @@ async function processSubsetFont(
       outputPath: task.outputPath,
       subsetOptions
     },
-    signal
+    signal,
+    getFonttoolsDirectory()
   )
 }
 

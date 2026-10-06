@@ -23,14 +23,11 @@ importers:
       '@lucide/vue':
         specifier: ^1.28.0
         version: 1.28.0(vue@3.5.40(typescript@5.9.3))
-      '@neslinesli93/qpdf-wasm':
-        specifier: ^0.3.0
-        version: 0.3.0
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@7.3.6(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
       '@web-alchemy/fonttools':
-        specifier: ^1.4.0
+        specifier: 1.4.0
         version: 1.4.0
       class-variance-authority:
         specifier: ^0.7.1
@@ -877,9 +874,6 @@ packages:
     cpu: [x64]
     os: [linux]
     libc: [glibc]
-
-  '@neslinesli93/qpdf-wasm@0.3.0':
-    resolution: {integrity: sha512-ObyTmabopTMwN6AGwrEkmDbdmM5wnwlRdn9jnJYQ2KbBUPdPDcfNf1QkcWFOVD+qIgSqILz9nK51e22T+x+gkQ==}
 
   '@noble/hashes@1.4.0':
     resolution: {integrity: sha512-V1JJ1WTRUqHHrOSh597hURcMqVKVGL/ea3kv0gSnEdsEZ0/+VyPghM1lMNGc00z7CIQorSvbKpuJkxvuHbvdbg==}
@@ -3758,8 +3752,6 @@ snapshots:
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
-
-  '@neslinesli93/qpdf-wasm@0.3.0': {}
 
   '@noble/hashes@1.4.0': {}
 

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { createRequire } from 'module'
 import type { MediaTask } from '../../shared/types'
 import { TaskCancelledError } from './errors'
+import { shutdownQpdfProcesses } from './qpdf-process'
 
 const require = createRequire(import.meta.url)
 const IDLE_TIMEOUT_MS = 500
@@ -16,8 +17,6 @@ export interface PdfProbeResult {
 interface WorkerModules {
   pdfium: string
   pdfLib: string
-  qpdf: string
-  qpdfWasm: string
   sharp: string
 }
 
@@ -43,8 +42,6 @@ interface WorkerMessage {
 const modules: WorkerModules = {
   pdfium: require.resolve('@hyzyla/pdfium'),
   pdfLib: require.resolve('pdf-lib'),
-  qpdf: require.resolve('@neslinesli93/qpdf-wasm'),
-  qpdfWasm: require.resolve('@neslinesli93/qpdf-wasm/dist/qpdf.wasm'),
   sharp: require.resolve('sharp')
 }
 
@@ -63,6 +60,7 @@ export function runPdfProcess(
 }
 
 export function shutdownPdfProcesses(): void {
+  shutdownQpdfProcesses()
   for (const session of sessions.values()) session.dispose()
   sessions.clear()
 }
@@ -267,8 +265,7 @@ async function loadModules(paths) {
     PDFDocument: pdfLib.PDFDocument,
     sharp: sharpModule.default,
     paths,
-    library: await pdfium.PDFiumLibrary.init(),
-    qpdf: null
+    library: await pdfium.PDFiumLibrary.init()
   }
   return loadedModules
 }
@@ -349,40 +346,6 @@ async function renderPages(task, options, paths, progress) {
   return outputSize
 }
 
-async function getQpdf(paths) {
-  const modules = await loadModules(paths)
-  if (modules.qpdf) return modules.qpdf
-  const qpdfModule = await import(pathToFileURL(paths.qpdf).href)
-  modules.qpdf = await qpdfModule.default({
-    locateFile: () => paths.qpdfWasm,
-    print: () => undefined,
-    printErr: () => undefined
-  })
-  return modules.qpdf
-}
-
-async function compressLossless(task, paths, progress) {
-  const qpdf = await getQpdf(paths)
-  const inputPath = '/vvtools-input-' + task.id + '.pdf'
-  const outputPath = '/vvtools-output-' + task.id + '.pdf'
-  try {
-    qpdf.FS.writeFile(inputPath, new Uint8Array(await readFile(task.sourcePath)))
-    progress(15)
-    const exitCode = qpdf.callMain([
-      '--stream-data=compress', '--recompress-flate', '--object-streams=generate',
-      '--compression-level=9', inputPath, outputPath
-    ])
-    if (exitCode !== 0 && exitCode !== 3) throw new Error('qpdf 退出码 ' + exitCode)
-    const output = qpdf.FS.readFile(outputPath)
-    if (!output.length) throw new Error('qpdf 未生成有效的 PDF 输出')
-    await writeFile(task.outputPath, output)
-    progress(95)
-  } finally {
-    try { qpdf.FS.unlink(inputPath) } catch {}
-    try { qpdf.FS.unlink(outputPath) } catch {}
-  }
-}
-
 async function compressLossy(task, options, paths, progress) {
   const source = await documentFor(task.sourcePath, paths)
   const pageCount = source.getPageCount()
@@ -420,8 +383,8 @@ async function processTask(task, paths, progress) {
   if (task.processingThreads) (await loadModules(paths)).sharp.concurrency(task.processingThreads)
   const options = task.options
   if (options.operation === 'compress') {
-    if (options.compressionMode === 'lossy') await compressLossy(task, options, paths, progress)
-    else await compressLossless(task, paths, progress)
+    if (options.compressionMode !== 'lossy') throw new Error('PDF 无损压缩需要原生 qpdf 处理器')
+    await compressLossy(task, options, paths, progress)
   } else if (task.outputPaths && task.outputPaths.length) {
     return renderPages(task, options, paths, progress)
   } else {
