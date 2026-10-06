@@ -19,7 +19,7 @@ import { pipeline } from 'node:stream/promises'
 import { spawnSync } from 'node:child_process'
 import extract from 'extract-zip'
 
-const FFMPEG_VERSION = '8.1.2'
+const FFMPEG_VERSION = '9.0.2'
 const root = process.cwd()
 const mediaRoot = join(root, '.media-bin')
 const destination = join(mediaRoot, 'current')
@@ -28,44 +28,44 @@ const cacheDirectory = join(mediaRoot, 'cache')
 const platforms = {
   'win32-x64': [
     {
-      url: 'https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-8.1.2-essentials_build.zip',
-      sha256: 'db580001caa24ac104c8cb856cd113a87b0a443f7bdf47d8c12b1d740584a2ec',
+      url: 'https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-essentials_build.zip',
+      sha256: '60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba',
       binaries: ['ffmpeg.exe', 'ffprobe.exe']
     }
   ],
   'darwin-x64': [
     {
-      url: 'https://ffmpeg.martin-riedl.de/download/macos/amd64/1783018342_8.1.2/ffmpeg.zip',
-      sha256: 'a52ef43883f44c219766d4b3bdde4e635b35465d0b704c01c3a0566b59775df9',
+      url: 'https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffmpeg.zip',
+      sha256: '7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4',
       binaries: ['ffmpeg']
     },
     {
-      url: 'https://ffmpeg.martin-riedl.de/download/macos/amd64/1783018342_8.1.2/ffprobe.zip',
-      sha256: '5408ca588c8c72b0dde3afe676d0a7acf25ef97e55ae6eba5c7bede1cda42695',
+      url: 'https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffprobe.zip',
+      sha256: '2322438ed2f6319a691291b247d09c69dcaa3a982460d1f269a7e1af335cfdfd',
       binaries: ['ffprobe']
     }
   ],
   'darwin-arm64': [
     {
-      url: 'https://ffmpeg.martin-riedl.de/download/macos/arm64/1783011502_8.1.2/ffmpeg.zip',
-      sha256: 'ef1aa60006c7b77ce170c1608c08d8e4ba1c30c5746f2ac986ded932d0ac2c3c',
+      url: 'https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip',
+      sha256: 'c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924',
       binaries: ['ffmpeg']
     },
     {
-      url: 'https://ffmpeg.martin-riedl.de/download/macos/arm64/1783011502_8.1.2/ffprobe.zip',
-      sha256: 'c39787f4af7a3932502d2d48db6f6feaaa836b48a73ef78c32cc3285df61dfaf',
+      url: 'https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffprobe.zip',
+      sha256: 'fcbe839537485eaee7a7a8bc5cbc0f90d53617e80943e8a5b2e31cb851197ea6',
       binaries: ['ffprobe']
     }
   ],
   'linux-x64': [
     {
-      url: 'https://ffmpeg.martin-riedl.de/download/linux/amd64/1783011670_8.1.2/ffmpeg.zip',
-      sha256: '56452c0bfc4ee0325cd615d62f46ba8264f62eed34f727c2224c6c84fa7b8719',
+      url: 'https://ffmpeg.martin-riedl.de/download/linux/amd64/1789931100_9.0.2/ffmpeg.zip',
+      sha256: 'fa8ecf4abbd290d98f7d188b8649cc6b391ae209a98452be955a15aab1909d7f',
       binaries: ['ffmpeg']
     },
     {
-      url: 'https://ffmpeg.martin-riedl.de/download/linux/amd64/1783011670_8.1.2/ffprobe.zip',
-      sha256: 'c6f2d36e98f9a4445fad0b0be539f4c4faf13fd502116bf131becd53f56cd390',
+      url: 'https://ffmpeg.martin-riedl.de/download/linux/amd64/1789931100_9.0.2/ffprobe.zip',
+      sha256: '3f428c49070be3d24ec338602b76d412e401ffcb8a5641ef0e729181a232fc32',
       binaries: ['ffprobe']
     }
   ]
@@ -173,7 +173,7 @@ try {
       'Pinned archives:',
       ...sources.map((source) => `${source.sha256}  ${source.url}`),
       '',
-      'FFmpeg source: https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz',
+      `FFmpeg source: https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz`,
       'FFmpeg license: https://ffmpeg.org/legal.html',
       ''
     ].join('\n'),

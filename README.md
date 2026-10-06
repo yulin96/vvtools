@@ -72,7 +72,7 @@ pnpm test
 
 ## 打包
 
-安装依赖时会下载并校验当前平台固定版本的 FFmpeg 8.1.2 和 FFprobe；打包脚本会将它们暂存为 `electron-builder` 的外部资源。因此 Windows、macOS 和 Linux 安装包应分别在对应目标平台及架构的构建环境中生成和验证。
+安装依赖时会下载并校验当前平台固定版本的 FFmpeg 9.0.2 和 FFprobe；打包脚本会将它们暂存为 `electron-builder` 的外部资源。因此 Windows、macOS 和 Linux 安装包应分别在对应目标平台及架构的构建环境中生成和验证。
 
 ```bash
 pnpm build:win

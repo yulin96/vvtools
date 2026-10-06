@@ -4,7 +4,7 @@ VVTools distributes or uses the following third-party software. This file is not
 
 ## FFmpeg and FFprobe
 
-VVTools pins FFmpeg and FFprobe 8.1.2 executables by platform and verifies every downloaded
+VVTools pins FFmpeg and FFprobe 9.0.2 executables by platform and verifies every downloaded
 archive with the SHA-256 values recorded in `scripts/stage-media-binaries.mjs`. Windows binaries
 are supplied by Gyan.dev; macOS and Linux binaries are supplied by Martin Riedl's FFmpeg build
 server. Their builds include GPL components such as libx264 and libx265. Distributions must
@@ -12,7 +12,7 @@ include the corresponding license notices and satisfy the source-code and attrib
 requirements that apply to the exact binaries being shipped.
 
 - FFmpeg project: https://ffmpeg.org/
-- FFmpeg 8.1.2 source: https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz
+- FFmpeg 9.0.2 source: https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz
 - License information: https://ffmpeg.org/legal.html
 - Windows builds: https://www.gyan.dev/ffmpeg/builds/
 - macOS and Linux builds: https://ffmpeg.martin-riedl.de/
