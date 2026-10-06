@@ -47,7 +47,7 @@
     "pdf-lib": "^1.17.1",
     "pinia": "^3.0.4",
     "reka-ui": "^2.10.1",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.5",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
     "vue-router": "^4.6.4"
