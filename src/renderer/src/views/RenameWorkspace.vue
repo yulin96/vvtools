@@ -32,14 +32,12 @@ import { buildRenamePreview } from '../lib/rename-rules'
 import { formatBytes } from '../lib/utils'
 import { useWorkspaceDrop } from '../composables/useWorkspaceDrop'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
-import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import Button from '../components/ui/Button.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 
 const store = useAppStore()
-const advancedOpen = ref(false)
 const loadingFiles = ref(false)
 const renaming = ref(false)
 const settingsReady = ref(false)
@@ -251,7 +249,6 @@ function clearFiles(): void {
 
 function setMode(value: string | number): void {
   draft.value.mode = value as RenameMode
-  if (draft.value.mode === 'sequence') advancedOpen.value = false
 }
 
 function setSort(field: RenameSortField): void {
@@ -317,18 +314,114 @@ onBeforeUnmount(() => {
             hide-label
             @update:model-value="setMode"
           />
-          <Button
-            v-if="draft.mode === 'custom'"
-            class="config-expand-toggle"
-            variant="ghost"
-            size="sm"
-            :aria-expanded="advancedOpen"
-            aria-controls="rename-advanced-settings"
-            @click="advancedOpen = !advancedOpen"
-          >
-            {{ advancedOpen ? '收起设置' : '更多设置' }}
-            <AnimatedChevron :expanded="advancedOpen" />
-          </Button>
+          <AdvancedSettingsPanel v-if="draft.mode === 'custom'" label="批量重命名更多设置">
+            <div class="rename-config-expanded">
+              <fieldset class="config-group">
+                <legend>查找与格式</legend>
+                <div class="config-group-fields rename-format-fields">
+                  <label class="compact-field">
+                    <span>查找文字</span>
+                    <input
+                      v-model="draft.findText"
+                      type="text"
+                      maxlength="200"
+                      placeholder="留空则不替换"
+                    />
+                  </label>
+                  <label class="compact-field">
+                    <span>替换为</span>
+                    <input
+                      v-model="draft.replaceText"
+                      type="text"
+                      maxlength="200"
+                      placeholder="可留空以删除"
+                    />
+                  </label>
+                  <SegmentedControl
+                    class="rename-case-segments"
+                    label="大小写"
+                    :model-value="draft.caseMode"
+                    :options="caseModeOptions"
+                    @update:model-value="draft.caseMode = $event as RenameCaseMode"
+                  />
+                </div>
+              </fieldset>
+              <fieldset class="config-group">
+                <legend>顺序编号</legend>
+                <div class="config-group-fields rename-sequence-fields">
+                  <SegmentedControl
+                    label="位置"
+                    :model-value="draft.sequencePosition"
+                    :options="positionOptions"
+                    :disabled="!draft.sequenceEnabled"
+                    @update:model-value="draft.sequencePosition = $event as RenameSequencePosition"
+                  />
+                  <label class="compact-field">
+                    <span>起始值</span>
+                    <input
+                      :value="draft.sequenceStart"
+                      type="number"
+                      min="0"
+                      max="999999"
+                      :disabled="!draft.sequenceEnabled"
+                      @change="setNumber('sequenceStart', $event, 0, 999999)"
+                    />
+                  </label>
+                  <label class="compact-field">
+                    <span>步长</span>
+                    <input
+                      :value="draft.sequenceStep"
+                      type="number"
+                      min="1"
+                      max="9999"
+                      :disabled="!draft.sequenceEnabled"
+                      @change="setNumber('sequenceStep', $event, 1, 9999)"
+                    />
+                  </label>
+                  <label class="compact-field">
+                    <span>位数</span>
+                    <input
+                      :value="draft.sequencePadding"
+                      type="number"
+                      min="1"
+                      max="8"
+                      :disabled="!draft.sequenceEnabled"
+                      @change="setNumber('sequencePadding', $event, 1, 8)"
+                    />
+                  </label>
+                  <label class="compact-field">
+                    <span>分隔符</span>
+                    <input v-model="draft.separator" type="text" maxlength="10" placeholder="_" />
+                  </label>
+                </div>
+              </fieldset>
+              <fieldset class="config-group">
+                <legend>日期</legend>
+                <div class="config-group-fields rename-date-fields">
+                  <SegmentedControl
+                    label="日期来源"
+                    :model-value="draft.dateSource"
+                    :options="dateSourceOptions"
+                    @update:model-value="draft.dateSource = $event as RenameDateSource"
+                  />
+                  <SegmentedControl
+                    label="日期位置"
+                    :model-value="draft.datePosition"
+                    :options="positionOptions"
+                    :disabled="draft.dateSource === 'none'"
+                    @update:model-value="draft.datePosition = $event as RenameDatePosition"
+                  />
+                  <SegmentedControl
+                    label="日期格式"
+                    :model-value="draft.dateFormat"
+                    :options="dateFormatOptions"
+                    :disabled="draft.dateSource === 'none'"
+                    @update:model-value="draft.dateFormat = $event as RenameDateFormat"
+                  />
+                </div>
+              </fieldset>
+            </div>
+          </AdvancedSettingsPanel>
           <span class="config-summary truncate text-xs text-muted-foreground">
             {{ configSummary }}
           </span>
@@ -392,119 +485,6 @@ onBeforeUnmount(() => {
           />
         </template>
       </div>
-
-      <AdvancedSettingsPanel
-        v-if="draft.mode === 'custom'"
-        id="rename-advanced-settings"
-        :open="advancedOpen"
-      >
-        <div class="rename-config-expanded">
-          <fieldset class="config-group">
-            <legend>查找与格式</legend>
-            <div class="config-group-fields rename-format-fields">
-              <label class="compact-field">
-                <span>查找文字</span>
-                <input
-                  v-model="draft.findText"
-                  type="text"
-                  maxlength="200"
-                  placeholder="留空则不替换"
-                />
-              </label>
-              <label class="compact-field">
-                <span>替换为</span>
-                <input
-                  v-model="draft.replaceText"
-                  type="text"
-                  maxlength="200"
-                  placeholder="可留空以删除"
-                />
-              </label>
-              <SegmentedControl
-                class="rename-case-segments"
-                label="大小写"
-                :model-value="draft.caseMode"
-                :options="caseModeOptions"
-                @update:model-value="draft.caseMode = $event as RenameCaseMode"
-              />
-            </div>
-          </fieldset>
-          <fieldset class="config-group">
-            <legend>顺序编号</legend>
-            <div class="config-group-fields rename-sequence-fields">
-              <SegmentedControl
-                label="位置"
-                :model-value="draft.sequencePosition"
-                :options="positionOptions"
-                :disabled="!draft.sequenceEnabled"
-                @update:model-value="draft.sequencePosition = $event as RenameSequencePosition"
-              />
-              <label class="compact-field">
-                <span>起始值</span>
-                <input
-                  :value="draft.sequenceStart"
-                  type="number"
-                  min="0"
-                  max="999999"
-                  :disabled="!draft.sequenceEnabled"
-                  @change="setNumber('sequenceStart', $event, 0, 999999)"
-                />
-              </label>
-              <label class="compact-field">
-                <span>步长</span>
-                <input
-                  :value="draft.sequenceStep"
-                  type="number"
-                  min="1"
-                  max="9999"
-                  :disabled="!draft.sequenceEnabled"
-                  @change="setNumber('sequenceStep', $event, 1, 9999)"
-                />
-              </label>
-              <label class="compact-field">
-                <span>位数</span>
-                <input
-                  :value="draft.sequencePadding"
-                  type="number"
-                  min="1"
-                  max="8"
-                  :disabled="!draft.sequenceEnabled"
-                  @change="setNumber('sequencePadding', $event, 1, 8)"
-                />
-              </label>
-              <label class="compact-field">
-                <span>分隔符</span>
-                <input v-model="draft.separator" type="text" maxlength="10" placeholder="_" />
-              </label>
-            </div>
-          </fieldset>
-          <fieldset class="config-group">
-            <legend>日期</legend>
-            <div class="config-group-fields rename-date-fields">
-              <SegmentedControl
-                label="日期来源"
-                :model-value="draft.dateSource"
-                :options="dateSourceOptions"
-                @update:model-value="draft.dateSource = $event as RenameDateSource"
-              />
-              <SegmentedControl
-                label="日期位置"
-                :model-value="draft.datePosition"
-                :options="positionOptions"
-                :disabled="draft.dateSource === 'none'"
-                @update:model-value="draft.datePosition = $event as RenameDatePosition"
-              />
-              <SegmentedControl
-                label="日期格式"
-                :model-value="draft.dateFormat"
-                :options="dateFormatOptions"
-                :disabled="draft.dateSource === 'none'"
-                @update:model-value="draft.dateFormat = $event as RenameDateFormat"
-              />
-            </div>
-          </fieldset>
-        </div>
-      </AdvancedSettingsPanel>
     </section>
 
     <div class="video-workspace-content workspace-scroll-content rename-workspace-content">
@@ -718,10 +698,8 @@ onBeforeUnmount(() => {
 
 .rename-config-expanded {
   display: grid;
-  grid-template-columns: 1.05fr 1.45fr 0.9fr;
-  gap: 24px;
-  border-top: 1px solid var(--border);
-  padding: 16px 0 20px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
 }
 
 .rename-format-fields {
@@ -733,7 +711,7 @@ onBeforeUnmount(() => {
 }
 
 .rename-sequence-fields {
-  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .rename-date-fields {
@@ -880,10 +858,6 @@ onBeforeUnmount(() => {
   .rename-config-sequence {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .rename-config-expanded {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 920px) {
@@ -893,11 +867,6 @@ onBeforeUnmount(() => {
 
   .rename-config-sequence {
     grid-template-columns: 1fr;
-  }
-
-  .rename-format-fields,
-  .rename-sequence-fields {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

@@ -65,10 +65,6 @@
   --modal-scale: 0.96;
   --modal-scale-close: 0.96;
   --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --panel-open-dur: 400ms;
-  --panel-close-dur: 350ms;
-  --panel-translate-y: -12px;
-  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --drawer-open-dur: var(--duration-fast);
   --drawer-close-dur: var(--duration-quick);
   --drawer-ease: var(--ease-smooth-out);
@@ -256,24 +252,16 @@ input[type='submit'] {
     opacity var(--dropdown-close-dur) var(--dropdown-ease);
 }
 
-/* transitions.dev — panel reveal */
-.t-panel-slide {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(var(--panel-translate-y));
-  transition:
-    transform var(--panel-close-dur) var(--panel-ease),
-    opacity var(--panel-close-dur) var(--panel-ease);
-  will-change: transform, opacity;
+@keyframes settings-popover-in {
+  from {
+    opacity: 0;
+  }
 }
 
-.t-panel-slide[data-open='true'] {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-  transition:
-    transform var(--panel-open-dur) var(--panel-ease),
-    opacity var(--panel-open-dur) var(--panel-ease);
+@keyframes settings-popover-out {
+  to {
+    opacity: 0;
+  }
 }
 
 /* transitions.dev — icon swap */
@@ -1298,6 +1286,52 @@ input {
   flex-shrink: 0;
 }
 
+.config-expand-toggle[data-state='open'] {
+  border-color: var(--primary);
+  background: var(--accent-soft);
+  color: var(--signal-strong);
+}
+
+.advanced-settings-popover {
+  z-index: 30;
+  width: min(400px, var(--reka-popover-content-available-width));
+  max-height: min(560px, var(--reka-popover-content-available-height));
+  min-width: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+  padding: 16px;
+  color: var(--foreground);
+  outline: none;
+  box-shadow: var(--shadow-low);
+}
+
+.advanced-settings-popover[data-state='open'] {
+  animation: settings-popover-in var(--duration-quick) var(--ease-out);
+}
+
+.advanced-settings-popover[data-state='closed'] {
+  pointer-events: none;
+  animation: settings-popover-out var(--duration-quick) var(--ease-out);
+}
+
+.advanced-settings-popover .compact-field:has(> .switch-field-control) {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.advanced-settings-popover .switch-field-control {
+  width: auto;
+  flex-direction: row-reverse;
+  border: 0;
+  background: transparent;
+  padding: 0 4px;
+}
+
 .output-mode-picker select {
   height: 32px;
   min-width: 112px;
@@ -1424,8 +1458,7 @@ input {
 }
 
 .video-config-primary,
-.image-config-primary,
-.video-config-expanded {
+.image-config-primary {
   display: grid;
   gap: 24px;
   padding: 0 0 20px;
@@ -1470,17 +1503,6 @@ input {
   color: var(--muted-foreground);
   font-size: 11px;
   line-height: 1.5;
-}
-
-.video-config-expanded {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-top: 1px solid var(--border);
-  background: var(--workspace);
-  padding-top: 16px;
-}
-
-.image-config-expanded {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .config-group {
@@ -1582,20 +1604,9 @@ input {
   pointer-events: none;
 }
 
-.advanced-settings-list {
-  grid-column: 1 / -1;
-}
-
 .advanced-settings-list .config-group-fields {
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
-}
-
-.image-advanced-settings-list .config-group-fields {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.video-advanced-settings-list .config-group-fields {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .compact-field {
@@ -2432,10 +2443,6 @@ html[data-theme='dark'] .bg-slate-950 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .video-config-expanded {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .task-table {
     min-width: 0;
   }
@@ -2486,11 +2493,6 @@ html[data-theme='dark'] .bg-slate-950 {
   .settings-capabilities-list {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .image-advanced-settings-list .config-group-fields,
-  .video-advanced-settings-list .config-group-fields {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .indeterminate-progress {
@@ -2510,7 +2512,6 @@ html[data-theme='dark'] .bg-slate-950 {
   .t-tabs-pill,
   .t-tab,
   .t-dropdown,
-  .t-panel-slide,
   .t-icon-swap .t-icon,
   .custom-value-append,
   .alert-slide-enter-active,
@@ -2519,7 +2520,8 @@ html[data-theme='dark'] .bg-slate-950 {
   }
 
   .modal-overlay,
-  .modal-content {
+  .modal-content,
+  .advanced-settings-popover {
     animation: none !important;
   }
 

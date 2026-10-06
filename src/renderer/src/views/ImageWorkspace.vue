@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { FolderPlus, Images, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
@@ -25,14 +25,12 @@ import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
-import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import ToggleSwitch from '../components/ui/ToggleSwitch.vue'
 import { useWorkspaceDrop } from '../composables/useWorkspaceDrop'
 import { useTaskSubmission } from '../composables/useTaskSubmission'
 import { settledBatchSourceItems } from '../lib/batch-sources'
 
 const store = useAppStore()
-const configExpanded = ref(false)
 const pendingInputs = computed<ImageInputFile[]>({
   get: () => store.pendingImageInputs,
   set: (value) => (store.pendingImageInputs = value)
@@ -331,17 +329,36 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
             hide-label
             @update:model-value="applyPreset"
           />
-          <Button
-            class="config-expand-toggle"
-            variant="ghost"
-            size="sm"
-            :aria-expanded="configExpanded"
-            aria-controls="image-advanced-settings"
-            @click="configExpanded = !configExpanded"
-          >
-            {{ configExpanded ? '收起设置' : '更多设置' }}
-            <AnimatedChevron :expanded="configExpanded" />
-          </Button>
+          <AdvancedSettingsPanel label="图片更多设置">
+            <fieldset class="config-group advanced-settings-list">
+              <legend class="sr-only">处理偏好</legend>
+              <div class="config-group-fields">
+                <SegmentedControl
+                  label="附加信息（元数据）"
+                  :model-value="store.settings.image.lastOptions.metadataMode"
+                  :options="metadataModeOptions"
+                  @update:model-value="
+                    updateImage({ metadataMode: $event as ImageOptions['metadataMode'] })
+                  "
+                />
+                <ToggleSwitch
+                  label="文件夹层级"
+                  :model-value="store.settings.image.lastOptions.preserveStructure"
+                  enabled-text="保留原文件夹"
+                  disabled-text="全部放在一起"
+                  @update:model-value="updateImage({ preserveStructure: $event })"
+                />
+                <ToggleSwitch
+                  label="小图是否放大"
+                  :model-value="store.settings.image.lastOptions.allowEnlargement"
+                  enabled-text="放大到目标尺寸"
+                  disabled-text="保持原尺寸"
+                  @update:model-value="updateImage({ allowEnlargement: $event })"
+                />
+                <OutputSuffixField kind="image" />
+              </div>
+            </fieldset>
+          </AdvancedSettingsPanel>
           <span class="config-summary truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ compressionLabel }} · {{ resizeLabel }}
           </span>
@@ -482,44 +499,9 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
           </div>
         </fieldset>
       </div>
-
-      <AdvancedSettingsPanel
-        id="image-advanced-settings"
-        :open="configExpanded"
-        class="video-config-expanded"
-      >
-        <fieldset class="config-group advanced-settings-list image-advanced-settings-list">
-          <legend class="sr-only">处理偏好</legend>
-          <div class="config-group-fields">
-            <SegmentedControl
-              label="附加信息（元数据）"
-              :model-value="store.settings.image.lastOptions.metadataMode"
-              :options="metadataModeOptions"
-              @update:model-value="
-                updateImage({ metadataMode: $event as ImageOptions['metadataMode'] })
-              "
-            />
-            <ToggleSwitch
-              label="文件夹层级"
-              :model-value="store.settings.image.lastOptions.preserveStructure"
-              enabled-text="保留原文件夹"
-              disabled-text="全部放在一起"
-              @update:model-value="updateImage({ preserveStructure: $event })"
-            />
-            <ToggleSwitch
-              label="小图是否放大"
-              :model-value="store.settings.image.lastOptions.allowEnlargement"
-              enabled-text="放大到目标尺寸"
-              disabled-text="保持原尺寸"
-              @update:model-value="updateImage({ allowEnlargement: $event })"
-            />
-            <OutputSuffixField kind="image" />
-          </div>
-        </fieldset>
-      </AdvancedSettingsPanel>
     </section>
 
-    <div class="video-workspace-content workspace-scroll-content" @click="configExpanded = false">
+    <div class="video-workspace-content workspace-scroll-content">
       <CurrentBatchTable
         v-if="pendingInputs.length || imageTasks.length"
         kind="image"

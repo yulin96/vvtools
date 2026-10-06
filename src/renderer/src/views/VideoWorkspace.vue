@@ -22,14 +22,12 @@ import OutputSuffixField from '../components/OutputSuffixField.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
-import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
 import { useWorkspaceDrop } from '../composables/useWorkspaceDrop'
 import { useTaskSubmission } from '../composables/useTaskSubmission'
 import { settledBatchSourceItems } from '../lib/batch-sources'
 
 const store = useAppStore()
-const configExpanded = ref(false)
 const customFrameRateInput = ref<HTMLInputElement | null>(null)
 const customResolutionHeightInput = ref<HTMLInputElement | null>(null)
 const pendingPaths = computed<string[]>({
@@ -288,17 +286,55 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
             hide-label
             @update:model-value="applyPreset"
           />
-          <Button
-            class="config-expand-toggle"
-            variant="ghost"
-            size="sm"
-            :aria-expanded="configExpanded"
-            aria-controls="video-advanced-settings"
-            @click="configExpanded = !configExpanded"
-          >
-            {{ configExpanded ? '收起设置' : '更多设置' }}
-            <AnimatedChevron :expanded="configExpanded" />
-          </Button>
+          <AdvancedSettingsPanel label="视频更多设置">
+            <fieldset class="config-group advanced-settings-list">
+              <legend class="sr-only">编码与音频</legend>
+              <div class="config-group-fields">
+                <SegmentedControl
+                  label="编码加速"
+                  :model-value="store.settings.video.lastOptions.encoderMode"
+                  :options="availableEncoderModeOptions"
+                  @update:model-value="updateVideo({ encoderMode: $event as VideoEncoderMode })"
+                />
+                <label class="compact-field">
+                  <span>视频中的音频</span>
+                  <select
+                    :value="store.settings.video.lastOptions.audioMode"
+                    @change="
+                      updateVideo({
+                        audioMode: ($event.target as HTMLSelectElement).value as VideoAudioMode
+                      })
+                    "
+                  >
+                    <option value="aac">转为 AAC</option>
+                    <option value="copy">复制原音频</option>
+                    <option value="none">移除音频</option>
+                  </select>
+                </label>
+                <label
+                  class="compact-field"
+                  :class="{ 'opacity-45': store.settings.video.lastOptions.audioMode !== 'aac' }"
+                >
+                  <span>音频码率</span>
+                  <select
+                    :value="store.settings.video.lastOptions.audioBitrateKbps"
+                    :disabled="store.settings.video.lastOptions.audioMode !== 'aac'"
+                    @change="
+                      updateVideo({
+                        audioBitrateKbps: Number(($event.target as HTMLSelectElement).value)
+                      })
+                    "
+                  >
+                    <option :value="96">96 kbps</option>
+                    <option :value="128">128 kbps</option>
+                    <option :value="192">192 kbps</option>
+                    <option :value="256">256 kbps</option>
+                  </select>
+                </label>
+                <OutputSuffixField kind="video" />
+              </div>
+            </fieldset>
+          </AdvancedSettingsPanel>
           <span class="config-summary truncate text-xs text-muted-foreground">
             {{ formatLabel }} · {{ codecLabel }} · {{ qualityLabel }}
           </span>
@@ -461,63 +497,9 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
           </div>
         </fieldset>
       </div>
-
-      <AdvancedSettingsPanel
-        id="video-advanced-settings"
-        :open="configExpanded"
-        class="video-config-expanded"
-      >
-        <fieldset class="config-group advanced-settings-list video-advanced-settings-list">
-          <legend class="sr-only">编码与音频</legend>
-          <div class="config-group-fields">
-            <SegmentedControl
-              label="编码加速"
-              :model-value="store.settings.video.lastOptions.encoderMode"
-              :options="availableEncoderModeOptions"
-              @update:model-value="updateVideo({ encoderMode: $event as VideoEncoderMode })"
-            />
-            <label class="compact-field">
-              <span>视频中的音频</span>
-              <select
-                :value="store.settings.video.lastOptions.audioMode"
-                @change="
-                  updateVideo({
-                    audioMode: ($event.target as HTMLSelectElement).value as VideoAudioMode
-                  })
-                "
-              >
-                <option value="aac">转为 AAC</option>
-                <option value="copy">复制原音频</option>
-                <option value="none">移除音频</option>
-              </select>
-            </label>
-            <label
-              class="compact-field"
-              :class="{ 'opacity-45': store.settings.video.lastOptions.audioMode !== 'aac' }"
-            >
-              <span>音频码率</span>
-              <select
-                :value="store.settings.video.lastOptions.audioBitrateKbps"
-                :disabled="store.settings.video.lastOptions.audioMode !== 'aac'"
-                @change="
-                  updateVideo({
-                    audioBitrateKbps: Number(($event.target as HTMLSelectElement).value)
-                  })
-                "
-              >
-                <option :value="96">96 kbps</option>
-                <option :value="128">128 kbps</option>
-                <option :value="192">192 kbps</option>
-                <option :value="256">256 kbps</option>
-              </select>
-            </label>
-            <OutputSuffixField kind="video" />
-          </div>
-        </fieldset>
-      </AdvancedSettingsPanel>
     </section>
 
-    <div class="video-workspace-content workspace-scroll-content" @click="configExpanded = false">
+    <div class="video-workspace-content workspace-scroll-content">
       <CurrentBatchTable
         v-if="pendingPaths.length || videoTasks.length"
         kind="video"

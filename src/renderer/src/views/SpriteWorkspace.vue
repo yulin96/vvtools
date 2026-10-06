@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { FileVideo2, Grid2X2, Play, Plus, UploadCloud } from '@lucide/vue'
 import type {
   CreateTasksRequest,
@@ -13,7 +13,6 @@ import { settledBatchSourceItems } from '../lib/batch-sources'
 import { useWorkspaceDrop } from '../composables/useWorkspaceDrop'
 import { useTaskSubmission } from '../composables/useTaskSubmission'
 import AdvancedSettingsPanel from '../components/ui/AdvancedSettingsPanel.vue'
-import AnimatedChevron from '../components/ui/AnimatedChevron.vue'
 import Button from '../components/ui/Button.vue'
 import CurrentBatchTable from '../components/CurrentBatchTable.vue'
 import DropFollowEffect from '../components/ui/DropFollowEffect.vue'
@@ -23,7 +22,6 @@ import SegmentedControl from '../components/ui/SegmentedControl.vue'
 import SourceOverwriteWarning from '../components/SourceOverwriteWarning.vue'
 
 const store = useAppStore()
-const configExpanded = ref(false)
 const pendingPaths = computed<string[]>({
   get: () => store.pendingSpritePaths,
   set: (value) => (store.pendingSpritePaths = value)
@@ -140,17 +138,94 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
     <section v-if="store.settings" class="video-config-panel" aria-label="视频雪碧图设置">
       <div class="video-config-heading">
         <div class="config-heading-main">
-          <Button
-            class="config-expand-toggle"
-            variant="ghost"
-            size="sm"
-            :aria-expanded="configExpanded"
-            aria-controls="sprite-advanced-settings"
-            @click="configExpanded = !configExpanded"
-          >
-            {{ configExpanded ? '收起设置' : '更多设置' }}
-            <AnimatedChevron :expanded="configExpanded" />
-          </Button>
+          <AdvancedSettingsPanel label="视频雪碧图更多设置">
+            <fieldset class="config-group advanced-settings-list">
+              <legend class="sr-only">范围与图片</legend>
+              <div class="config-group-fields">
+                <label class="compact-field"
+                  ><span>开始时间（0 为开头）</span>
+                  <div class="number-field">
+                    <input
+                      :value="options?.startTimeSeconds"
+                      type="number"
+                      min="0"
+                      max="864000"
+                      step="0.1"
+                      @change="updateSprite({ startTimeSeconds: numberValue($event) })"
+                    /><span>秒</span>
+                  </div></label
+                >
+                <label class="compact-field"
+                  ><span>结束时间（0 为结尾）</span>
+                  <div class="number-field">
+                    <input
+                      :value="options?.endTimeSeconds"
+                      type="number"
+                      min="0"
+                      max="864000"
+                      step="0.1"
+                      @change="updateSprite({ endTimeSeconds: numberValue($event) })"
+                    /><span>秒</span>
+                  </div></label
+                >
+                <label class="compact-field"
+                  ><span>帧间距</span>
+                  <div class="number-field">
+                    <input
+                      :value="options?.padding"
+                      type="number"
+                      min="0"
+                      max="128"
+                      @change="updateSprite({ padding: numberValue($event) })"
+                    /><span>px</span>
+                  </div></label
+                >
+                <label class="compact-field"
+                  ><span>画布边距</span>
+                  <div class="number-field">
+                    <input
+                      :value="options?.margin"
+                      type="number"
+                      min="0"
+                      max="256"
+                      @change="updateSprite({ margin: numberValue($event) })"
+                    /><span>px</span>
+                  </div></label
+                >
+                <label class="compact-field"
+                  ><span>背景颜色</span
+                  ><input
+                    :value="options?.backgroundColor"
+                    type="color"
+                    @change="
+                      updateSprite({ backgroundColor: ($event.target as HTMLInputElement).value })
+                    "
+                /></label>
+                <SegmentedControl
+                  label="图片格式"
+                  :model-value="options?.imageFormat ?? 'png'"
+                  :options="formatOptions"
+                  @update:model-value="updateSprite({ imageFormat: $event as SpriteImageFormat })"
+                />
+                <label
+                  class="compact-field"
+                  :class="{ 'opacity-45': options?.imageFormat === 'png' }"
+                  ><span>图片质量</span>
+                  <div class="number-field">
+                    <input
+                      :value="options?.quality"
+                      :disabled="options?.imageFormat === 'png'"
+                      type="number"
+                      min="1"
+                      max="100"
+                      @change="updateSprite({ quality: numberValue($event) })"
+                    /><span>%</span>
+                  </div></label
+                >
+                <OutputSuffixField kind="sprite" />
+              </div>
+            </fieldset>
+          </AdvancedSettingsPanel>
           <span class="config-summary truncate text-xs text-muted-foreground">{{ summary }}</span>
         </div>
         <div class="video-config-actions">
@@ -276,100 +351,9 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
           </div>
         </fieldset>
       </div>
-
-      <AdvancedSettingsPanel
-        id="sprite-advanced-settings"
-        :open="configExpanded"
-        class="video-config-expanded"
-      >
-        <fieldset class="config-group advanced-settings-list video-advanced-settings-list">
-          <legend class="sr-only">范围与图片</legend>
-          <div class="config-group-fields">
-            <label class="compact-field"
-              ><span>开始时间（0 为开头）</span>
-              <div class="number-field">
-                <input
-                  :value="options?.startTimeSeconds"
-                  type="number"
-                  min="0"
-                  max="864000"
-                  step="0.1"
-                  @change="updateSprite({ startTimeSeconds: numberValue($event) })"
-                /><span>秒</span>
-              </div></label
-            >
-            <label class="compact-field"
-              ><span>结束时间（0 为结尾）</span>
-              <div class="number-field">
-                <input
-                  :value="options?.endTimeSeconds"
-                  type="number"
-                  min="0"
-                  max="864000"
-                  step="0.1"
-                  @change="updateSprite({ endTimeSeconds: numberValue($event) })"
-                /><span>秒</span>
-              </div></label
-            >
-            <label class="compact-field"
-              ><span>帧间距</span>
-              <div class="number-field">
-                <input
-                  :value="options?.padding"
-                  type="number"
-                  min="0"
-                  max="128"
-                  @change="updateSprite({ padding: numberValue($event) })"
-                /><span>px</span>
-              </div></label
-            >
-            <label class="compact-field"
-              ><span>画布边距</span>
-              <div class="number-field">
-                <input
-                  :value="options?.margin"
-                  type="number"
-                  min="0"
-                  max="256"
-                  @change="updateSprite({ margin: numberValue($event) })"
-                /><span>px</span>
-              </div></label
-            >
-            <label class="compact-field"
-              ><span>背景颜色</span
-              ><input
-                :value="options?.backgroundColor"
-                type="color"
-                @change="
-                  updateSprite({ backgroundColor: ($event.target as HTMLInputElement).value })
-                "
-            /></label>
-            <SegmentedControl
-              label="图片格式"
-              :model-value="options?.imageFormat ?? 'png'"
-              :options="formatOptions"
-              @update:model-value="updateSprite({ imageFormat: $event as SpriteImageFormat })"
-            />
-            <label class="compact-field" :class="{ 'opacity-45': options?.imageFormat === 'png' }"
-              ><span>图片质量</span>
-              <div class="number-field">
-                <input
-                  :value="options?.quality"
-                  :disabled="options?.imageFormat === 'png'"
-                  type="number"
-                  min="1"
-                  max="100"
-                  @change="updateSprite({ quality: numberValue($event) })"
-                /><span>%</span>
-              </div></label
-            >
-            <OutputSuffixField kind="sprite" />
-          </div>
-        </fieldset>
-      </AdvancedSettingsPanel>
     </section>
 
-    <div class="video-workspace-content workspace-scroll-content" @click="configExpanded = false">
+    <div class="video-workspace-content workspace-scroll-content">
       <CurrentBatchTable
         v-if="pendingPaths.length || spriteTasks.length"
         kind="sprite"
