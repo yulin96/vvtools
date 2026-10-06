@@ -418,6 +418,9 @@ export interface MediaTask {
   presetName?: string
   sourceWidth?: number
   sourceHeight?: number
+  inputWidth?: number
+  inputHeight?: number
+  processingThreads?: number
   frameCount?: number
   sourceFrameCount?: number
   pageNumber?: number
@@ -476,6 +479,8 @@ export interface MediaInputMetadata {
   path: string
   width?: number
   height?: number
+  inputWidth?: number
+  inputHeight?: number
   frameCount?: number
   sourceFrameCount?: number
   sheetCount?: number

@@ -328,10 +328,10 @@ describe('SettingsStore', () => {
   it('resolves automatic concurrency by media type', () => {
     expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 10)).toEqual({
       image: 10,
-      video: 1,
+      video: 2,
       sprite: 1,
       audio: 2,
-      pdf: 1,
+      pdf: 2,
       font: 3
     })
     expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 2)).toEqual({
@@ -344,10 +344,10 @@ describe('SettingsStore', () => {
     })
     expect(resolveTaskConcurrency(DEFAULT_CONCURRENCY_SETTINGS, 16)).toEqual({
       image: 16,
-      video: 1,
+      video: 2,
       sprite: 1,
       audio: 2,
-      pdf: 1,
+      pdf: 2,
       font: 4
     })
   })

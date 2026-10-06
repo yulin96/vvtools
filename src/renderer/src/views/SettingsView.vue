@@ -195,7 +195,7 @@ function openSourcePage(): void {
           <Cpu class="size-4" />
           <div>
             <h2>任务调度</h2>
-            <p>自动模式会根据任务类型分配并发，避免视频任务占满处理器。</p>
+            <p>根据设备资源调整同时处理数量，为界面操作留出余量。自定义数量为上限。</p>
           </div>
         </div>
         <div class="settings-card-controls settings-concurrency-controls">
@@ -211,7 +211,7 @@ function openSourcePage(): void {
               v-if="store.settings.common.concurrency.mode === 'auto'"
               class="settings-inline-note"
             >
-              图片按 CPU 自动分配，最高 16 个；字体最高 4 个，音频最高 2 个；视频和 PDF 各 1 个。
+              图片最高 16 个；字体最高 4 个；音频、视频和 PDF 最高 2 个；雪碧图 1 个。
             </p>
           </div>
           <div

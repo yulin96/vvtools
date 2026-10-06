@@ -3,6 +3,7 @@ import { rmSync, statSync } from 'fs'
 import type { AudioOptions, MediaTask } from '../../shared/types'
 import { FailureLogService } from '../services/failure-log'
 import { MediaProcessError, TaskCancelledError } from './errors'
+import { ffmpegInputThreads } from './ffmpeg-threads'
 import { createTaskCommand, getFfmpegPath, getFfprobePath } from './ffmpeg-runtime'
 
 export interface AudioProbe {
@@ -15,7 +16,17 @@ export interface AudioProbe {
 
 export function buildAudioArgs(task: MediaTask): string[] {
   const options = task.options as AudioOptions
-  const args = ['-hide_banner', '-nostdin', '-n', '-i', task.sourcePath, '-map', '0:a:0', '-vn']
+  const args = [
+    '-hide_banner',
+    '-nostdin',
+    '-n',
+    ...ffmpegInputThreads(task),
+    '-i',
+    task.sourcePath,
+    '-map',
+    '0:a:0',
+    '-vn'
+  ]
   if (options.normalizeLoudness) {
     args.push('-af', 'loudnorm=I=-16:LRA=11:TP=-1.5')
   }

@@ -304,6 +304,8 @@ export const useAppStore = defineStore('app', () => {
               path: item.sourcePath,
               width: item.outputWidth ?? item.width,
               height: item.outputHeight ?? item.height,
+              inputWidth: item.width,
+              inputHeight: item.height,
               frameCount: item.frameCount,
               sourceFrameCount: item.sourceFrameCount,
               sheetCount: item.sheetCount,

@@ -5,6 +5,7 @@ import { join } from 'path'
 import type { MediaTask, SpriteOptions, TaskCommand } from '../../shared/types'
 import { FailureLogService } from '../services/failure-log'
 import { MediaProcessError, TaskCancelledError } from './errors'
+import { ffmpegInputThreads } from './ffmpeg-threads'
 import { getFfmpegPath } from './ffmpeg-runtime'
 import { probeVideo, type VideoProbe } from './video-processor'
 
@@ -67,6 +68,11 @@ export function createSpritePlan(options: SpriteOptions, probe: VideoProbe): Spr
       `雪碧图尺寸 ${sheetWidth} × ${sheetHeight} 超过 32768 像素，请减小帧宽、列数或每张帧数`
     )
   }
+  if (sheetWidth * sheetHeight > 64_000_000) {
+    throw new Error(
+      `雪碧图尺寸 ${sheetWidth} × ${sheetHeight} 超过 6400 万像素，请减小帧宽或改为分批导出`
+    )
+  }
   return {
     duration,
     intervalSeconds,
@@ -123,6 +129,7 @@ export function buildSpriteArgs(
     String(start),
     '-t',
     String(samplesByFrame ? duration : Math.max(plan.intervalSeconds, duration)),
+    ...ffmpegInputThreads(task),
     '-i',
     task.sourcePath,
     '-vf',
@@ -130,6 +137,7 @@ export function buildSpriteArgs(
     '-frames:v',
     '1'
   ]
+  if (task.processingThreads) args.push('-threads:v', '1')
   if (options.imageFormat === 'jpeg') {
     const qscale = Math.max(2, Math.min(31, Math.round(31 - (options.quality / 100) * 29)))
     args.push('-q:v', String(qscale))
@@ -269,6 +277,7 @@ export function buildFrameSpriteBatchArgs(
     String(options.startTimeSeconds),
     '-t',
     String(plan.duration),
+    ...ffmpegInputThreads(task),
     '-i',
     task.sourcePath,
     '-filter_complex',
@@ -280,6 +289,7 @@ export function buildFrameSpriteBatchArgs(
     '[sheets]',
     '-frames:v',
     String(fullSheets),
+    ...(task.processingThreads ? ['-threads:v', '1'] : []),
     ...qualityArgs,
     '-fps_mode',
     'passthrough',
@@ -290,7 +300,15 @@ export function buildFrameSpriteBatchArgs(
     fullOutputPattern
   ]
   if (tailFrames)
-    args.push('-map', '[last]', '-frames:v', '1', ...qualityArgs, task.outputPaths!.at(-1)!)
+    args.push(
+      '-map',
+      '[last]',
+      '-frames:v',
+      '1',
+      ...(task.processingThreads ? ['-threads:v', '1'] : []),
+      ...qualityArgs,
+      task.outputPaths!.at(-1)!
+    )
   return args
 }
 

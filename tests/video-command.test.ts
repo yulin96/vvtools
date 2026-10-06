@@ -23,6 +23,21 @@ function task(options: Partial<VideoOptions>): MediaTask {
 }
 
 describe('video command', () => {
+  it('bounds decoder, filter and software encoder threads without changing rate control', () => {
+    const args = buildVideoArgs({ ...task({ codec: 'h265' }), processingThreads: 3 })
+    expect(args.slice(args.indexOf('-threads'), args.indexOf('-i'))).toEqual([
+      '-threads',
+      '3',
+      '-filter_threads',
+      '3',
+      '-filter_complex_threads',
+      '3'
+    ])
+    expect(args[args.indexOf('-threads:v') + 1]).toBe('3')
+    expect(args[args.indexOf('-x265-params') + 1]).toBe('pools=3:frame-threads=1')
+    expect(args[args.indexOf('-crf') + 1]).toBe('23')
+  })
+
   it('detects the installed sharp runtime through its default export', async () => {
     const capability = await inspectSharpRuntime()
     expect(capability.available).toBe(true)

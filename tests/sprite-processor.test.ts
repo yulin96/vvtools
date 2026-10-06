@@ -263,6 +263,7 @@ describe('single-pass frame sheets', () => {
       }
       const task: MediaTask = {
         id: 'frame-test',
+        processingThreads: 2,
         kind: 'sprite',
         sourcePath,
         outputPath,

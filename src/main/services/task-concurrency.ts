@@ -48,10 +48,10 @@ export function resolveTaskConcurrency(
   const processors = Math.max(1, parallelism)
   return {
     image: Math.min(16, processors),
-    video: 1,
+    video: processors >= 8 ? 2 : 1,
     sprite: 1,
     audio: Math.min(2, Math.max(1, Math.floor(processors / 4))),
-    pdf: 1,
+    pdf: processors >= 8 ? 2 : 1,
     font: Math.min(4, Math.max(1, Math.ceil(processors / 4)))
   }
 }

@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { mkdirSync, rmSync, statSync } from 'fs'
 import { basename, dirname, join } from 'path'
 import { EventEmitter } from 'events'
+import { TASK_KINDS } from '../../shared/types'
 import type {
   AudioOptions,
   CreateTasksRequest,
@@ -18,6 +19,7 @@ import type {
   VideoOptions
 } from '../../shared/types'
 import { FailureLogService } from './failure-log'
+import { taskResources, type TaskResourceBudget, type TaskResources } from './task-resources'
 import { MediaProcessError, TaskCancelledError, TaskSkippedError } from '../media/errors'
 import { getProtectedSourcePaths, outputContainsSourcePath } from '../media/output-path'
 import { commitStagedOutput, createStagingOutputPath } from '../media/output-commit'
@@ -40,6 +42,8 @@ export class TaskQueue extends EventEmitter {
   private readonly reservedPaths = new Set<string>()
   private readonly lastProgressNotifications = new Map<string, { at: number; progress: number }>()
   private notificationSequence = 0
+  private readonly resources = new Map<string, TaskResources>()
+  private nextResourceKind = 0
 
   constructor(
     private concurrency: TaskConcurrencyLimits,
@@ -47,7 +51,8 @@ export class TaskQueue extends EventEmitter {
     private readonly failureLogs: FailureLogService,
     private readonly moveToTrash: (path: string) => Promise<void> = async () => {
       throw new Error('回收站处理器不可用')
-    }
+    },
+    private readonly resourceBudget?: TaskResourceBudget
   ) {
     super()
   }
@@ -159,6 +164,8 @@ export class TaskQueue extends EventEmitter {
           presetName: request.presetName,
           sourceWidth: sourceMetadata?.width,
           sourceHeight: sourceMetadata?.height,
+          inputWidth: sourceMetadata?.inputWidth,
+          inputHeight: sourceMetadata?.inputHeight,
           sourceSize: statSync(sourcePath).size,
           createdAt: new Date().toISOString()
         }
@@ -212,6 +219,8 @@ export class TaskQueue extends EventEmitter {
               {
                 path: original.sourcePath,
                 width: original.sourceWidth,
+                inputWidth: original.inputWidth,
+                inputHeight: original.inputHeight,
                 height: original.sourceHeight
               }
             ],
@@ -231,6 +240,8 @@ export class TaskQueue extends EventEmitter {
                 {
                   path: original.sourcePath,
                   width: original.sourceWidth,
+                  inputWidth: original.inputWidth,
+                  inputHeight: original.inputHeight,
                   height: original.sourceHeight,
                   sheetCount: original.outputPaths?.length ?? 1,
                   frameCount: original.frameCount,
@@ -253,6 +264,8 @@ export class TaskQueue extends EventEmitter {
                   {
                     path: original.sourcePath,
                     width: original.sourceWidth,
+                    inputWidth: original.inputWidth,
+                    inputHeight: original.inputHeight,
                     height: original.sourceHeight
                   }
                 ],
@@ -284,6 +297,8 @@ export class TaskQueue extends EventEmitter {
                       {
                         path: original.sourcePath,
                         width: original.sourceWidth,
+                        inputWidth: original.inputWidth,
+                        inputHeight: original.inputHeight,
                         height: original.sourceHeight,
                         pageCount:
                           original.pageNumbers?.length && original.pageNumbers.length > 0
@@ -346,12 +361,48 @@ export class TaskQueue extends EventEmitter {
 
   private dispatch(): void {
     while (true) {
-      const task = [...this.tasks.values()].find(
+      const candidates = [...this.tasks.values()].filter(
         (item) =>
           item.status === 'pending' && this.runningCount(item.kind) < this.concurrency[item.kind]
       )
+      const task = this.resourceBudget
+        ? TASK_KINDS.map(
+            (_, offset) => TASK_KINDS[(this.nextResourceKind + offset) % TASK_KINDS.length]
+          )
+            .map((kind) => candidates.find((item) => item.kind === kind))
+            .find((item) => item !== undefined)
+        : candidates[0]
       if (!task) return
-      void this.run(task)
+      let allocation: TaskResources | undefined
+      if (this.resourceBudget) {
+        const activeTasks = [...this.tasks.values()].filter(
+          (item) => item.status === 'pending' || item.status === 'processing'
+        )
+        const parallelJobs = TASK_KINDS.reduce(
+          (count, kind) =>
+            count +
+            Math.min(
+              this.concurrency[kind],
+              activeTasks.filter((item) => item.kind === kind).length
+            ),
+          0
+        )
+        allocation = taskResources(task, this.resourceBudget, parallelJobs)
+        const used = [...this.resources.values()].reduce(
+          (total, item) => ({
+            cpu: total.cpu + item.cpu,
+            memoryBytes: total.memoryBytes + item.memoryBytes
+          }),
+          { cpu: 0, memoryBytes: 0 }
+        )
+        if (
+          used.cpu + allocation.cpu > this.resourceBudget.cpu ||
+          used.memoryBytes + allocation.memoryBytes > this.resourceBudget.memoryBytes
+        )
+          return
+        this.nextResourceKind = (TASK_KINDS.indexOf(task.kind) + 1) % TASK_KINDS.length
+      }
+      void this.run(task, allocation)
     }
   }
 
@@ -363,10 +414,14 @@ export class TaskQueue extends EventEmitter {
     return count
   }
 
-  private async run(task: MediaTask): Promise<void> {
+  private async run(task: MediaTask, allocation?: TaskResources): Promise<void> {
     const controller = new AbortController()
     const stagingPath = createStagingOutputPath(task.outputPath, task.id)
     const processingTask = structuredClone(task)
+    if (allocation) {
+      this.resources.set(task.id, allocation)
+      processingTask.processingThreads = allocation.threads
+    }
     processingTask.outputPath = stagingPath
     if (task.outputPaths?.length) {
       processingTask.outputPaths = task.outputPaths.map((path) => join(stagingPath, basename(path)))
@@ -414,6 +469,7 @@ export class TaskQueue extends EventEmitter {
       rmSync(stagingPath, { recursive: true, force: true })
       task.completedAt = new Date().toISOString()
       this.running.delete(task.id)
+      this.resources.delete(task.id)
       this.lastProgressNotifications.delete(task.id)
       this.reservedPaths.delete(task.outputPath)
       this.changed([task])

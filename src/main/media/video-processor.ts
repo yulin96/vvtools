@@ -5,6 +5,7 @@ import { createInterface } from 'readline'
 import type { MediaTask, VideoOptions } from '../../shared/types'
 import { FailureLogService } from '../services/failure-log'
 import { MediaProcessError, TaskCancelledError } from './errors'
+import { ffmpegInputThreads } from './ffmpeg-threads'
 import {
   createTaskCommand,
   getFfmpegPath,
@@ -24,7 +25,14 @@ export function buildVideoArgs(
   hardwareEncoder?: string
 ): string[] {
   const options = task.options as VideoOptions
-  const args = ['-hide_banner', '-nostdin', '-n', '-i', task.sourcePath]
+  const args = [
+    '-hide_banner',
+    '-nostdin',
+    '-n',
+    ...ffmpegInputThreads(task),
+    '-i',
+    task.sourcePath
+  ]
   const copyVideo =
     options.codec === 'source' && options.resolution === 'source' && options.frameRate === 'source'
 
@@ -58,6 +66,12 @@ export function buildVideoArgs(
     }
 
     addEncoderPerformanceArgs(args, encoder)
+    if (task.processingThreads) {
+      args.push('-threads:v', String(task.processingThreads))
+      if (encoder === 'libx265') {
+        args.push('-x265-params', `pools=${task.processingThreads}:frame-threads=1`)
+      }
+    }
     args.push('-pix_fmt', 'yuv420p')
 
     if (options.frameRate !== 'source') {

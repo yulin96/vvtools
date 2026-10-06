@@ -417,6 +417,7 @@ async function compressLossy(task, options, paths, progress) {
 }
 
 async function processTask(task, paths, progress) {
+  if (task.processingThreads) (await loadModules(paths)).sharp.concurrency(task.processingThreads)
   const options = task.options
   if (options.operation === 'compress') {
     if (options.compressionMode === 'lossy') await compressLossy(task, options, paths, progress)

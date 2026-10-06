@@ -35,7 +35,7 @@ describe('IPC payload validation', () => {
       outputMode: 'custom',
       outputDirectory: join(root, 'output'),
       outputSuffix: ' _small ',
-      inputMetadata: [{ path: source, width: 16, height: 9 }],
+      inputMetadata: [{ path: source, width: 16, height: 9, inputWidth: 160, inputHeight: 90 }],
       options: { ...DEFAULT_IMAGE_OPTIONS }
     }
     const result = validateCreateRequest(request)
@@ -45,7 +45,7 @@ describe('IPC payload validation', () => {
       outputNameTemplate: '{name}{suffix}',
       outputConflictPolicy: 'rename',
       batchItemIds: ['image-row'],
-      inputMetadata: [{ path: source, width: 16, height: 9 }]
+      inputMetadata: [{ path: source, width: 16, height: 9, inputWidth: 160, inputHeight: 90 }]
     })
     expect(result).not.toBe(request)
     expect(result.options).not.toBe(request.options)

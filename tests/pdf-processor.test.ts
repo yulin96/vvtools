@@ -61,6 +61,7 @@ describe('PDF processor', () => {
     await writeFile(sourcePath, createTestPdf(false))
     const task: MediaTask = {
       id: 'pdf-lossy',
+      processingThreads: 2,
       kind: 'pdf',
       sourcePath,
       outputPath,

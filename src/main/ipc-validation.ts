@@ -236,6 +236,8 @@ function sanitizeInputMetadata(
       path?: unknown
       width?: unknown
       height?: unknown
+      inputWidth?: unknown
+      inputHeight?: unknown
       pageCount?: unknown
       frameCount?: unknown
       sourceFrameCount?: unknown
@@ -258,6 +260,16 @@ function sanitizeInputMetadata(
           (dimension as number) > 32_768)
       ) {
         throw new Error('媒体尺寸信息无效')
+      }
+    }
+    for (const dimension of [metadata.inputWidth, metadata.inputHeight]) {
+      if (
+        dimension !== undefined &&
+        (!Number.isInteger(dimension) ||
+          (dimension as number) < 1 ||
+          (dimension as number) > 1_000_000)
+      ) {
+        throw new Error('媒体原始尺寸信息无效')
       }
     }
     for (const count of [metadata.pageCount, metadata.fontCount, metadata.sheetCount]) {
@@ -283,6 +295,8 @@ function sanitizeInputMetadata(
       path: metadata.path,
       width: metadata.width as number | undefined,
       height: metadata.height as number | undefined,
+      inputWidth: metadata.inputWidth as number | undefined,
+      inputHeight: metadata.inputHeight as number | undefined,
       pageCount: metadata.pageCount as number | undefined,
       frameCount: metadata.frameCount as number | undefined,
       sourceFrameCount: metadata.sourceFrameCount as number | undefined,

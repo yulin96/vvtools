@@ -56,6 +56,86 @@ afterEach(() => {
 })
 
 describe('TaskQueue', () => {
+  it('shares CPU admission across media kinds and releases it after cancellation', async () => {
+    const paths = fixture()
+    const queue = new TaskQueue(
+      concurrency(4),
+      async (task, signal) => {
+        await new Promise<void>((_resolve, reject) =>
+          signal.addEventListener('abort', () => reject(new TaskCancelledError()), { once: true })
+        )
+        return successfulRunner(task, signal, () => undefined)
+      },
+      new FailureLogService(paths.userData),
+      undefined,
+      { cpu: 2, memoryBytes: 1024 * 1024 * 1024 }
+    )
+    const images = queue.create({
+      kind: 'image',
+      sources: Array.from({ length: 3 }, () => ({ path: paths.source, relativeDirectory: '' })),
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: DEFAULT_IMAGE_OPTIONS
+    })
+    const [video] = queue.create({
+      kind: 'video',
+      sourcePaths: [paths.source],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '-video',
+      options: DEFAULT_VIDEO_OPTIONS
+    })
+    expect(
+      queue
+        .list()
+        .filter((task) => task.status === 'processing')
+        .map((task) => task.id)
+    ).toEqual([images[0].id, images[1].id])
+    queue.cancel(images[0].id)
+    await waitFor(() => queue.list().find((task) => task.id === video.id)?.status === 'processing')
+    expect(queue.list().find((task) => task.id === images[2].id)?.status).toBe('pending')
+    for (const task of queue.list()) queue.cancel(task.id)
+    await waitFor(() => queue.activeCount() === 0)
+  })
+
+  it('uses original image dimensions to prevent memory-heavy jobs from overlapping', async () => {
+    const paths = fixture()
+    const releases: Array<() => void> = []
+    const startedThreads: Array<number | undefined> = []
+    const queue = new TaskQueue(
+      concurrency(4),
+      async (task, signal) => {
+        startedThreads.push(task.processingThreads)
+        await new Promise<void>((resolve) => releases.push(resolve))
+        return successfulRunner(task, signal, () => undefined)
+      },
+      new FailureLogService(paths.userData),
+      undefined,
+      { cpu: 4, memoryBytes: 256 * 1024 * 1024 }
+    )
+    queue.create({
+      kind: 'image',
+      sources: Array.from({ length: 2 }, () => ({ path: paths.source, relativeDirectory: '' })),
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: DEFAULT_IMAGE_OPTIONS,
+      inputMetadata: [
+        { path: paths.source, width: 100, height: 100, inputWidth: 8000, inputHeight: 6000 }
+      ]
+    })
+    expect(queue.list().map((task) => task.status)).toEqual(['processing', 'pending'])
+    expect(startedThreads).toEqual([2])
+    releases[0]()
+    await waitFor(() => releases.length === 2)
+    expect(queue.list().map((task) => task.status)).toEqual(['completed', 'processing'])
+    expect(startedThreads).toEqual([2, 4])
+    releases[1]()
+    await waitFor(() => queue.activeCount() === 0)
+    expect(queue.list().every((task) => task.processingThreads === undefined)).toBe(true)
+  })
+
   it('returns the latest state after immediately dispatching a task', async () => {
     const paths = fixture()
     let release!: () => void

@@ -179,7 +179,9 @@ export class DesktopActions {
           .map((item) => ({
             path: item.sourcePath,
             width: item.outputWidth ?? item.width,
-            height: item.outputHeight ?? item.height
+            height: item.outputHeight ?? item.height,
+            inputWidth: item.width,
+            inputHeight: item.height
           }))
         if (requestData.sources.length) {
           const created = this.queue.create(requestData, request.id)

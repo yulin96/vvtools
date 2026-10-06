@@ -118,4 +118,21 @@ describe('sprite command', () => {
       )
     ).toThrow('超过 32768 像素')
   })
+  it('rejects excessive total pixels even when both canvas edges are within the dimension limit', () => {
+    expect(() =>
+      createSpritePlan(
+        {
+          ...DEFAULT_SPRITE_OPTIONS,
+          samplingMode: 'count',
+          frameCount: 100,
+          exportMode: 'single',
+          columns: 10,
+          frameWidth: 1000,
+          margin: 0,
+          padding: 0
+        },
+        { ...probe, width: 1000, height: 1000 }
+      )
+    ).toThrow('超过 6400 万像素')
+  })
 })

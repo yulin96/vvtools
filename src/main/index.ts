@@ -29,6 +29,7 @@ import { FailureLogService } from './services/failure-log'
 import { SettingsStore } from './services/settings-store'
 import { resolveTaskConcurrency } from './services/task-concurrency'
 import { TaskQueue } from './services/task-queue'
+import { deviceTaskBudget } from './services/task-resources'
 import { UpdateService } from './services/update-service'
 import {
   restoreWindowBounds,
@@ -481,7 +482,8 @@ app.whenReady().then(() => {
                 ? processFont(task, signal, onProgress)
                 : processImage(task, signal, onProgress),
     failureLogs,
-    (path) => shell.trashItem(path)
+    (path) => shell.trashItem(path),
+    deviceTaskBudget()
   )
   desktopIntegration = new DesktopIntegration({
     platform: process.platform as 'darwin' | 'win32' | 'linux',
