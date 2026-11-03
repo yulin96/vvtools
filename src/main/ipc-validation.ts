@@ -166,7 +166,11 @@ export function validateCreateRequest(value: unknown): CreateTasksRequest {
       ? request.sources.map((source) => source.path)
       : request.sourcePaths
   request.batchItemIds = sanitizeBatchItemIds(request.batchItemIds, sourcePaths.length)
-  request.inputMetadata = sanitizeInputMetadata(request.inputMetadata, new Set(sourcePaths))
+  request.inputMetadata = sanitizeInputMetadata(
+    request.inputMetadata,
+    new Set(sourcePaths),
+    request
+  )
   return structuredClone(request)
 }
 
@@ -223,12 +227,16 @@ function sanitizePresetName(value: unknown): string {
 
 function sanitizeInputMetadata(
   value: unknown,
-  sourcePaths: ReadonlySet<string>
+  sourcePaths: ReadonlySet<string>,
+  request: CreateTasksRequest
 ): CreateTasksRequest['inputMetadata'] {
   if (value === undefined) return undefined
   if (!Array.isArray(value) || value.length > sourcePaths.size) {
     throw new Error('媒体尺寸信息无效')
   }
+  // PDF page sizes are measured in points; raster output sizes are integer pixels.
+  const outputInPoints = request.kind === 'pdf' && request.options.operation === 'compress'
+  const inputInPoints = request.kind === 'pdf'
   const paths = new Set<string>()
   return value.map((item) => {
     if (!item || typeof item !== 'object') throw new Error('媒体尺寸信息无效')
@@ -255,8 +263,8 @@ function sanitizeInputMetadata(
     for (const dimension of [metadata.width, metadata.height]) {
       if (
         dimension !== undefined &&
-        (!Number.isInteger(dimension) ||
-          (dimension as number) < 1 ||
+        (!(outputInPoints ? Number.isFinite(dimension) : Number.isInteger(dimension)) ||
+          (dimension as number) <= 0 ||
           (dimension as number) > 32_768)
       ) {
         throw new Error('媒体尺寸信息无效')
@@ -265,8 +273,8 @@ function sanitizeInputMetadata(
     for (const dimension of [metadata.inputWidth, metadata.inputHeight]) {
       if (
         dimension !== undefined &&
-        (!Number.isInteger(dimension) ||
-          (dimension as number) < 1 ||
+        (!(inputInPoints ? Number.isFinite(dimension) : Number.isInteger(dimension)) ||
+          (dimension as number) <= 0 ||
           (dimension as number) > 1_000_000)
       ) {
         throw new Error('媒体原始尺寸信息无效')

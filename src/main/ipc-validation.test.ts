@@ -3,7 +3,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { DEFAULT_FONT_OPTIONS, DEFAULT_IMAGE_OPTIONS } from '../shared/constants'
+import {
+  DEFAULT_FONT_OPTIONS,
+  DEFAULT_IMAGE_OPTIONS,
+  DEFAULT_PDF_OPTIONS
+} from '../shared/constants'
 import {
   sanitizeRenameRequests,
   sanitizeSettings,
@@ -26,6 +30,57 @@ afterEach(() => {
 })
 
 describe('IPC payload validation', () => {
+  it.each([0, -1, NaN, Infinity, -Infinity, '595.28', null, 1_000_001])(
+    'rejects invalid PDF dimensions: %s',
+    (dimension) => {
+      const { root } = fixture()
+      const source = join(root, 'document.pdf')
+      writeFileSync(source, 'PDF fixture')
+      for (const field of ['width', 'height', 'inputWidth', 'inputHeight']) {
+        expect(() =>
+          validateCreateRequest({
+            kind: 'pdf',
+            sourcePaths: [source],
+            outputMode: 'source',
+            outputDirectory: '',
+            outputSuffix: '',
+            inputMetadata: [{ path: source, [field]: dimension }],
+            options: { ...DEFAULT_PDF_OPTIONS, operation: 'compress' }
+          })
+        ).toThrow(/媒体.*尺寸信息无效/u)
+      }
+    }
+  )
+
+  it('requires integer pixels for images and PDF image output', () => {
+    const { root, source } = fixture()
+    const pdf = join(root, 'document.pdf')
+    writeFileSync(pdf, 'PDF fixture')
+    const common = { outputMode: 'source', outputDirectory: '', outputSuffix: '' }
+    for (const field of ['width', 'height', 'inputWidth', 'inputHeight']) {
+      expect(() =>
+        validateCreateRequest({
+          ...common,
+          kind: 'image',
+          sources: [{ path: source, relativeDirectory: '' }],
+          inputMetadata: [{ path: source, [field]: 595.28 }],
+          options: DEFAULT_IMAGE_OPTIONS
+        })
+      ).toThrow(/媒体.*尺寸信息无效/u)
+    }
+    for (const field of ['width', 'height']) {
+      expect(() =>
+        validateCreateRequest({
+          ...common,
+          kind: 'pdf',
+          sourcePaths: [pdf],
+          inputMetadata: [{ path: pdf, [field]: 595.28 }],
+          options: { ...DEFAULT_PDF_OPTIONS, operation: 'toImage' }
+        })
+      ).toThrow('媒体尺寸信息无效')
+    }
+  })
+
   it('preserves batch IDs and metadata while normalizing naming defaults', () => {
     const { root, source } = fixture()
     const request = {
