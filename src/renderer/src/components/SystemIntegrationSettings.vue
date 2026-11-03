@@ -73,8 +73,8 @@ function summary(action: DesktopQuickAction): string {
   const options = action.options
   const compression =
     options.compressionMode === 'targetSize'
-      ? '目标 ' + options.targetSizeKb + ' KB'
-      : '质量 ' + options.quality
+      ? '不超过 ' + options.targetSizeKb + ' KB'
+      : '画质 ' + options.quality
   const resize =
     options.resizeMode === 'width'
       ? '宽 ' + options.width + ' px'
@@ -247,11 +247,11 @@ onMounted(refreshState)
           "
         />
         <SegmentedControl
-          label="压缩方式"
+          label="压缩目标"
           :model-value="draft.options.compressionMode"
           :options="[
-            { value: 'quality', label: '指定质量' },
-            { value: 'targetSize', label: '目标大小' }
+            { value: 'quality', label: '按画质' },
+            { value: 'targetSize', label: '按文件大小' }
           ]"
           @update:model-value="
             draft.options.compressionMode =
@@ -259,11 +259,11 @@ onMounted(refreshState)
           "
         />
         <label v-if="draft.options.compressionMode === 'quality'" class="field-label">
-          <span>质量（1–100）</span>
+          <span>画质（1–100）</span>
           <input v-model.number="draft.options.quality" type="number" min="1" max="100" required />
         </label>
         <label v-else class="field-label">
-          <span>目标大小（KB）</span>
+          <span>大小上限（KB）</span>
           <input
             v-model.number="draft.options.targetSizeKb"
             type="number"
@@ -325,7 +325,7 @@ onMounted(refreshState)
           label="同名文件"
           :model-value="draft.outputConflictPolicy"
           :options="[
-            { value: 'rename', label: '自动改名' },
+            { value: 'rename', label: '自动编号' },
             { value: 'skip', label: '跳过' }
           ]"
           @update:model-value="
@@ -339,10 +339,10 @@ onMounted(refreshState)
           disabled-text="不放大"
         />
         <SegmentedControl
-          label="图片元数据"
+          label="元数据"
           :model-value="draft.options.metadataMode"
           :options="[
-            { value: 'colorProfile', label: '仅保留颜色配置' },
+            { value: 'colorProfile', label: '仅保留色彩配置' },
             { value: 'strip', label: '全部移除' },
             { value: 'all', label: '全部保留' }
           ]"
@@ -375,9 +375,7 @@ onMounted(refreshState)
           @update:model-value="save({ revealOnComplete: $event })"
         />
       </div>
-      <p v-if="!isMac" class="text-xs text-muted-foreground">
-        后台任务通过通知反馈；再次打开 VVTools 可查看当前批次。
-      </p>
+      <p v-if="!isMac" class="text-xs text-muted-foreground">打开 VVTools 可查看当前批次。</p>
     </fieldset>
   </section>
 </template>

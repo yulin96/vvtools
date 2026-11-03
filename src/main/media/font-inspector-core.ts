@@ -180,9 +180,9 @@ function resolveReadOnlyReason(
   fontCount: number,
   axisCount: number
 ): string | undefined {
-  if (fontCount > 1) return '字体集合首版仅支持检查和预览'
-  if (axisCount > 0) return '可变字体首版仅支持检查和预览'
-  if (!EDITABLE_FORMATS.has(format)) return 'OTF 字体首版仅支持检查和预览'
+  if (fontCount > 1) return '字体集合仅支持检查和预览'
+  if (axisCount > 0) return '可变字体仅支持检查和预览'
+  if (!EDITABLE_FORMATS.has(format)) return 'OTF 字体仅支持检查和预览'
   return undefined
 }
 

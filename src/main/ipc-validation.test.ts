@@ -188,7 +188,7 @@ describe('IPC payload validation', () => {
     })
     expect(patch.image.outputSuffix).toBe(' _image ')
     expect(() => sanitizeSettings({ image: { outputSuffix: '../bad' } })).toThrow(
-      '文件名后缀不能超过 50 个字符，且不能包含文件名非法字符'
+      '文件名后缀包含系统不支持的字符，请移除 < > : " / \\ | ? * 和控制字符'
     )
     expect(() => sanitizeSettings({ rename: { sequenceStep: 0 } })).toThrow(
       '批量重命名设置无效：sequenceStep'

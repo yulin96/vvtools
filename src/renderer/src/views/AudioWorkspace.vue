@@ -173,7 +173,7 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/audio', receivePaths: st
               <Play class="size-4" />
               {{
                 starting
-                  ? '正在开始…'
+                  ? '正在准备…'
                   : `开始处理${audioStartItems.length ? ` (${audioStartItems.length})` : ''}`
               }}
             </Button>

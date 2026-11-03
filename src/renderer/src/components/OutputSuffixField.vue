@@ -18,8 +18,13 @@ function updateSuffix(event: Event): void {
   const invalidCharacter = [...outputSuffix].some(
     (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*'.includes(character)
   )
-  if (outputSuffix.length > 50 || outputSuffix.endsWith('.') || invalidCharacter) {
-    store.errorMessage = '文件名后缀不能超过 50 个字符，且不能包含文件名非法字符'
+  let error = ''
+  if (outputSuffix.length > 50) error = '文件名后缀超过 50 个字符，请缩短后重试'
+  else if (outputSuffix.endsWith('.')) error = '文件名后缀不能以句点结尾，请移除末尾的句点'
+  else if (invalidCharacter)
+    error = '文件名后缀包含系统不支持的字符，请移除 < > : " / \\ | ? * 和控制字符'
+  if (error) {
+    store.errorMessage = error
     input.value = mediaSettings.value?.outputSuffix ?? ''
     return
   }
@@ -40,7 +45,7 @@ function updateSuffix(event: Event): void {
       @change="updateSuffix"
     />
     <small v-if="!suffixEnabled" :id="suffixHintId" class="compact-field-hint semantic-warning">
-      文件名规则未使用 <code>{suffix}</code>，当前后缀不会生效。
+      在设置的文件名规则中加入 <code>{suffix}</code> 后可使用。
     </small>
   </label>
 </template>

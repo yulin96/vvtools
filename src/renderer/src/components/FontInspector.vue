@@ -169,7 +169,7 @@ async function loadFont(path: string): Promise<void> {
       loadedFace = face
       fontFamily.value = family
     } catch {
-      previewError.value = '字体信息已读取，但 Chromium 无法渲染该字体的预览'
+      previewError.value = '无法预览此字体，仍可查看字体信息。'
       fontFamily.value = ''
     }
     inspection.value = result
@@ -408,9 +408,7 @@ defineExpose({ openDroppedFiles })
               />
             </label>
           </div>
-          <p class="font-inspector-help">
-            保存时会同步 hhea 与 OS/2 度量，并自动扩大 Windows 边界，避免字形被裁切。
-          </p>
+          <p class="font-inspector-help">保存时自动调整字体边界，避免字形被裁切。</p>
         </section>
       </aside>
 

@@ -11,7 +11,7 @@ const conflictPolicyOptions = [
     label: '覆盖旧文件',
     title: '成功处理后将已有文件移到回收站，再写入新文件'
   },
-  { value: 'skip', label: '跳过新文件', title: '同名时不创建任务' }
+  { value: 'skip', label: '跳过', title: '输出已存在时不处理，源文件保留在待处理列表' }
 ]
 
 function updateConflictPolicy(value: string | number): void {

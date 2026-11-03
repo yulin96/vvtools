@@ -223,13 +223,13 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
                 </div>
               </fieldset>
               <fieldset class="config-group advanced-settings-list">
-                <legend>质量与命名</legend>
+                <legend>画质与命名</legend>
                 <div class="config-group-fields">
                   <label
                     class="compact-field"
                     :class="{ 'opacity-45': options?.imageFormat === 'png' }"
                   >
-                    <span>图片质量</span>
+                    <span>画质</span>
                     <div class="number-field">
                       <input
                         :value="options?.quality"
@@ -256,7 +256,7 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
               <Play class="size-4" />
               {{
                 starting
-                  ? '正在开始…'
+                  ? '正在准备…'
                   : `开始导出${startItems.length ? ` (${startItems.length})` : ''}`
               }}
             </Button>

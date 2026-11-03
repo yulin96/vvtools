@@ -115,7 +115,6 @@ const summary = computed(() => {
   return `${files.value.length} 个文件 · ${changedCount.value} 个将被重命名`
 })
 const configSummary = computed(() => {
-  if (draft.value.mode === 'sequence') return '按表格顺序生成 1、2、3、4…'
   const parts = [
     draft.value.baseMode === 'original'
       ? '保留原名称'
@@ -410,7 +409,10 @@ onBeforeUnmount(() => {
               </fieldset>
             </div>
           </AdvancedSettingsPanel>
-          <span class="config-summary truncate text-xs text-muted-foreground">
+          <span
+            v-if="draft.mode === 'custom'"
+            class="config-summary truncate text-xs text-muted-foreground"
+          >
             {{ configSummary }}
           </span>
         </div>
@@ -438,7 +440,6 @@ onBeforeUnmount(() => {
             <div v-if="draft.mode === 'sequence'" class="rename-sequence-explainer">
               <ListOrdered class="size-4 shrink-0 text-signal-strong" />
               <div>
-                <strong>按当前表格顺序编号</strong>
                 <p>文件将命名为 1、2、3、4…，保留原扩展名；点击表头即可改变编号顺序。</p>
               </div>
             </div>
@@ -449,16 +450,14 @@ onBeforeUnmount(() => {
                 :options="baseModeOptions"
                 @update:model-value="draft.baseMode = $event as RenameBaseMode"
               />
-              <label class="compact-field">
-                <span>{{ draft.baseMode === 'custom' ? '统一名称' : '名称处理' }}</span>
+              <label v-if="draft.baseMode === 'custom'" class="compact-field">
+                <span>统一名称</span>
                 <input
-                  v-if="draft.baseMode === 'custom'"
                   v-model="draft.customName"
                   type="text"
                   maxlength="200"
                   placeholder="例如：产品图"
                 />
-                <span v-else class="rename-readonly-field">以每个文件的原名称为基础</span>
               </label>
               <label class="compact-field">
                 <span>前缀</span>
@@ -521,9 +520,6 @@ onBeforeUnmount(() => {
               <span class="pending-count">{{ files.length }}</span>
             </div>
             <p>{{ summary }}</p>
-          </div>
-          <div class="rename-order-note">
-            <ListOrdered class="size-4" />表格当前顺序就是编号顺序
           </div>
         </header>
         <div class="batch-task-table-wrap">

@@ -70,7 +70,7 @@ const modeOptions = [
   { value: 'convert', label: '字体转换' },
   { value: 'quickConvert', label: '快速转换' },
   { value: 'splitCollection', label: '字体拆分' },
-  { value: 'variableStatic', label: '可变字体' },
+  { value: 'variableStatic', label: '转静态字体' },
   { value: 'subset', label: '字体压缩' }
 ] satisfies Array<{ value: FontWorkspaceMode; label: string }>
 const formatOptions = [
@@ -181,16 +181,16 @@ const subsetPresetText = computed(() => {
 })
 const subsetScopeDescription = computed(() => {
   if (subsetMode.value === 'latin') {
-    return `英文大小写、数字、常用符号、盲文与方块字符 · 预计保留 ${[...subsetPresetText.value].length} 个字符`
+    return `英文大小写、数字、常用符号、盲文与方块字符 · 所选范围包含 ${[...subsetPresetText.value].length} 个字符`
   }
   if (subsetMode.value === 'chinese') {
-    return `规范汉字 ${subsetChineseLevel.value} + 西文与常用标点 · 预计保留 ${[...subsetPresetText.value].length} 个字符`
+    return `规范汉字 ${subsetChineseLevel.value} + 西文与常用标点 · 所选范围包含 ${[...subsetPresetText.value].length} 个字符`
   }
   if (subsetTextFileDraft.value) {
     return `使用 ${fileName(subsetTextFileDraft.value)}${store.settings?.font.lastOptions.subsetIncludeLatin ? '，同时保留西文基础' : ''}`
   }
   return subsetTextDraft.value
-    ? `预计保留 ${[...subsetPresetText.value].length} 个字符`
+    ? `所选范围包含 ${[...subsetPresetText.value].length} 个字符`
     : '输入实际会使用的文字，或选择 TXT 文本文件'
 })
 const emptyStateCopy = computed(() => {
@@ -475,7 +475,7 @@ const dragging = useWorkspaceDrop(
               <Play class="size-4" />
               {{
                 starting
-                  ? '正在开始…'
+                  ? '正在准备…'
                   : `开始处理${fontStartItems.length ? ` (${fontStartItems.length})` : ''}`
               }}
             </Button>
@@ -509,7 +509,9 @@ const dragging = useWorkspaceDrop(
                     updateFont({ subsetChineseLevel: $event as FontSubsetChineseLevel })
                   "
                 />
-                <p class="font-subset-summary">{{ subsetScopeDescription }}</p>
+                <p class="font-subset-summary">
+                  {{ subsetScopeDescription }}。仅保留所选范围内的字符。
+                </p>
                 <label v-if="subsetMode !== 'custom'" class="font-subset-extra-field">
                   <span>补充字符（可选）</span>
                   <input
@@ -586,7 +588,9 @@ const dragging = useWorkspaceDrop(
                   <span> <strong>TTF</strong> → TTF、WOFF、WOFF2</span>
                   <span> <strong>OTF</strong> → OTF、WOFF、WOFF2</span>
                   <span> <strong>WOFF</strong> → WOFF、WOFF2</span>
-                  <span class="text-muted-foreground">统一压缩：中文 8105</span>
+                  <span class="text-muted-foreground">
+                    仅保留中文 8105、西文与常用标点，移除范围外的字符。
+                  </span>
                 </div>
                 <SegmentedControl
                   v-if="operation === 'variableStatic'"

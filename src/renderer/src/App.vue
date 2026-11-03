@@ -85,7 +85,7 @@ const currentPage = computed(
     workspaceNavigation[0]
 )
 const taskStatusLabel = computed(() =>
-  store.activeCount > 0 ? `${store.activeCount} 个任务处理中` : '暂无处理任务'
+  store.activeCount > 0 ? `${store.activeCount} 个任务未完成` : '暂无处理任务'
 )
 
 watch(
@@ -364,7 +364,7 @@ onBeforeUnmount(() => {
         v-if="store.updateDialog === 'downloaded' && store.activeCount > 0"
         class="mt-5 rounded-xl border border-amber-500/35 bg-amber-500/10 p-3 text-sm text-foreground"
       >
-        当前还有 {{ store.activeCount }} 个任务正在处理，立即重启会取消这些任务。
+        还有 {{ store.activeCount }} 个任务未完成，立即重启会取消这些任务。
       </p>
       <div class="mt-6 flex justify-end gap-2">
         <Button variant="secondary" @click="store.updateDialog = null">稍后</Button>

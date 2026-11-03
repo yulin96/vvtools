@@ -357,7 +357,7 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
               <Play class="size-4" />
               {{
                 starting
-                  ? '正在开始…'
+                  ? '正在准备…'
                   : `开始处理${videoStartItems.length ? ` (${videoStartItems.length})` : ''}`
               }}
             </Button>
@@ -474,7 +474,7 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
             <div :class="{ 'opacity-45': copiesSourceVideo }">
               <SegmentedControl
                 v-if="store.settings.video.lastOptions.rateControl === 'quality'"
-                label="输出画质"
+                label="画质"
                 :model-value="store.settings.video.lastOptions.quality"
                 :options="qualityOptions"
                 :disabled="copiesSourceVideo"
@@ -531,7 +531,7 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
         </div>
         <p class="text-lg font-semibold">{{ dragging ? '松开即可添加视频' : '拖入视频文件' }}</p>
         <p class="mt-1 text-sm text-muted-foreground">
-          文件会先加入待处理列表，不会立即开始。支持 MP4、MOV、MKV、AVI、WebM。
+          添加后，点击“开始处理”。支持 MP4、MOV、MKV、AVI、WebM。
         </p>
         <Button class="mt-5" @click="chooseFiles">选择视频文件</Button>
       </div>

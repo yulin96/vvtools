@@ -1,12 +1,8 @@
 # Product
 
-## Register
-
-product
-
 ## Platform
 
-desktop
+web
 
 ## Users
 

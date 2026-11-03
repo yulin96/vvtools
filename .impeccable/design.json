@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-25T15:50:00.000Z",
+  "generatedAt": "2026-11-03T08:43:17.832Z",
   "title": "Design System: VVTools",
   "extensions": {
     "colorMeta": {
@@ -24,9 +24,57 @@
       },
       "workspace": {
         "role": "neutral",
-        "displayName": "Cool Workspace",
-        "canonical": "#f5f5f9",
-        "tonalRamp": ["#ffffff", "#f5f5f9", "#e3e2ea", "#6d6b7c", "#1c1b27"]
+        "displayName": "Pure Workspace",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#ffffff"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "surface",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#ffffff"]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "sidebar",
+        "canonical": "#f5f5f7",
+        "tonalRamp": ["#f5f5f7"]
+      },
+      "sidebar-active": {
+        "role": "neutral",
+        "displayName": "sidebar-active",
+        "canonical": "#e6e6ec",
+        "tonalRamp": ["#e6e6ec"]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "foreground",
+        "canonical": "#1c1b27",
+        "tonalRamp": ["#1c1b27"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "muted",
+        "canonical": "#f2f2f5",
+        "tonalRamp": ["#f2f2f5"]
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "muted-foreground",
+        "canonical": "#6d6b7c",
+        "tonalRamp": ["#6d6b7c"]
+      },
+      "sidebar-muted": {
+        "role": "neutral",
+        "displayName": "sidebar-muted",
+        "canonical": "#6f6c7c",
+        "tonalRamp": ["#6f6c7c"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "border",
+        "canonical": "#e3e2ea",
+        "tonalRamp": ["#e3e2ea"]
       },
       "dark-workspace": {
         "role": "neutral",
@@ -34,23 +82,29 @@
         "canonical": "#101116",
         "tonalRamp": ["#2d2e38", "#18191f", "#101116"]
       },
-      "semantic-success": {
-        "role": "tertiary",
-        "displayName": "Success",
-        "canonical": "#18794e",
-        "tonalRamp": ["#e8f8ef", "#8be0b4", "#18794e", "#163629"]
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "dark-surface",
+        "canonical": "#18191f",
+        "tonalRamp": ["#18191f"]
       },
-      "semantic-warning": {
-        "role": "tertiary",
-        "displayName": "Warning",
-        "canonical": "#91600a",
-        "tonalRamp": ["#fff4dc", "#f0ca7a", "#91600a", "#3e321b"]
+      "dark-foreground": {
+        "role": "neutral",
+        "displayName": "dark-foreground",
+        "canonical": "#f3f1f8",
+        "tonalRamp": ["#f3f1f8"]
       },
-      "semantic-danger": {
-        "role": "tertiary",
-        "displayName": "Danger",
-        "canonical": "#b52f2f",
-        "tonalRamp": ["#fdecec", "#ffaaaa", "#b52f2f", "#422326"]
+      "dark-border": {
+        "role": "neutral",
+        "displayName": "dark-border",
+        "canonical": "#2d2e38",
+        "tonalRamp": ["#2d2e38"]
+      },
+      "dark-danger-border": {
+        "role": "neutral",
+        "displayName": "dark-danger-border",
+        "canonical": "#69373d",
+        "tonalRamp": ["#69373d"]
       },
       "mac-window-close": {
         "role": "tertiary",
@@ -81,24 +135,34 @@
       {
         "name": "surface-low",
         "value": "0 4px 16px rgb(30 27 55 / 7%)",
-        "purpose": "Top configuration panels only."
+        "purpose": "Advanced settings popovers; permanent task configuration stays flat."
       },
       {
         "name": "floating",
         "value": "0 16px 40px rgb(30 27 55 / 14%)",
-        "purpose": "Advanced panels and modal dialogs."
+        "purpose": "Modal dialogs."
+      },
+      {
+        "name": "surface-low-dark",
+        "value": "0 6px 20px rgb(0 0 0 / 24%)",
+        "purpose": "Advanced settings popovers in dark mode."
+      },
+      {
+        "name": "floating-dark",
+        "value": "0 18px 48px rgb(0 0 0 / 38%)",
+        "purpose": "Modal dialogs in dark mode."
       }
     ],
     "motion": [
       {
         "name": "quick",
         "value": "150ms",
-        "purpose": "Hover, press and close feedback."
+        "purpose": "Hover, press, config mode changes and popover close."
       },
       {
         "name": "fast",
         "value": "250ms",
-        "purpose": "Icon swap, theme feedback and route transitions."
+        "purpose": "Route changes and popover open."
       },
       {
         "name": "medium",
@@ -123,60 +187,60 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Violet primary action with AA-compliant white text in both themes.",
-      "html": "<button class=\"ui-button bg-primary text-primary-foreground\">开始处理</button>",
-      "css": ".ui-button { border-radius: 9px; transition: color 150ms ease, background-color 150ms ease, transform 150ms ease; }"
+      "description": "Violet primary action with short press feedback.",
+      "html": "<button class=\"ui-button\">开始处理</button>",
+      "css": ".ui-button { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 12px; border: 0; border-radius: 9px; background: #6957e8; color: #fff; font: 600 13px system-ui; transition: background-color 150ms ease, transform 150ms ease; } .ui-button:active { transform: translateY(1px) scale(0.985); } .ui-button:focus-visible { outline: 3px solid rgb(105 87 232 / 18%); } @media (prefers-reduced-motion: reduce) { .ui-button { transition: none; } }"
     },
     {
       "name": "Sidebar Navigation",
       "kind": "nav",
-      "description": "A draggable navigation dock floating 8px from the window, 228px expanded and 68px collapsed; interactive descendants remain no-drag.",
-      "html": "<a class=\"sidebar-link sidebar-link-active\">图片处理</a>",
-      "css": ".sidebar-link { min-height: 42px; border-radius: 11px; } .sidebar-link-active { background: var(--sidebar-active); color: var(--signal-strong); }"
+      "description": "Full-height sidebar, 208px expanded and 68px collapsed; macOS collapsed width is 80px. Active rows use a neutral background.",
+      "html": "<nav class=\"sidebar\"><button class=\"sidebar-link sidebar-link-active\">图片处理</button></nav>",
+      "css": ".sidebar { width: 208px; padding: 12px; box-sizing: border-box; background: #f5f5f7; border-right: 1px solid #e5e4eb; } .sidebar-link { display: flex; align-items: center; width: 100%; height: 38px; padding: 0 8px; border: 0; border-radius: 8px; font: 500 13px system-ui; text-align: left; -webkit-app-region: no-drag; } .sidebar-link-active { background: #e6e6ec; color: #242330; font-weight: 600; }"
     },
     {
       "name": "Desktop Window Chrome",
       "kind": "custom",
-      "description": "A frameless 40px drag layer with macOS controls over the floating sidebar and Windows or Linux controls aligned right; inner content clears the safe line without shifting the workspace boundary.",
-      "html": "<header class=\"window-titlebar\">...</header>",
-      "css": ".window-titlebar { position: absolute; inset: 0 0 auto; height: 40px; -webkit-app-region: drag; }"
+      "description": "Independent 56px workspace header shows the current page and unfinished task count. Windows reserves 156px for native controls; Linux retains its system titlebar.",
+      "html": "<header class=\"app-titlebar\"><strong>图片处理</strong><span>2 个任务未完成</span></header>",
+      "css": ".app-titlebar { display: flex; height: 56px; align-items: center; justify-content: space-between; gap: 12px; box-sizing: border-box; padding: 0 24px; border-bottom: 1px solid #e3e2ea; background: #fff; color: #1c1b27; font: 13px system-ui; -webkit-app-region: drag; } .app-titlebar strong { font-size: 16px; font-weight: 600; } .app-titlebar span { color: #6d6b7c; font-size: 12px; }"
     },
     {
       "name": "Drop Workspace",
       "kind": "custom",
-      "description": "The full processing workspace is the drop surface with a uniform 8px outer inset; its configuration panel clears the draggable titlebar.",
-      "html": "<div class=\"video-drop-workspace\"><section class=\"video-config-panel\">...</section><div class=\"video-workspace-content\">...</div></div>",
-      "css": ".video-drop-workspace::after { inset: 8px; border: 1px dashed var(--border); border-radius: 16px; background: var(--background); }"
+      "description": "Continuous workspace with 20px top, 24px horizontal and 16px bottom padding. Flat scrollable configuration occupies at most 60% of the height.",
+      "html": "<div class=\"video-drop-workspace\"><section class=\"video-config-panel\">处理设置</section><div class=\"video-workspace-content\">拖入图片或文件夹</div></div>",
+      "css": ".video-drop-workspace { display: flex; flex-direction: column; height: 240px; min-height: 0; box-sizing: border-box; padding: 20px 24px 16px; background: #fff; color: #1c1b27; font: 13px system-ui; } .video-config-panel { flex-shrink: 0; max-height: 60%; overflow: auto; border-bottom: 1px solid #e3e2ea; padding-bottom: 16px; } .video-workspace-content { flex: 1; min-height: 0; padding-top: 16px; }"
     },
     {
       "name": "Surface Panel",
       "kind": "card",
       "refersTo": "surface-panel",
-      "description": "Flat bordered panel for settings, tables and task configuration.",
-      "html": "<section class=\"settings-card\">...</section>",
-      "css": ".settings-card { border: 1px solid var(--border); border-radius: 14px; background: var(--background); }"
+      "description": "Flat settings surface; task tables have a separate 10px border radius and configuration has no nested panel.",
+      "html": "<section class=\"settings-card\"><h2>界面主题</h2><span>跟随系统</span></section>",
+      "css": ".settings-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 18px; border: 1px solid #e3e2ea; border-radius: 14px; background: #fff; color: #1c1b27; font: 13px system-ui; box-shadow: none; } .settings-card h2 { margin: 0; font-size: 14px; font-weight: 600; }"
     },
     {
       "name": "Semantic Status",
       "kind": "chip",
-      "description": "Theme-aware success, warning and danger states.",
+      "description": "Task states use text and icons with theme-aware semantic colors; queued tasks are distinct from files not yet submitted.",
       "html": "<span class=\"badge-success\">已完成</span>",
-      "css": ".badge-success { background: var(--success-bg); color: var(--success-fg); }"
+      "css": ".badge-success { display: inline-flex; padding: 2px 8px; border-radius: 999px; background: #e8f8ef; color: #18794e; font: 500 12px system-ui; }"
     }
   ],
   "narrative": {
     "northStar": "The Focused Media Desk",
-    "overview": "A clear, calm desktop media workstation with restrained violet interaction color and rare lime activity signals.",
+    "overview": "A calm desktop media workstation with a full-height sidebar, independent workspace header and continuous file, configuration and result areas. Violet marks primary actions and progress; spacing and thin dividers establish hierarchy.",
     "keyCharacteristics": [
-      "Thin boundaries and clear surface hierarchy",
+      "Continuous workspace with thin dividers",
+      "Neutral navigation selection with violet icons and primary actions",
       "Collapsible task navigation",
-      "Purposeful reduced-motion-safe transitions",
-      "Independent light and dark palettes"
+      "Short, reduced-motion-safe transitions"
     ],
     "rules": [
       {
         "name": "Signal Rarity",
-        "body": "Violet marks interaction and progress; lime marks small live states only.",
+        "body": "Violet marks interaction and progress; navigation selection uses a neutral background and violet icon. Lime is reserved for activity signals.",
         "section": "colors"
       },
       {

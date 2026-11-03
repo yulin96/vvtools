@@ -70,7 +70,7 @@ const statusMeta: Record<
     icon: typeof Clock3
   }
 > = {
-  pending: { label: '等待中', tone: 'neutral', icon: Clock3 },
+  pending: { label: '排队中', tone: 'neutral', icon: Clock3 },
   processing: { label: '处理中', tone: 'info', icon: CircleEllipsis },
   completed: { label: '已完成', tone: 'success', icon: CheckCircle2 },
   skipped: { label: '已跳过', tone: 'warning', icon: TriangleAlert },
@@ -134,7 +134,7 @@ const kindLabel = computed(
 const summary = computed(() => {
   const parts: string[] = []
   if (pendingCount.value) parts.push(`${pendingCount.value} 个待开始`)
-  if (activeCount.value) parts.push(`${activeCount.value} 个处理中或等待`)
+  if (activeCount.value) parts.push(`${activeCount.value} 个处理中或排队中`)
   if (completedCount.value) parts.push(`${completedCount.value} 个已完成`)
   if (skippedCount.value) parts.push(`${skippedCount.value} 个已跳过`)
   if (failedCount.value) parts.push(`${failedCount.value} 个失败`)
@@ -425,7 +425,6 @@ function taskFontCompression(task: MediaTask): string {
   <Modal
     :open="Boolean(selectedFailure)"
     title="任务失败详情"
-    description="以下信息用于定位媒体处理失败原因。"
     @update:open="!$event && (selectedFailure = null)"
   >
     <div v-if="selectedFailure?.failure" class="mt-5 space-y-4 text-sm">

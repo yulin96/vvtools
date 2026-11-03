@@ -102,11 +102,19 @@ function updateOutputNameTemplate(event: Event): void {
     /\{(?:name|suffix|preset|width|height|page|index|instance|date)\}/gu,
     ''
   )
-  const invalidLiteral = [...literals].some(
+  const invalidCharacter = [...literals].find(
     (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*{}'.includes(character)
   )
-  if (!template || template.length > 100 || !template.includes('{name}') || invalidLiteral) {
-    store.errorMessage = '文件名规则必须包含 {name}，且只能使用受支持的变量'
+  let error = ''
+  if (!template) error = '文件名规则不能为空，请输入包含 {name} 的规则'
+  else if (template.length > 100) error = '文件名规则超过 100 个字符，请缩短后重试'
+  else if (invalidCharacter === '{' || invalidCharacter === '}')
+    error = '文件名规则包含未识别的变量或括号，请使用下方列出的变量'
+  else if (invalidCharacter)
+    error = '文件名规则包含系统不支持的字符，请移除 < > : " / \\ | ? * 和控制字符'
+  else if (!template.includes('{name}')) error = '文件名规则缺少 {name}，请加入以保留原文件名'
+  if (error) {
+    store.errorMessage = error
     target.value = store.settings.common.outputNameTemplate
     return
   }
@@ -119,14 +127,12 @@ function openSourcePage(): void {
 </script>
 <template>
   <div class="page-container workspace-scroll-content">
-    <p class="settings-intro">管理适用于所有处理页面的输出规则、任务调度和应用行为。</p>
     <template v-if="store.settings">
       <section class="settings-card">
         <div class="settings-card-title">
           <FileOutput class="size-4" />
           <div>
             <h2>文件与输出</h2>
-            <p>统一设置文件名规则和同名文件处理方式；具体后缀在各处理页面配置。</p>
           </div>
         </div>
         <div class="settings-card-controls settings-output-controls">
@@ -151,7 +157,6 @@ function openSourcePage(): void {
           <Monitor class="size-4" />
           <div>
             <h2>界面主题</h2>
-            <p>选择浅色、深色或跟随系统。</p>
           </div>
         </div>
         <div class="settings-card-controls">
@@ -166,10 +171,6 @@ function openSourcePage(): void {
         </div>
       </section>
       <SystemIntegrationSettings v-if="hasDesktopIntegration" />
-      <div class="settings-group-heading">
-        <span>通用</span>
-        <p>这里的修改会同时影响图片、视频、音频、PDF 和字体任务。</p>
-      </div>
       <section class="settings-card settings-card-stack">
         <div class="settings-card-title">
           <Cpu class="size-4" />
@@ -222,10 +223,6 @@ function openSourcePage(): void {
           </div>
         </div>
       </section>
-      <div class="settings-group-heading">
-        <span>应用</span>
-        <p>软件更新与本机处理组件状态。</p>
-      </div>
       <section class="settings-card settings-update-card">
         <div class="settings-card-title">
           <RefreshCw class="size-4" />
@@ -248,7 +245,7 @@ function openSourcePage(): void {
         <div class="settings-update-actions">
           <Button variant="secondary" size="sm" @click="openSourcePage">
             <ExternalLink class="size-3.5" />
-            GitHub 地址
+            在 GitHub 查看
           </Button>
           <Button
             variant="secondary"
@@ -272,7 +269,6 @@ function openSourcePage(): void {
             <RefreshCw class="size-4" />
             <div>
               <h2>处理组件</h2>
-              <p>媒体任务开始前会再次校验文件。</p>
             </div>
           </div>
           <Button

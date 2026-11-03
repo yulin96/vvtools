@@ -195,9 +195,10 @@ function sanitizeOutputSuffix(value: unknown): string {
   const invalidCharacter = [...suffix].some(
     (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*'.includes(character)
   )
-  if (suffix.length > 50 || suffix.endsWith('.') || invalidCharacter) {
-    throw new Error('文件名后缀不能超过 50 个字符，且不能包含文件名非法字符')
-  }
+  if (suffix.length > 50) throw new Error('文件名后缀超过 50 个字符，请缩短后重试')
+  if (suffix.endsWith('.')) throw new Error('文件名后缀不能以句点结尾，请移除末尾的句点')
+  if (invalidCharacter)
+    throw new Error('文件名后缀包含系统不支持的字符，请移除 < > : " / \\ | ? * 和控制字符')
   return suffix
 }
 
@@ -208,12 +209,16 @@ function sanitizeOutputNameTemplate(value: unknown): string {
     /\{(?:name|suffix|preset|width|height|page|index|instance|date)\}/gu,
     ''
   )
-  const invalidLiteral = [...literals].some(
+  const invalidCharacter = [...literals].find(
     (character) => character.charCodeAt(0) < 32 || '<>:"/\\|?*{}'.includes(character)
   )
-  if (!template || template.length > 100 || !template.includes('{name}') || invalidLiteral) {
-    throw new Error('文件名规则必须包含 {name}，长度不能超过 100，且只能使用受支持的变量')
-  }
+  if (!template) throw new Error('文件名规则不能为空，请输入包含 {name} 的规则')
+  if (template.length > 100) throw new Error('文件名规则超过 100 个字符，请缩短后重试')
+  if (invalidCharacter === '{' || invalidCharacter === '}')
+    throw new Error('文件名规则包含未识别的变量或括号，请使用下方列出的变量')
+  if (invalidCharacter)
+    throw new Error('文件名规则包含系统不支持的字符，请移除 < > : " / \\ | ? * 和控制字符')
+  if (!template.includes('{name}')) throw new Error('文件名规则缺少 {name}，请加入以保留原文件名')
   return template
 }
 

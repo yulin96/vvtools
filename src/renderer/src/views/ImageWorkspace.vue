@@ -56,21 +56,21 @@ const imageFormatOptions = [
 const metadataModeOptions = [
   {
     value: 'colorProfile',
-    label: '保留色彩',
+    label: '仅保留色彩配置',
     title: '仅保留色彩配置',
     ariaLabel: '仅保留色彩配置'
   },
   {
     value: 'strip',
     label: '全部移除',
-    title: '移除所有附加信息，文件可能更小',
-    ariaLabel: '移除所有附加信息，文件可能更小'
+    title: '移除所有元数据，文件可能更小',
+    ariaLabel: '移除所有元数据，文件可能更小'
   },
   {
     value: 'all',
     label: '全部保留',
-    title: '尽量保留所有附加信息',
-    ariaLabel: '尽量保留所有附加信息'
+    title: '尽量保留所有元数据',
+    ariaLabel: '尽量保留所有元数据'
   }
 ]
 const imagePresetOptions = [
@@ -110,7 +110,7 @@ const compressionLabel = computed(() => {
   const image = store.settings?.image.lastOptions
   if (!image) return ''
   return image.compressionMode === 'quality'
-    ? `质量 ${image.quality}`
+    ? `画质 ${image.quality}`
     : `不超过 ${image.targetSizeKb} KB`
 })
 const resizeLabel = computed(() => {
@@ -345,7 +345,7 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
                 </div>
               </fieldset>
               <fieldset class="config-group advanced-settings-list">
-                <legend>画面与附加信息</legend>
+                <legend>画面与元数据</legend>
                 <div class="config-group-fields">
                   <ToggleSwitch
                     label="小图是否放大"
@@ -355,7 +355,7 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
                     @update:model-value="updateImage({ allowEnlargement: $event })"
                   />
                   <SegmentedControl
-                    label="附加信息（元数据）"
+                    label="元数据"
                     :model-value="store.settings.image.lastOptions.metadataMode"
                     :options="metadataModeOptions"
                     @update:model-value="
@@ -381,7 +381,7 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
               <Play class="size-4" />
               {{
                 starting
-                  ? '正在开始…'
+                  ? '正在准备…'
                   : `开始处理${imageStartItems.length ? ` (${imageStartItems.length})` : ''}`
               }}
             </Button>
@@ -400,9 +400,7 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
             />
             <label class="compact-field">
               <span>{{
-                store.settings.image.lastOptions.compressionMode === 'quality'
-                  ? '输出画质'
-                  : '单张大小上限'
+                store.settings.image.lastOptions.compressionMode === 'quality' ? '画质' : '大小上限'
               }}</span>
               <div class="number-field">
                 <input
@@ -543,7 +541,7 @@ const dragging = useWorkspaceDrop(receiveDroppedPaths, {
           {{ dragging ? '松开即可添加图片或文件夹' : '拖入图片或文件夹' }}
         </p>
         <p class="mt-1 text-sm text-muted-foreground">
-          文件会先加入待处理列表，不会立即开始。支持 JPG、PNG、WebP。
+          添加后，点击“开始处理”。支持 JPG、PNG、WebP。
         </p>
         <div class="mt-5 flex items-center gap-2">
           <Button @click="chooseFiles">选择图片文件</Button>

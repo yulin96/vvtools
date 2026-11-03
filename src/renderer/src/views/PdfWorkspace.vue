@@ -183,7 +183,7 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/pdf', receivePaths: stag
               <Play class="size-4" />
               {{
                 starting
-                  ? '正在开始…'
+                  ? '正在准备…'
                   : `开始处理${pdfStartItems.length ? ` (${pdfStartItems.length})` : ''}`
               }}
             </Button>
@@ -221,7 +221,7 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/pdf', receivePaths: stag
                 class="compact-field"
                 :class="{ 'opacity-45': store.settings.pdf.lastOptions.imageFormat === 'png' }"
               >
-                <span>有损质量</span>
+                <span>画质</span>
                 <input
                   type="number"
                   min="1"
@@ -255,7 +255,7 @@ const dragging = useWorkspaceDrop(stageFiles, { path: '/pdf', receivePaths: stag
                 </select>
               </label>
               <label class="compact-field">
-                <span>图片质量</span>
+                <span>画质</span>
                 <input
                   type="number"
                   min="1"
