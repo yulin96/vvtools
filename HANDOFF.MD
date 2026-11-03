@@ -1,5 +1,12 @@
 # 项目交接
 
+## Homebrew 版本与发布同步
+
+- 原配方使用 `version :latest`，普通 `brew outdated` / `brew upgrade` 会跳过，本机 `bu` 只调用这两个命令，因而无法更新。现已改为明确版本、版本化 DMG 地址和 ARM64/x64 独立 SHA-256，终端配置无需调整。
+- `scripts/prepare-homebrew-cask.mts` 从实际发布包流式计算 SHA-256，生成 `.release/vvtools.rb`；发布 Action 仅在 GitHub Release 成功公开后，将该配方提交到 `main`。不要在安装包就绪前提交新版本配方，否则 Homebrew 会下载不存在的文件。
+- 正常执行 `pnpm release:patch/minor/major` 即可，后续无需手工更新配方；Action 会额外生成一个配方提交，发布完成后先拉取远端 `main` 再开始本地开发。保留稳定 DMG 别名供旧版配方使用。
+- 当前 `0.0.24` 配方校验值取自 GitHub Release 对应 DMG 的 `digest`。本地修改不会直接更新已安装 Tap，提交推送后需运行 `brew update` 再用普通升级命令验证。
+
 ## 界面文案与状态语义
 
 - `activeCount` 同时包含排队和处理中的任务，整体状态及重启提示应使用“未完成”；任务行用“待开始”表示尚未提交，用“排队中”表示已进入队列。

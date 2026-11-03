@@ -52,8 +52,10 @@ Cask 会自动选择 Apple Silicon 或 Intel 安装包、跟随最新 GitHub Rel
 
 ```bash
 brew update
-brew upgrade --cask --greedy-latest yulin96/vvtools/vvtools
+brew upgrade --cask yulin96/vvtools/vvtools
 ```
+
+也可以直接执行普通的 `brew upgrade`，VVTools 会随其他软件一起升级。
 
 普通卸载会保留本地配置；仅在需要一并清除配置时使用 `--zap`：
 
@@ -91,8 +93,7 @@ pnpm build:linux
 GitHub Release。安装包、blockmap 和更新清单均由 GitHub Releases 提供，不再上传到 OSS。
 Windows NSIS 和 Linux AppImage 可在应用内检查、下载和安装更新；macOS 当前使用 Ad-hoc
 签名，检查更新后会打开对应版本、对应架构的 GitHub DMG，下载后手动替换应用。
-macOS ARM64/x64 的文件信息合并到同一份 `latest-mac.yml`，并保留架构清单与 Homebrew
-使用的稳定 DMG 别名。
+macOS ARM64/x64 的文件信息合并到同一份 `latest-mac.yml`，并保留架构清单与稳定 DMG 别名。
 
 日常开发把用户可见的功能、界面、行为、兼容性或缺陷修复写入
 [`release-notes.md`](./release-notes.md) 顶部的 `未发布` 章节。发布时执行：
@@ -128,7 +129,10 @@ sudo xattr -r -d com.apple.quarantine /Applications/VVTools.app
 
 正式对外分发前仍建议配置 macOS Developer ID 签名与公证、Windows 代码签名。
 
-发布流程会额外生成稳定名称的 `vvtools-latest-arm64.dmg` 和
-`vvtools-latest-x64.dmg`，Cask 始终跟随这两个最新版本别名，不需要每次发布后手动修改版本
-和校验值。Homebrew 默认不会主动升级 `version :latest` Cask，因此升级时需要使用
-`--greedy-latest`。
+Homebrew Cask 使用明确版本、对应版本的 DMG 地址和各架构的 SHA-256 校验值，普通
+`brew upgrade` 即可升级，无需 `--greedy-latest`。每次发布时，Action 会从实际安装包计算
+校验值，在 GitHub Release 发布成功后自动将更新后的 `Casks/vvtools.rb` 提交到 `main`，
+无需手动修改配方或更新脚本。发布完成后，本地开发前先拉取该自动提交。
+
+发布流程仍生成稳定名称的 `vvtools-latest-arm64.dmg` 和 `vvtools-latest-x64.dmg`，
+兼容仍使用旧配方的用户。
