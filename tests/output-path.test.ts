@@ -1,9 +1,9 @@
+import { markOutputDirectory } from '../src/main/media/output-directory'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  createAvailableOutputPath,
   getOutputExtension,
   renderOutputBaseName,
   resolveOutputPath,
@@ -40,12 +40,21 @@ describe('output paths', () => {
     directories.push(directory)
     writeFileSync(join(directory, 'clip.mp4'), '')
     const reserved = new Set<string>()
-    const first = createAvailableOutputPath('/input/clip.mov', directory, '.mp4', reserved)
-    const second = createAvailableOutputPath('/input/clip.mov', directory, '.mp4', reserved)
-    expect(first).toBe(join(directory, 'clip_1.mp4'))
-    expect(second).toBe(join(directory, 'clip_2.mp4'))
+    const options = {
+      sourcePath: '/input/clip.mov',
+      outputDirectory: directory,
+      extension: '.mp4',
+      reservedPaths: reserved
+    }
+    expect(resolveOutputPath(options).path).toBe(join(directory, 'clip_1.mp4'))
+    expect(resolveOutputPath(options).path).toBe(join(directory, 'clip_2.mp4'))
     expect(
-      createAvailableOutputPath('/input/photo.jpg', directory, '.webp', reserved, '_optimized')
+      resolveOutputPath({
+        ...options,
+        sourcePath: '/input/photo.jpg',
+        extension: '.webp',
+        outputSuffix: '_optimized'
+      }).path
     ).toBe(join(directory, 'photo_optimized.webp'))
   })
 
@@ -158,6 +167,23 @@ describe('output paths', () => {
     })
   })
 
+  it('keeps the source parent and unrelated file types when overwriting group outputs', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'vvtools-output-'))
+    directories.push(directory)
+    mkdirSync(join(directory, 'album'))
+    const options = {
+      sourcePath: join(directory, 'album', 'album.pdf'),
+      outputDirectory: directory,
+      imageFormat: 'png' as const,
+      pageNumbers: [1],
+      reservedPaths: new Set<string>(),
+      conflictPolicy: 'overwrite' as const
+    }
+    writeFileSync(join(directory, 'album_1'), 'unrelated file')
+    expect(resolvePdfImageOutput(options).directory.path).toBe(join(directory, 'album_2'))
+    expect(renderOutputBaseName('/input/...pdf', '{name}')).toBe('未命名')
+  })
+
   it('groups PDF page images in a collision-safe source-named folder', () => {
     const directory = mkdtempSync(join(tmpdir(), 'vvtools-output-'))
     directories.push(directory)
@@ -189,14 +215,22 @@ describe('output paths', () => {
     expect(second.directory.path).toBe(join(directory, 'document_images_1'))
 
     mkdirSync(join(directory, 'archive'))
-    const existingFolder = resolvePdfImageOutput({
-      sourcePath: '/input/archive.pdf',
-      outputDirectory: directory,
-      imageFormat: 'png',
-      pageNumbers: [1],
-      reservedPaths: new Set(),
-      conflictPolicy: 'overwrite'
-    })
+    writeFileSync(join(directory, 'archive', 'archive.png'), 'old page')
+    const plan = (): ReturnType<typeof resolvePdfImageOutput> =>
+      resolvePdfImageOutput({
+        sourcePath: '/input/archive.pdf',
+        outputDirectory: directory,
+        imageFormat: 'png',
+        pageNumbers: [1],
+        reservedPaths: new Set(),
+        conflictPolicy: 'overwrite'
+      })
+    expect(plan().directory.path).toBe(join(directory, 'archive_1'))
+    markOutputDirectory(join(directory, 'archive'))
+    const existingFolder = plan()
+    writeFileSync(join(directory, 'archive', 'notes.txt'), 'keep')
+    expect(plan().directory.path).toBe(join(directory, 'archive_1'))
+    expect(existingFolder.paths).toEqual([join(directory, 'archive', 'archive.png')])
     expect(existingFolder.directory).toEqual({
       path: join(directory, 'archive'),
       skipped: false,

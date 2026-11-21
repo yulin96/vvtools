@@ -363,6 +363,7 @@ export async function processVideo(
   }
 
   const executable = getFfmpegPath()
+  if (signal.aborted) throw new TaskCancelledError()
   const args = buildVideoArgs(task, probe.videoCodec, hardwareEncoder)
   const command = createTaskCommand(executable, args)
   const log = failureLogs.create(task, command)

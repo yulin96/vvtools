@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { settledBatchSourceItems } from '../src/renderer/src/lib/batch-sources'
+import { batchSpaceSavings, settledBatchSourceItems } from '../src/renderer/src/lib/batch-sources'
 import { DEFAULT_IMAGE_OPTIONS } from '../src/shared/constants'
 import type { MediaTask, TaskStatus } from '../src/shared/types'
 
@@ -56,4 +56,33 @@ describe('settled batch sources', () => {
       ])
     ).toEqual([])
   })
+})
+
+it('counts each successful input once, sums distinct outputs and uses the last committed size', () => {
+  const newer = {
+    ...task('1', '/input/font.ttf', 'completed'),
+    outputSize: 4,
+    completedAt: '2026-01-02'
+  }
+  const older = {
+    ...newer,
+    sourcePath: '/input/FONT.TTF',
+    outputSize: 99,
+    completedAt: '2026-01-01'
+  }
+  const second = { ...newer, outputPath: '/output/font.woff2', outputSize: 3 }
+  const pages = {
+    ...task('pdf', '/input/doc.pdf', 'completed'),
+    outputPath: '/output/doc',
+    outputPaths: ['/output/doc/1.png', '/output/doc/2.png'],
+    outputSize: 6
+  }
+  const skipped = { ...task('skip', '/input/skip', 'skipped'), outputSize: 200 }
+  expect(batchSpaceSavings([newer, second, older, pages, skipped], 'darwin')).toEqual({
+    sourceSize: 20,
+    outputSize: 13,
+    difference: 7,
+    percentage: 35
+  })
+  expect(batchSpaceSavings([skipped], 'linux')).toBeNull()
 })

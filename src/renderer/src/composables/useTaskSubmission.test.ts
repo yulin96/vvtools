@@ -24,11 +24,13 @@ describe('workspace submission cleanup', () => {
     const result = new Promise<TaskSubmissionResult>((done) => (resolve = done))
     const submitTasks = vi.spyOn(useAppStore(), 'submitTasks').mockReturnValue(result)
     const pending = ref(['/tmp/accepted.png', '/tmp/skipped.png'])
-    const { starting, submit } = useTaskSubmission(pending, (path) => path)
+    const { starting, submit } = useTaskSubmission('image', pending, (path) => path)
 
     const submission = submit(request)
     expect(starting.value).toBe(true)
-    await submit(request)
+    const reopened = useTaskSubmission('image', pending, (path) => path)
+    expect(reopened.starting.value).toBe(true)
+    await reopened.submit(request)
     expect(submitTasks).toHaveBeenCalledExactlyOnceWith(request)
     pending.value.push('/tmp/added.png')
     resolve({ handledPaths: ['/tmp/accepted.png'], handledBatchItemIds: [] })
@@ -47,7 +49,7 @@ describe('workspace submission cleanup', () => {
       { id: 'woff-row', path: '/tmp/font.ttf' },
       { id: 'otf-row', path: '/tmp/font.ttf' }
     ])
-    const { submit } = useTaskSubmission(pending, (item) => item.id, 'handledBatchItemIds')
+    const { submit } = useTaskSubmission('image', pending, (item) => item.id, 'handledBatchItemIds')
 
     await submit(request)
 
@@ -59,7 +61,7 @@ describe('workspace submission cleanup', () => {
     async (result) => {
       vi.spyOn(useAppStore(), 'submitTasks').mockResolvedValue(result)
       const pending = ref(['/tmp/accepted.png', '/tmp/skipped.png'])
-      const { starting, submit } = useTaskSubmission(pending, (path) => path)
+      const { starting, submit } = useTaskSubmission('image', pending, (path) => path)
 
       await submit(request)
 
@@ -74,7 +76,7 @@ describe('workspace submission cleanup', () => {
       .mockRejectedValueOnce(new Error('submission rejected'))
       .mockResolvedValueOnce({ handledPaths: ['/tmp/accepted.png'], handledBatchItemIds: [] })
     const pending = ref(['/tmp/accepted.png'])
-    const { starting, submit } = useTaskSubmission(pending, (path) => path)
+    const { starting, submit } = useTaskSubmission('image', pending, (path) => path)
 
     await expect(submit(request)).rejects.toThrow('submission rejected')
     expect(starting.value).toBe(false)

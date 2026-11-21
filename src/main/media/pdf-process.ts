@@ -246,7 +246,7 @@ const { pathToFileURL } = require('node:url')
 const readline = require('node:readline')
 
 let loadedModules
-let sourcePath = ''
+let sourceVersion = ''
 let sourceDocument = null
 
 function send(message) {
@@ -272,10 +272,13 @@ async function loadModules(paths) {
 
 async function documentFor(path, paths) {
   const modules = await loadModules(paths)
-  if (sourceDocument && sourcePath === path) return sourceDocument
+  const info = await stat(path, { bigint: true })
+  const version = [path, info.dev, info.ino, info.size, info.ctimeNs, info.mtimeNs].join(':')
+  if (sourceDocument && sourceVersion === version) return sourceDocument
   if (sourceDocument) sourceDocument.destroy()
+  sourceDocument = null
   sourceDocument = await modules.library.loadDocument(await readFile(path))
-  sourcePath = path
+  sourceVersion = version
   return sourceDocument
 }
 
@@ -297,8 +300,7 @@ async function probe(path, paths) {
   return { pageCount, width: size.originalWidth, height: size.originalHeight }
 }
 
-async function renderPage(task, options, paths, progress) {
-  const document = await documentFor(task.sourcePath, paths)
+async function renderPage(task, options, paths, progress, document) {
   const pageNumber = task.pageNumber || 1
   if (pageNumber < 1 || pageNumber > document.getPageCount()) {
     throw new Error('PDF 页面不存在：第 ' + pageNumber + ' 页')
@@ -331,13 +333,15 @@ async function renderPages(task, options, paths, progress) {
     throw new Error('PDF 页面与输出文件数量不匹配')
   }
   await mkdir(task.outputPath, { recursive: true })
+  const document = await documentFor(task.sourcePath, paths)
   let outputSize = 0
   for (let index = 0; index < pageNumbers.length; index += 1) {
     await renderPage(
       { ...task, pageNumber: pageNumbers[index], outputPath: outputPaths[index] },
       options,
       paths,
-      (value) => progress(Math.min(99, Math.round(((index + value / 100) / pageNumbers.length) * 100)))
+      (value) => progress(Math.min(99, Math.round(((index + value / 100) / pageNumbers.length) * 100))),
+      document
     )
     outputSize += (await stat(outputPaths[index])).size
     progress(Math.min(99, Math.round(((index + 1) / pageNumbers.length) * 100)))
@@ -388,7 +392,7 @@ async function processTask(task, paths, progress) {
   } else if (task.outputPaths && task.outputPaths.length) {
     return renderPages(task, options, paths, progress)
   } else {
-    await renderPage(task, options, paths, progress)
+    await renderPage(task, options, paths, progress, await documentFor(task.sourcePath, paths))
   }
   const stats = await stat(task.outputPath)
   progress(100)

@@ -23,6 +23,7 @@ import type {
   TaskStatus
 } from '../../../shared/types'
 import { useAppStore } from '../stores/app'
+import { batchSpaceSavings } from '../lib/batch-sources'
 import { taskProgressText, taskProgressValue } from '../lib/task-progress'
 import { BATCH_ROW_HEIGHT } from '../lib/virtual-rows'
 import { useVirtualRows } from '../composables/useVirtualRows'
@@ -94,7 +95,14 @@ const rows = computed<BatchRow[]>(() => {
       result[index] = { ...result[index], task }
     }
   }
-  return result
+  const order = new Map(store.batchInputOrder[props.kind].map((id, index) => [id, index]))
+  for (const task of props.tasks) {
+    const id = task.batchInputId ?? task.batchItemId ?? task.id
+    if (!order.has(id)) order.set(id, order.size)
+  }
+  const position = (row: BatchRow): number =>
+    order.get(row.task?.batchInputId ?? row.key) ?? Infinity
+  return result.sort((left, right) => position(left) - position(right))
 })
 const totalCount = computed(() => rows.value.length)
 const viewport = ref<HTMLDivElement>()
@@ -112,19 +120,7 @@ const failedCount = computed(() => props.tasks.filter((task) => task.status === 
 const cancelledCount = computed(
   () => props.tasks.filter((task) => task.status === 'cancelled').length
 )
-const batchSavings = computed(() => {
-  const completedTasks = props.tasks.filter(
-    (task) => task.status === 'completed' && task.outputSize !== undefined
-  )
-  if (!completedTasks.length) return null
-
-  const sourceSize = completedTasks.reduce((total, task) => total + task.sourceSize, 0)
-  const outputSize = completedTasks.reduce((total, task) => total + (task.outputSize ?? 0), 0)
-  const difference = sourceSize - outputSize
-  const percentage = sourceSize > 0 ? (Math.abs(difference) / sourceSize) * 100 : 0
-
-  return { sourceSize, outputSize, difference, percentage }
-})
+const batchSavings = computed(() => batchSpaceSavings(props.tasks, window.api.platform))
 const kindLabel = computed(
   () =>
     ({ image: '图片', video: '视频', sprite: '雪碧图', audio: '音频', pdf: 'PDF', font: '字体' })[

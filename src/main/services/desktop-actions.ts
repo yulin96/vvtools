@@ -1,4 +1,4 @@
-import sharp from '../media/sharp-runtime'
+import { readStaticImageMetadata } from '../media/sharp-runtime'
 import { randomUUID } from 'crypto'
 import { extname } from 'path'
 import type {
@@ -125,8 +125,7 @@ export class DesktopActions {
       for (const path of request.paths) {
         try {
           validateSourcePath(path, 'image')
-          const metadata = await sharp(path, { failOn: 'error' }).metadata()
-          if ((metadata.pages ?? 1) > 1) throw new Error('快捷处理暂不支持动画图片')
+          const metadata = await readStaticImageMetadata(path)
           const preserveAlpha = metadata.hasAlpha && action.options.format === 'jpeg'
           sources.push({
             path,

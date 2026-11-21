@@ -69,6 +69,20 @@ async function noisyFixture(metadata = false): Promise<{ root: string; task: Med
 }
 
 describe('image processor', () => {
+  it('rejects a multi-frame WebP before writing a single-frame result', async () => {
+    const { root, task } = await noisyFixture()
+    task.sourcePath = join(root, 'animated.webp')
+    const pixels = Buffer.concat([Buffer.alloc(192, 0), Buffer.alloc(192, 255)])
+    await sharp(pixels, { raw: { width: 8, height: 16, channels: 3, pageHeight: 8 } })
+      .webp({ delay: [100, 100] })
+      .toFile(task.sourcePath)
+    const source = await readFile(task.sourcePath)
+    expect((await sharp(source).metadata()).pages).toBe(2)
+    await expect(processImage(task, new AbortController().signal)).rejects.toThrow('不支持动画图片')
+    expect(existsSync(task.outputPath)).toBe(false)
+    expect(await readFile(task.sourcePath)).toEqual(source)
+  })
+
   it('searches the best JPEG quality under the limit from one prepared input and cleans up candidates', async () => {
     const { root, task } = await noisyFixture()
     let expected: Buffer | undefined

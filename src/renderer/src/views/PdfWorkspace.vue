@@ -25,7 +25,7 @@ const pendingPaths = computed<string[]>({
   get: () => store.pendingPdfPaths,
   set: (value) => (store.pendingPdfPaths = value)
 })
-const { starting, submit } = useTaskSubmission(pendingPaths, (path) => path)
+const { starting, submit } = useTaskSubmission('pdf', pendingPaths, (path) => path)
 const pdfTasks = computed(() => store.currentBatchTasks.pdf)
 const pdfStartItems = computed(() => {
   if (pendingPaths.value.length > 0) {
@@ -95,12 +95,12 @@ function stageFiles(paths: string[]): void {
     store.errorMessage = '没有可导入的 PDF 文件'
     return
   }
-  if (pendingPaths.value.length === 0) store.prepareCurrentBatch('pdf')
   const combined = [...new Set([...pendingPaths.value, ...supported])]
   if (combined.length > 500) {
     store.errorMessage = '单次最多添加 500 个文件'
     return
   }
+  if (supported.length && pendingPaths.value.length === 0) store.prepareCurrentBatch('pdf')
   pendingPaths.value = combined
 }
 

@@ -11,6 +11,7 @@ import { planSourceOutputs, taskOutputDirectory, taskSources } from './task-plan
 import { getVideoResolutionBounds, probeVideo } from './video-processor'
 import { createSpritePlan } from './sprite-processor'
 import { probeAudio } from './audio-processor'
+import { readFontFormatSupport } from './font-output-formats'
 import { probeFont } from './font-processor'
 import { inspectImageMetadata } from './image-metadata'
 import { probePdf } from './pdf-processor'
@@ -24,10 +25,14 @@ export async function inspectTasks(
   const reservedPaths = new Set(existingReservedPaths)
   const sourcePaths = sources.map((source) => source.path)
 
+  // Several output formats can refer to one source in a quick font conversion.
+  const fontProbes = new Map<string, ReturnType<typeof probeFont>>()
   const inspections = await mapWithConcurrency(sources, 4, async (source) => {
     try {
       assertOutputDirectoryWritable(taskOutputDirectory(request, source))
-      const sourceSize = statSync(source.path).size
+      const stats = statSync(source.path, { throwIfNoEntry: false })
+      if (!stats?.isFile()) throw new Error(`文件不存在或不可访问：${source.path}`)
+      const sourceSize = stats.size
       if (request.kind === 'video') {
         const probe = await probeVideo(source.path, new AbortController().signal)
         const outputDimensions = expectedVideoDimensions(request.options, probe.width, probe.height)
@@ -114,7 +119,18 @@ export async function inspectTasks(
         }
       }
       if (request.kind === 'font') {
-        const probe = await probeFont(source.path, request.options, new AbortController().signal)
+        const support = await readFontFormatSupport(source.path, request.fontIndexes)
+        if (support.collection && request.options.operation !== 'splitCollection')
+          throw new Error('请切换到字体拆分')
+        const format = source.fontOutputFormat ?? request.options.outputFormat
+        if (!support.formats.includes(format))
+          throw new Error('字体轮廓不支持所选格式，请重新选择输出格式')
+        let probeResult = fontProbes.get(source.path)
+        if (!probeResult) {
+          probeResult = probeFont(source.path, request.options, new AbortController().signal)
+          fontProbes.set(source.path, probeResult)
+        }
+        const probe = await probeResult
         if (request.options.operation === 'variableStatic' && probe.fontInstances.length === 0) {
           throw new Error('字体文件不包含可变字体轴')
         }
@@ -164,23 +180,31 @@ export async function inspectTasks(
     const source = sources[index]
     if (!inspection.valid) return inspection
     const protectedSourcePaths = getProtectedSourcePaths(sourcePaths, index, activeSourcePaths)
-    const plan = planSourceOutputs(
-      request,
-      source,
-      {
+    try {
+      const plan = planSourceOutputs(
+        request,
+        source,
+        {
+          ...inspection,
+          width: inspection.outputWidth ?? inspection.width,
+          height: inspection.outputHeight ?? inspection.height
+        },
+        reservedPaths,
+        protectedSourcePaths
+      )
+      for (const unit of plan.units) reservedPaths.add(unit.outputPath)
+      return {
         ...inspection,
-        width: inspection.outputWidth ?? inspection.width,
-        height: inspection.outputHeight ?? inspection.height
-      },
-      reservedPaths,
-      protectedSourcePaths
-    )
-    for (const unit of plan.units) reservedPaths.add(unit.outputPath)
-    return {
-      ...inspection,
-      outputPath: plan.outputPath,
-      outputPaths: plan.outputPaths,
-      ...(plan.skipped ? { valid: false, skipped: true, error: plan.skippedReason } : {})
+        outputPath: plan.outputPath,
+        outputPaths: plan.outputPaths,
+        ...(plan.skipped ? { valid: false, skipped: true, error: plan.skippedReason } : {})
+      }
+    } catch (error) {
+      return {
+        ...inspection,
+        valid: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
     }
   })
 }

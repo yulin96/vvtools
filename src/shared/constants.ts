@@ -222,6 +222,7 @@ export const IPC_CHANNELS = {
   selectTextFile: 'file:select-text',
   expandImageInputs: 'images:expand-inputs',
   inspectImageInput: 'images:inspect-input',
+  getFontFormatSupport: 'font:output-formats',
   inspectFont: 'font:inspect',
   saveEditedFont: 'font:save-edited',
   inspectRenameFiles: 'rename:inspect-files',

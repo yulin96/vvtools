@@ -2,10 +2,8 @@ overrides:
   'extract-zip>yauzl': 3.4.0
 
 allowBuilds:
-  '@derhuerst/ffprobe-static': true
   electron: true
   electron-winstaller: true
   esbuild: true
-  ffmpeg-static: true
   sharp: true
   vue-demi: true

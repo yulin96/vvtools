@@ -1,6 +1,6 @@
 import { availableParallelism } from 'os'
 import { DEFAULT_CONCURRENCY_SETTINGS } from '../../shared/constants'
-import type { ConcurrencySettings, TaskConcurrencyLimits, TaskKind } from '../../shared/types'
+import type { ConcurrencySettings, TaskConcurrencyLimits } from '../../shared/types'
 
 const MAXIMUM_CONCURRENCY: TaskConcurrencyLimits = {
   image: 16,
@@ -54,10 +54,6 @@ export function resolveTaskConcurrency(
     pdf: processors >= 8 ? 2 : 1,
     font: Math.min(4, Math.max(1, Math.ceil(processors / 4)))
   }
-}
-
-export function maximumConcurrency(kind: TaskKind): number {
-  return MAXIMUM_CONCURRENCY[kind]
 }
 
 function isConcurrencyLimits(value: unknown): value is TaskConcurrencyLimits {

@@ -1,7 +1,7 @@
 import { rename, rm, stat } from 'fs/promises'
 import { extname } from 'path'
 import type { Metadata, Sharp } from 'sharp'
-import sharp from './sharp-runtime'
+import sharp, { readStaticImageMetadata } from './sharp-runtime'
 import type { ImageFormat, ImageOptions, MediaTask } from '../../shared/types'
 import { MediaProcessError, TaskCancelledError, TaskSkippedError } from './errors'
 import { createTaskCommand } from './task-command'
@@ -152,7 +152,7 @@ export async function processImageCore(
     task.outputPath
   ])
   try {
-    const metadata = await sharp(task.sourcePath, { failOn: 'error' }).metadata()
+    const metadata = await readStaticImageMetadata(task.sourcePath)
     onProgress(5)
     if (signal.aborted) throw new TaskCancelledError()
     if (options.compressionMode === 'targetSize') {

@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readFontFormatSupport } from '../src/main/media/font-output-formats'
 import { runFontProcess } from '../src/main/media/font-process'
 import {
   getFonttoolsDirectory,
@@ -66,6 +67,56 @@ describe('bundled PDF and font runtimes', () => {
       subset.characterSet.filter((codePoint: number) => subset.hasGlyphForCodePoint(codePoint))
     ).toEqual([0x41])
     expect(subset.numGlyphs).toBe(2)
+    expect((await readFontFormatSupport(outputPath)).formats).toEqual(['ttf', 'woff', 'woff2'])
+    const restored = join(root, 'restored.ttf')
+    await runFontProcess(
+      { sourcePath: outputPath, outputPath: restored, subsetOptions: { '*': true } },
+      new AbortController().signal,
+      getFonttoolsDirectory()
+    )
+    expect((await readFile(restored)).readUInt32BE(0)).toBe(0x10000)
+  }, 30_000)
+
+  it('restores an OpenType web font with its CFF outlines intact', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'vvtools-font-cff-'))
+    directories.push(root)
+    const packageDirectory = getFonttoolsDirectory()
+    const { createPyodide, installPackages } = require('@web-alchemy/fonttools/src/pyodide.js')
+    const pyodide = await createPyodide({
+      lockFileURL: join(packageDirectory, 'pyodide-lock.json'),
+      packageCacheDir: packageDirectory,
+      packageBaseUrl: packageDirectory + '/',
+      stdout: () => undefined
+    })
+    await installPackages(pyodide, { messageCallback: () => undefined })
+    pyodide.runPython(`
+from fontTools.fontBuilder import FontBuilder
+from fontTools.pens.t2CharStringPen import T2CharStringPen
+fb = FontBuilder(1000, isTTF=False)
+names = ['.notdef', 'A']
+fb.setupGlyphOrder(names)
+fb.setupCharacterMap({65: 'A'})
+fb.setupHorizontalMetrics({name: (600, 0) for name in names})
+fb.setupHorizontalHeader(ascent=800, descent=-200)
+fb.setupNameTable({'familyName': 'Fixture', 'styleName': 'Regular'})
+fb.setupOS2()
+fb.setupPost()
+fb.setupCFF('Fixture-Regular', {}, {name: T2CharStringPen(600, None).getCharString() for name in names}, {})
+fb.font.flavor = 'woff'
+fb.save('/wrapped.woff')
+`)
+    const sourcePath = join(root, 'wrapped.woff')
+    await writeFile(sourcePath, pyodide.FS.readFile('/wrapped.woff'))
+    expect((await readFontFormatSupport(sourcePath)).formats).toEqual(['otf', 'woff', 'woff2'])
+    const outputPath = join(root, 'restored.otf')
+    await runFontProcess(
+      { sourcePath, outputPath, subsetOptions: { '*': true } },
+      new AbortController().signal,
+      packageDirectory
+    )
+    const restored = await readFile(outputPath)
+    expect(restored.toString('ascii', 0, 4)).toBe('OTTO')
+    expect(create(restored).hasGlyphForCodePoint(65)).toBe(true)
   }, 30_000)
 
   it('instantiates a real variable font and removes its variation axes', async () => {

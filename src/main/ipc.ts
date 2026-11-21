@@ -1,3 +1,4 @@
+import { readFontFormatSupport } from './media/font-output-formats'
 import { app, dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { existsSync, mkdirSync } from 'fs'
 import { readFile } from 'fs/promises'
@@ -176,6 +177,12 @@ export function registerIpc(
     return inspectImageMetadata(path)
   })
 
+  handle(IPC_CHANNELS.getFontFormatSupport, (event, path: string) => {
+    assertTrusted(event, window())
+    validateSourcePath(path, 'font')
+    return readFontFormatSupport(path)
+  })
+
   handle(IPC_CHANNELS.inspectFont, (event, path: string) => {
     assertTrusted(event, window())
     validateSourcePath(path, 'font')
@@ -243,7 +250,7 @@ export function registerIpc(
       .list()
       .filter((task) => task.status === 'pending' || task.status === 'processing')
     return inspectTasks(
-      validateCreateRequest(request),
+      validateCreateRequest(request, 'inspect'),
       new Set(activeTasks.map((task) => task.outputPath)),
       new Set(activeTasks.map((task) => task.sourcePath))
     )

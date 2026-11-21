@@ -341,6 +341,7 @@ describe('app store task submission', () => {
     expect(createTasks).toHaveBeenCalledWith(
       expect.objectContaining({
         sources: [{ path: acceptedTask.sourcePath, relativeDirectory: '' }],
+        excludedSourcePaths: ['/tmp/rejected.png'],
         batchItemIds: [acceptedTask.batchItemId]
       })
     )

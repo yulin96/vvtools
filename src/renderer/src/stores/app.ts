@@ -104,6 +104,20 @@ export const useAppStore = defineStore('app', () => {
       string[]
     >
   )
+  const submitting = ref<Record<TaskKind, boolean>>({
+    image: false,
+    audio: false,
+    video: false,
+    sprite: false,
+    pdf: false,
+    font: false
+  })
+  const batchInputOrder = ref(
+    Object.fromEntries(TASK_KINDS.map((kind) => [kind, [] as string[]])) as Record<
+      TaskKind,
+      string[]
+    >
+  )
   let unsubscribe: (() => void) | null = null
   let unsubscribeProgress: (() => void) | null = null
   let unsubscribeUpdates: (() => void) | null = null
@@ -160,9 +174,19 @@ export const useAppStore = defineStore('app', () => {
 
   function appendCurrentBatchTasks(nextTasks: MediaTask[]): void {
     for (const kind of TASK_KINDS) {
-      const ids = nextTasks.filter((task) => task.kind === kind).map((task) => task.id)
-      if (ids.length === 0) continue
-      currentBatchTaskIds.value[kind] = [...new Set([...currentBatchTaskIds.value[kind], ...ids])]
+      const incoming = nextTasks.filter((task) => task.kind === kind)
+      if (!incoming.length) continue
+      const ids = new Set(currentBatchTaskIds.value[kind])
+      const retries = new Map<string, string>()
+      for (const task of incoming) {
+        if (task.retryOf && ids.has(task.retryOf)) retries.set(task.retryOf, task.id)
+        ids.add(task.id)
+      }
+      // Follow a retry chain backwards so its latest attempt keeps the original position.
+      for (const [previous, retry] of [...retries].reverse()) {
+        retries.set(previous, retries.get(retry) ?? retry)
+      }
+      currentBatchTaskIds.value[kind] = [...new Set([...ids].map((id) => retries.get(id) ?? id))]
     }
   }
 
@@ -173,6 +197,7 @@ export const useAppStore = defineStore('app', () => {
       currentTasks.every((task) => !['pending', 'processing'].includes(task.status))
     ) {
       currentBatchTaskIds.value[kind] = []
+      batchInputOrder.value[kind] = []
     }
   }
 
@@ -277,14 +302,16 @@ export const useAppStore = defineStore('app', () => {
       ])
       taskSequence = snapshot.sequence
       tasks.value = snapshot.tasks
+      for (const kind of TASK_KINDS) currentBatchTaskIds.value[kind] = []
       appendCurrentBatchTasks(
         snapshot.tasks.filter(
-          (task) => task.desktopRequestId || ['pending', 'processing'].includes(task.status)
+          (task) =>
+            task.desktopRequestId || task.status === 'pending' || task.status === 'processing'
         )
       )
       for (const update of pendingUpdates) applyTaskUpdate(update)
       appendCurrentBatchTasks(
-        tasks.value.filter((task) => ['pending', 'processing'].includes(task.status))
+        tasks.value.filter((task) => task.status === 'pending' || task.status === 'processing')
       )
       pendingUpdates.length = 0
       initializing = false
@@ -316,6 +343,15 @@ export const useAppStore = defineStore('app', () => {
   async function submitTasks(request: CreateTasksRequest): Promise<TaskSubmissionResult | null> {
     try {
       const inspectedRequest = serializable(request)
+      const current = currentBatchTasks.value[request.kind]
+      const order = batchInputOrder.value[request.kind]
+      batchInputOrder.value[request.kind] = [
+        ...new Set([
+          ...order,
+          ...current.map((task) => task.batchInputId ?? task.batchItemId ?? task.id),
+          ...(request.batchItemIds ?? [])
+        ])
+      ]
       const inspections = await window.api.inspectTasks(inspectedRequest)
       const processable = inspections.filter((item) => item.valid)
       const skipped = inspections.filter((item) => item.skipped)
@@ -375,6 +411,11 @@ export const useAppStore = defineStore('app', () => {
                 inputMetadata
               }
 
+      if (rejected.length || skipped.length) {
+        submission.excludedSourcePaths = inspections
+          .filter((item) => !item.valid)
+          .map((item) => item.sourcePath)
+      }
       const createdTasks = await window.api.createTasks(serializable(submission))
       const handledInputs = inspections.flatMap((inspection, index) => {
         if (!inspection.valid) return []
@@ -577,6 +618,8 @@ export const useAppStore = defineStore('app', () => {
     pendingFontItems,
     pendingRenameFiles,
     currentBatchTasks,
+    submitting,
+    batchInputOrder,
     stageDesktopFiles,
     reportError,
     prepareCurrentBatch,

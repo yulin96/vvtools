@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { Play, Plus, FolderInput } from '@lucide/vue'
 import { FontWorkspaceIcon } from '../lib/workspace-icons'
 import type {
   CreateTasksRequest,
   FontConversionSubsetPreset,
   FontFormat,
+  FontFormatSupport,
   FontOperation,
   FontOptions,
   FontSubsetChineseLevel,
@@ -51,6 +52,7 @@ const pendingItems = computed<PendingFontItem[]>({
   set: (value) => (store.pendingFontItems = value)
 })
 const { starting, submit } = useTaskSubmission(
+  'font',
   pendingItems,
   (item) => item.id,
   'handledBatchItemIds'
@@ -60,7 +62,8 @@ const pendingTableItems = computed(() =>
   pendingItems.value.map((item) => ({
     id: item.id,
     path: item.path,
-    spec: item.outputFormat.toUpperCase(),
+    spec: effectiveFormat(item.path, item.outputFormat)?.toUpperCase(),
+    metadataError: formatIssue(item.path),
     compression:
       operation.value === 'convert' ? subsetPresetLabel(item.subsetPreset ?? 'none') : '—'
   }))
@@ -73,12 +76,6 @@ const modeOptions = [
   { value: 'variableStatic', label: '转静态字体' },
   { value: 'subset', label: '字体压缩' }
 ] satisfies Array<{ value: FontWorkspaceMode; label: string }>
-const formatOptions = [
-  { value: 'ttf', label: 'TTF' },
-  { value: 'otf', label: 'OTF' },
-  { value: 'woff', label: 'WOFF' },
-  { value: 'woff2', label: 'WOFF2' }
-]
 const variableModeOptions = [
   { value: 'named', label: '命名实例' },
   { value: 'default', label: '默认实例' }
@@ -109,7 +106,71 @@ const quickConversionFormats: Partial<Record<FontFormat, FontFormat[]>> = {
 const quickConvert = ref(false)
 
 const operation = computed(() => store.settings?.font.lastOptions.operation ?? mode.value)
-const fontStartItems = computed<PendingFontItem[]>(() => {
+const sourcePaths = computed(() => [
+  ...new Set(
+    pendingItems.value.length
+      ? pendingItems.value.map((item) => item.path)
+      : settledBatchSourceItems(fontTasks.value).map((item) => item.path)
+  )
+])
+const support = reactive(new Map<string, FontFormatSupport | string>())
+watch(
+  sourcePaths,
+  async (paths, _, onCleanup) => {
+    let stale = false
+    onCleanup(() => {
+      stale = true
+    })
+    const current = new Set(paths)
+    for (const path of support.keys()) if (!current.has(path)) support.delete(path)
+    for (const path of paths) {
+      if (support.has(path)) continue
+      let result: FontFormatSupport | string
+      try {
+        result = await window.api.getFontFormatSupport(path)
+      } catch (error) {
+        result = error instanceof Error ? error.message : '无法读取字体文件'
+      }
+      if (stale) return
+      support.set(path, result)
+    }
+  },
+  { immediate: true }
+)
+
+function formatIssue(path: string): string | undefined {
+  const info = support.get(path)
+  if (typeof info === 'string') return info
+  if (info?.collection && operation.value !== 'splitCollection') return '请切换到字体拆分'
+  return undefined
+}
+
+function formatsFor(path: string): FontFormat[] {
+  const info = support.get(path)
+  return info && typeof info !== 'string' && !formatIssue(path) ? info.formats : []
+}
+
+function effectiveFormat(path: string, desired: FontFormat): FontFormat | undefined {
+  const formats = formatsFor(path)
+  if (formats.includes(desired)) return desired
+  if (!formats.length) return undefined
+  return quickConvert.value && (desired === 'ttf' || desired === 'otf') ? formats[0] : 'woff2'
+}
+
+const commonFormats = computed(() => {
+  if (sourcePaths.value.some((path) => !support.has(path))) return []
+  const lists = sourcePaths.value.map(formatsFor).filter((formats) => formats.length)
+  const formats: FontFormat[] = lists[0] ?? (sourcePaths.value.length ? [] : ['woff', 'woff2'])
+  return formats
+    .filter((format) => lists.every((list) => list.includes(format)))
+    .map((value) => ({ value, label: value.toUpperCase() }))
+})
+const defaultFormat = computed(() => {
+  const preferred = store.settings?.font.lastOptions.outputFormat
+  return commonFormats.value.find((item) => item.value === preferred)?.value ?? 'woff2'
+})
+
+const requestedItems = computed<PendingFontItem[]>(() => {
   if (pendingItems.value.length > 0) return pendingItems.value
   const batchSources = settledBatchSourceItems(fontTasks.value)
   const paths = batchSources.map((item) => item.path)
@@ -118,7 +179,8 @@ const fontStartItems = computed<PendingFontItem[]>(() => {
       (quickConversionFormats[pathExtension(path) as FontFormat] ?? []).map((outputFormat) => {
         const existing = fontTasks.value.find(
           (task) =>
-            task.sourcePath === path && (task.options as FontOptions).outputFormat === outputFormat
+            task.sourcePath === path &&
+            (task.options as FontOptions).outputFormat === effectiveFormat(path, outputFormat)
         )
         return {
           id: existing?.batchInputId ?? existing?.batchItemId ?? `${path}:${outputFormat}`,
@@ -136,6 +198,13 @@ const fontStartItems = computed<PendingFontItem[]>(() => {
       outputFormat: store.settings?.font.lastOptions.outputFormat ?? 'woff2',
       subsetPreset: 'none' as const
     }
+  })
+})
+const fontStartItems = computed(() => {
+  if (sourcePaths.value.some((path) => !support.has(path))) return []
+  return requestedItems.value.flatMap((item) => {
+    const outputFormat = effectiveFormat(item.path, item.outputFormat)
+    return outputFormat ? [{ ...item, outputFormat }] : []
   })
 })
 const selectedMode = computed<FontWorkspaceMode>(() =>
@@ -220,7 +289,7 @@ const emptyStateCopy = computed(() => {
   }
   return {
     title: '拖入需要转换格式的字体',
-    description: '在 TTF、OTF、WOFF 和 WOFF2 之间转换字体格式。'
+    description: '按字体轮廓导出 TTF 或 OTF，也可生成 WOFF 和 WOFF2。'
   }
 })
 
@@ -233,6 +302,10 @@ function updateFont(patch: Partial<FontOptions>): void {
     (typeof patch.subsetTextFile === 'string' && patch.subsetTextFile.trim())
   ) {
     subsetValidationMessage.value = ''
+  }
+  if (patch.outputFormat) {
+    const outputFormat = patch.outputFormat
+    pendingItems.value = pendingItems.value.map((item) => ({ ...item, outputFormat }))
   }
   void store.updateSettings({
     font: { lastOptions: { ...store.settings.font.lastOptions, ...patch } }
@@ -284,11 +357,11 @@ function stageFiles(paths: string[]): void {
     store.errorMessage = '快速转换仅支持 TTF、OTF 和 WOFF 字体'
     return
   }
-  if (pendingItems.value.length === 0) store.prepareCurrentBatch('font')
   if (pendingItems.value.length + stagedItems.length > 500) {
     store.errorMessage = '单次最多添加 500 个字体转换任务'
     return
   }
+  if (stagedItems.length && pendingItems.value.length === 0) store.prepareCurrentBatch('font')
   pendingItems.value = [...pendingItems.value, ...stagedItems]
   if (quickIgnoredCount > 0) {
     store.errorMessage = '快速转换已忽略 WOFF2、TTC 或 OTC 文件'
@@ -369,7 +442,11 @@ function withVariable(template: string, variable: '{index}' | '{instance}'): str
 async function startProcessing(): Promise<void> {
   if (!store.settings || fontStartItems.value.length === 0 || starting.value) return
   const settings = store.settings
-  const startItems = fontStartItems.value
+  // Include unreadable inputs in preflight so their paths stay protected and their rows keep their order.
+  const startItems = requestedItems.value.map((item) => ({
+    ...item,
+    outputFormat: effectiveFormat(item.path, item.outputFormat) ?? item.outputFormat
+  }))
   const selectedOperation = operation.value
   const subsetText = subsetTextDraft.value
   const subsetTextFile = subsetText.trim() ? '' : subsetTextFileDraft.value
@@ -578,12 +655,17 @@ const dragging = useWorkspaceDrop(
               <legend class="sr-only">{{ quickConvert ? '快速转换规则' : '输出格式' }}</legend>
               <div class="config-group-fields">
                 <SegmentedControl
-                  v-if="!quickConvert"
+                  v-if="!quickConvert && commonFormats.length"
                   label="输出格式"
-                  :model-value="store.settings.font.lastOptions.outputFormat"
-                  :options="formatOptions"
+                  :model-value="defaultFormat"
+                  :options="commonFormats"
                   @update:model-value="updateFont({ outputFormat: $event as FontFormat })"
                 />
+                <span v-else-if="!quickConvert" class="text-muted-foreground" role="status">{{
+                  sourcePaths.some((path) => !support.has(path))
+                    ? '正在识别字体…'
+                    : formatIssue(sourcePaths[0]) || '没有兼容的输出格式'
+                }}</span>
                 <div v-else class="font-quick-convert-summary" aria-label="快速转换规则">
                   <span> <strong>TTF</strong> → TTF、WOFF、WOFF2</span>
                   <span> <strong>OTF</strong> → OTF、WOFF、WOFF2</span>
@@ -620,6 +702,7 @@ const dragging = useWorkspaceDrop(
       >
         <template #pending-spec="{ item }">
           <select
+            v-if="formatsFor(item.path).length"
             class="pending-font-format-select"
             :value="(item.spec || 'WOFF2').toLowerCase()"
             :aria-label="`${item.label || item.path} 的转换类型（当前 ${item.spec}）`"
@@ -630,10 +713,11 @@ const dragging = useWorkspaceDrop(
               )
             "
           >
-            <option v-for="format in formatOptions" :key="format.value" :value="format.value">
-              {{ format.label }}
+            <option v-for="format in formatsFor(item.path)" :key="format" :value="format">
+              {{ format.toUpperCase() }}
             </option>
           </select>
+          <span v-else>{{ item.metadataError || '正在识别字体…' }}</span>
         </template>
         <template #pending-font-compression="{ item }">
           <select

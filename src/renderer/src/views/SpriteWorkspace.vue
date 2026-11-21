@@ -26,7 +26,7 @@ const pendingPaths = computed<string[]>({
   get: () => store.pendingSpritePaths,
   set: (value) => (store.pendingSpritePaths = value)
 })
-const { starting, submit } = useTaskSubmission(pendingPaths, (path) => path)
+const { starting, submit } = useTaskSubmission('sprite', pendingPaths, (path) => path)
 const spriteTasks = computed(() => store.currentBatchTasks.sprite)
 const startItems = computed(() =>
   pendingPaths.value.length
@@ -128,7 +128,7 @@ function receiveDroppedPaths(droppedPaths: string[]): void {
 
 const dragging = useWorkspaceDrop(receiveDroppedPaths, {
   path: '/sprite',
-  receivePaths: stageFiles
+  receivePaths: receiveDroppedPaths
 })
 </script>
 

@@ -14,7 +14,7 @@ describe('font process', () => {
     fixtureDirectory = await mkdtemp(join(tmpdir(), 'vvtools-font-process-'))
     fonttoolsModulePath = join(fixtureDirectory, 'fonttools.cjs')
     sourcePath = join(fixtureDirectory, 'input.ttf')
-    await writeFile(sourcePath, Uint8Array.from([1, 2]))
+    await writeFile(sourcePath, Buffer.from('wOF2'))
     await writeFile(
       join(fixtureDirectory, 'pyodide-lock.json'),
       JSON.stringify({
@@ -73,8 +73,21 @@ module.exports = {
 
     clearTimeout(timer)
     expect(timerFired).toBe(true)
-    expect(outputSize).toBe(3)
-    expect([...(await readFile(outputPath))]).toEqual([1, 2, 3])
+    expect(outputSize).toBe(5)
+    expect(await readFile(outputPath)).toEqual(Buffer.from([119, 79, 70, 50, 3]))
+  })
+
+  it('rejects a result with the wrong extension before writing it', async () => {
+    const outputPath = join(fixtureDirectory, 'wrong.otf')
+    await expect(
+      runFontProcess(
+        { sourcePath, outputPath, subsetOptions: {} },
+        new AbortController().signal,
+        fixtureDirectory,
+        fonttoolsModulePath
+      )
+    ).rejects.toThrow('目标格式不匹配')
+    await expect(access(outputPath)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
   it('terminates the process when the task is cancelled', async () => {

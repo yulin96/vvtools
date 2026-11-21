@@ -1,5 +1,5 @@
 import { readFile } from 'fs/promises'
-import type { FontFormat, FontOptions, MediaTask } from '../../shared/types'
+import type { FontOptions, MediaTask } from '../../shared/types'
 import {
   FONT_SUBSET_CHINESE_PRESETS,
   FONT_SUBSET_CHINESE_PUNCTUATION,
@@ -51,7 +51,7 @@ export async function processFont(
           sourcePath: task.sourcePath,
           outputPath: task.outputPath,
           staticAxes,
-          subsetOptions: createConvertOptions(options.outputFormat)
+          subsetOptions: { '*': true, 'layout-features': '*', 'drop-tables+': 'meta' }
         },
         signal,
         getFonttoolsDirectory()
@@ -79,8 +79,7 @@ async function processSubsetFont(
   if (signal.aborted) throw new TaskCancelledError()
   const subsetOptions: Record<string, unknown> = {
     'layout-features': '*',
-    'drop-tables+': 'meta',
-    flavor: fontFlavor(options.outputFormat)
+    'drop-tables+': 'meta'
   }
   if (options.operation === 'subset') {
     subsetOptions.text = await resolveFontSubsetText(options)
@@ -89,7 +88,6 @@ async function processSubsetFont(
   }
   if (signal.aborted) throw new TaskCancelledError()
   if (task.fontIndex !== undefined) subsetOptions['font-number'] = task.fontIndex
-  if (!subsetOptions.flavor) delete subsetOptions.flavor
   return runFontProcess(
     {
       sourcePath: task.sourcePath,
@@ -118,19 +116,4 @@ export async function resolveFontSubsetText(options: FontOptions): Promise<strin
     ? await readFile(options.subsetTextFile, 'utf8')
     : options.subsetText
   return uniqueCharacters(options.subsetIncludeLatin ? FONT_SUBSET_LATIN_BASIC : '', customText)
-}
-
-function createConvertOptions(outputFormat: FontFormat): Record<string, unknown> {
-  const options: Record<string, unknown> = {
-    '*': true,
-    'layout-features': '*',
-    'drop-tables+': 'meta',
-    flavor: fontFlavor(outputFormat)
-  }
-  if (!options.flavor) delete options.flavor
-  return options
-}
-
-function fontFlavor(format: FontFormat): 'woff' | 'woff2' | undefined {
-  return format === 'woff' || format === 'woff2' ? format : undefined
 }

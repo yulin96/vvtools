@@ -26,7 +26,7 @@ const pendingPaths = computed<string[]>({
   get: () => store.pendingAudioPaths,
   set: (value) => (store.pendingAudioPaths = value)
 })
-const { starting, submit } = useTaskSubmission(pendingPaths, (path) => path)
+const { starting, submit } = useTaskSubmission('audio', pendingPaths, (path) => path)
 const audioFormatOptions = [
   { value: 'mp3', label: 'MP3' },
   { value: 'm4a', label: 'M4A' },
@@ -89,12 +89,12 @@ function stageFiles(paths: string[]): void {
     store.errorMessage = '没有可导入的音频或视频文件'
     return
   }
-  if (pendingPaths.value.length === 0) store.prepareCurrentBatch('audio')
   const combined = [...new Set([...pendingPaths.value, ...supported])]
   if (combined.length > 500) {
     store.errorMessage = '单次最多添加 500 个文件'
     return
   }
+  if (supported.length && pendingPaths.value.length === 0) store.prepareCurrentBatch('audio')
   pendingPaths.value = combined
 }
 

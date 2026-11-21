@@ -1,4 +1,6 @@
-import { existsSync } from 'fs'
+import { isReplaceableOutputDirectory } from './output-directory'
+import { pathKey as platformPathKey } from '../../shared/path-key'
+import { lstatSync } from 'fs'
 import { extname, join, parse, resolve, sep } from 'path'
 import type {
   AudioFormat,
@@ -48,22 +50,6 @@ export function getOutputExtension(
   if (imageFormat && imageFormat !== 'original') return IMAGE_EXTENSIONS[imageFormat]
   const extension = extname(sourcePath).toLowerCase()
   return extension === '.jpeg' ? '.jpg' : extension
-}
-
-export function createAvailableOutputPath(
-  sourcePath: string,
-  outputDirectory: string,
-  extension: string,
-  reservedPaths: Set<string>,
-  outputSuffix = ''
-): string {
-  return resolveOutputPath({
-    sourcePath,
-    outputDirectory,
-    extension,
-    reservedPaths,
-    outputSuffix
-  }).path
 }
 
 interface ResolveOutputPathOptions {
@@ -139,27 +125,13 @@ export function resolveSpriteOutput(options: ResolveSpriteOutputOptions): Resolv
   if (directory.skipped) return { directory, paths: [] }
 
   const extension = options.imageFormat === 'jpeg' ? '.jpg' : `.${options.imageFormat}`
-  const reservedImagePaths = new Set<string>()
   const template = options.nameTemplate?.includes('{index}')
     ? options.nameTemplate
     : `${options.nameTemplate ?? '{name}{suffix}'}_{index}`
-  const paths = Array.from(
-    { length: options.sheetCount },
-    (_, index) =>
-      resolveOutputPath({
-        sourcePath: options.sourcePath,
-        outputDirectory: directory.path,
-        extension,
-        reservedPaths: reservedImagePaths,
-        outputSuffix: options.outputSuffix,
-        nameTemplate: template,
-        conflictPolicy: 'rename',
-        presetName: options.presetName,
-        width: options.width,
-        height: options.height,
-        index: index + 1
-      }).path
+  const names = Array.from({ length: options.sheetCount }, (_, index) =>
+    renderOutputBaseName(options.sourcePath, template, { ...options, index: index + 1 })
   )
+  const paths = groupOutputPaths(directory.path, names, extension)
   return { directory, paths }
 }
 
@@ -179,24 +151,34 @@ export function resolvePdfImageOutput(
   if (directory.skipped) return { directory, paths: [] }
 
   const extension = options.imageFormat === 'jpeg' ? '.jpg' : `.${options.imageFormat}`
-  const reservedImagePaths = new Set<string>()
-  const paths = options.pageNumbers.map(
-    (page) =>
-      resolveOutputPath({
-        sourcePath: options.sourcePath,
-        outputDirectory: directory.path,
-        extension,
-        reservedPaths: reservedImagePaths,
-        outputSuffix: options.outputSuffix,
-        nameTemplate: options.nameTemplate,
-        conflictPolicy: 'rename',
-        presetName: options.presetName,
-        width: options.width,
-        height: options.height,
-        page
-      }).path
+  const names = options.pageNumbers.map((page) =>
+    renderOutputBaseName(options.sourcePath, options.nameTemplate ?? '{name}{suffix}', {
+      ...options,
+      page
+    })
   )
+  const paths = groupOutputPaths(directory.path, names, extension)
   return { directory, paths }
+}
+
+// Group outputs are assembled in an empty staging directory, then committed together.
+function groupOutputPaths(directory: string, names: string[], extension: string): string[] {
+  const used = new Set<string>()
+  const nextSuffix = new Map<string, number>()
+  return names.map((name) => {
+    const base = pathKey(join(directory, name + extension))
+    let index = nextSuffix.get(base) ?? 0
+    let path: string
+    let key: string
+    do {
+      path = join(directory, name + (index ? '_' + index : '') + extension)
+      key = pathKey(path)
+      index++
+    } while (used.has(key))
+    nextSuffix.set(base, index)
+    used.add(key)
+    return path
+  })
 }
 
 export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOutputPath {
@@ -215,6 +197,7 @@ export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOu
     const numberedSuffix = index === 0 ? '' : `_${index}`
     const candidate = join(outputDirectory, `${baseName}${numberedSuffix}${extension}`)
     if (
+      pathKey(sourcePath).startsWith(pathKey(candidate) + sep) ||
       hasReservedPath(reservedPaths, candidate) ||
       [...(options.protectedSourcePaths ?? [])].some((path) =>
         outputContainsSourcePath(candidate, path)
@@ -226,14 +209,18 @@ export function resolveOutputPath(options: ResolveOutputPathOptions): ResolvedOu
       index += 1
       continue
     }
-    if (!existsSync(candidate)) {
+    const entry = lstatSync(candidate, { throwIfNoEntry: false })
+    if (!entry) {
       reservedPaths.add(candidate)
       return { path: candidate, skipped: false, overwritesExisting: false }
     }
     if (conflictPolicy === 'skip') {
       return { path: candidate, skipped: true, overwritesExisting: false }
     }
-    if (conflictPolicy === 'overwrite') {
+    if (
+      conflictPolicy === 'overwrite' &&
+      (extension === '' ? isReplaceableOutputDirectory(candidate) : !entry.isDirectory())
+    ) {
       reservedPaths.add(candidate)
       return { path: candidate, skipped: false, overwritesExisting: true }
     }
@@ -248,10 +235,7 @@ function hasReservedPath(reservedPaths: ReadonlySet<string>, candidate: string):
 }
 
 function pathKey(path: string): string {
-  const absolute = resolve(path)
-  return process.platform === 'win32' || process.platform === 'darwin'
-    ? absolute.normalize('NFC').toLowerCase()
-    : absolute
+  return platformPathKey(resolve(path), process.platform)
 }
 
 export function outputContainsSourcePath(outputPath: string, sourcePath: string): boolean {
@@ -298,8 +282,8 @@ export function renderOutputBaseName(
   )
   const safe = rendered
     .replace(/[<>:"/\\|?*]/gu, '_')
-    .replace(/./gu, (character) => (character.charCodeAt(0) < 32 ? '_' : character))
+    .replace(/./gsu, (character) => (character.charCodeAt(0) < 32 ? '_' : character))
     .replace(/[. ]+$/gu, '')
     .trim()
-  return safe || parse(sourcePath).name
+  return safe || '未命名'
 }

@@ -35,7 +35,7 @@ const pendingInputs = computed<ImageInputFile[]>({
   get: () => store.pendingImageInputs,
   set: (value) => (store.pendingImageInputs = value)
 })
-const { starting, submit } = useTaskSubmission(pendingInputs, (input) => input.path)
+const { starting, submit } = useTaskSubmission('image', pendingInputs, (input) => input.path)
 const compressionModeOptions = [
   { value: 'quality', label: '按画质' },
   { value: 'targetSize', label: '按文件大小' }
@@ -185,7 +185,6 @@ function inputLabel(input: ImageInputFile): string {
 
 function stageInputs(inputs: ImageInputFile[]): void {
   if (inputs.length === 0) return
-  if (pendingInputs.value.length === 0) store.prepareCurrentBatch('image')
   const combined = new Map(pendingInputs.value.map((input) => [input.path, input]))
   const pathsToInspect: string[] = []
   for (const input of inputs) {
@@ -198,6 +197,7 @@ function stageInputs(inputs: ImageInputFile[]): void {
     store.errorMessage = '单次最多添加 500 张图片'
     return
   }
+  if (pathsToInspect.length && pendingInputs.value.length === 0) store.prepareCurrentBatch('image')
   pendingInputs.value = [...combined.values()]
   queueImageMetadata(pathsToInspect)
 }

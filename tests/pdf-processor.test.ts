@@ -55,6 +55,18 @@ describe('PDF processor', () => {
     })
   })
 
+  it('reads the new document when a PDF is replaced between requests', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-pdf-replaced-'))
+    directories.push(root)
+    const source = join(root, 'source.pdf')
+    const signal = new AbortController().signal
+    await writeFile(source, createTestPdf(false))
+    expect((await probePdf(source, signal)).width).toBe(100)
+    const changed = createTestPdf(false).toString().replace('100 100]', '200 100]')
+    await writeFile(source, changed + '\n')
+    expect((await probePdf(source, signal)).width).toBe(200)
+  })
+
   it('rebuilds every page as JPEG for lossy compression', async () => {
     const root = mkdtempSync(join(tmpdir(), 'vvtools-pdf-lossy-'))
     directories.push(root)

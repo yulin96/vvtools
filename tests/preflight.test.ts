@@ -3,6 +3,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import sharp from 'sharp'
 import { afterEach, describe, expect, it } from 'vitest'
+import { validateCreateRequest } from '../src/main/ipc-validation'
 import { inspectTasks } from '../src/main/media/preflight'
 import { DEFAULT_IMAGE_OPTIONS } from '../src/shared/constants'
 
@@ -44,6 +45,27 @@ describe('media preflight', () => {
       height: 9
     })
     expect(inspection.sourceSize).toBeGreaterThan(0)
+  })
+
+  it('allows the remaining inputs to proceed when a staged file disappears', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'vvtools-preflight-'))
+    directories.push(root)
+    const good = join(root, 'good.png')
+    await sharp({ create: { width: 8, height: 8, channels: 3, background: '#888' } })
+      .png()
+      .toFile(good)
+    const paths = [join(root, 'missing.png'), good]
+    const request = {
+      kind: 'image',
+      sources: paths.map((path) => ({ path, relativeDirectory: '' })),
+      outputMode: 'source',
+      outputDirectory: '',
+      outputSuffix: '_out',
+      options: DEFAULT_IMAGE_OPTIONS
+    }
+    const results = await inspectTasks(validateCreateRequest(request, 'inspect'))
+    expect(results.map((item) => item.valid)).toEqual([false, true])
+    expect(() => validateCreateRequest(request)).toThrow('文件不存在')
   })
 
   it('reports a corrupt image without rejecting the complete batch', async () => {

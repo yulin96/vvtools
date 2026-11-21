@@ -1,5 +1,5 @@
 import { statSync } from 'fs'
-import sharp from './sharp-runtime'
+import { readStaticImageMetadata } from './sharp-runtime'
 import type { ImageSourceMetadata } from '../../shared/types'
 
 export async function inspectImageMetadata(
@@ -7,7 +7,7 @@ export async function inspectImageMetadata(
   knownSourceSize?: number
 ): Promise<ImageSourceMetadata> {
   const sourceSize = knownSourceSize ?? statSync(path).size
-  const metadata = await sharp(path, { failOn: 'error' }).metadata()
+  const metadata = await readStaticImageMetadata(path)
   if (!metadata.width || !metadata.height || !metadata.format) {
     throw new Error('无法读取有效的图片信息')
   }

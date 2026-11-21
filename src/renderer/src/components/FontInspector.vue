@@ -153,6 +153,8 @@ async function openDroppedFiles(paths: string[]): Promise<void> {
   await loadFont(fonts[0])
 }
 
+let disposed = false
+
 async function loadFont(path: string): Promise<void> {
   if (loading.value) return
   loading.value = true
@@ -160,11 +162,13 @@ async function loadFont(path: string): Promise<void> {
   saveNotice.value = ''
   try {
     const result = await window.api.inspectFont(path)
+    if (disposed) return
     cleanupFontFace()
     const family = `vvtools-font-inspector-${crypto.randomUUID()}`
     const face = new FontFace(family, `url("${result.previewUrl}")`)
     try {
       await face.load()
+      if (disposed) return
       document.fonts.add(face)
       loadedFace = face
       fontFamily.value = family
@@ -213,7 +217,7 @@ async function saveFont(): Promise<void> {
   saving.value = true
   saveNotice.value = ''
   try {
-    const result = await window.api.saveEditedFont(inspection.value.sourcePath, edits.value)
+    const result = await window.api.saveEditedFont(inspection.value.sourcePath, { ...edits.value })
     if (result) saveNotice.value = `已另存为 ${fileName(result.outputPath)}`
   } catch (error) {
     store.errorMessage = friendlyError(error)
@@ -276,6 +280,7 @@ function cleanupFontFace(): void {
 }
 
 onBeforeUnmount(() => {
+  disposed = true
   resizeObserver?.disconnect()
   cleanupFontFace()
 })

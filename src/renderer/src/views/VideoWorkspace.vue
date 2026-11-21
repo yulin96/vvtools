@@ -34,7 +34,7 @@ const pendingPaths = computed<string[]>({
   get: () => store.pendingVideoPaths,
   set: (value) => (store.pendingVideoPaths = value)
 })
-const { starting, submit } = useTaskSubmission(pendingPaths, (path) => path)
+const { starting, submit } = useTaskSubmission('video', pendingPaths, (path) => path)
 const videoExtensions = new Set(['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v', 'mpeg', 'mpg'])
 const videoFormatOptions = [
   { value: 'source', label: '原格式' },
@@ -268,7 +268,7 @@ function receiveDroppedPaths(droppedPaths: string[]): void {
 
 const dragging = useWorkspaceDrop(receiveDroppedPaths, {
   path: '/video',
-  receivePaths: stageFiles
+  receivePaths: receiveDroppedPaths
 })
 </script>
 

@@ -1,5 +1,6 @@
+import { pathKey } from '../../shared/path-key'
 import { randomUUID } from 'crypto'
-import { existsSync, lstatSync, renameSync } from 'fs'
+import { lstatSync, renameSync } from 'fs'
 import { basename, dirname, extname, isAbsolute, join, parse } from 'path'
 import type {
   InspectRenameFilesResult,
@@ -13,13 +14,13 @@ const MAX_RENAME_FILES = 500
 const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu
 const PORTABLE_INVALID_CHARACTERS = /[<>:"/\\|?*]/u
 
-function containsControlCharacter(value: string): boolean {
-  return [...value].some((character) => character.codePointAt(0)! <= 31)
+// A broken symbolic link still occupies its name in the directory.
+function pathEntryExists(path: string): boolean {
+  return lstatSync(path, { throwIfNoEntry: false }) !== undefined
 }
 
-function pathKey(path: string, platform: NodeJS.Platform): string {
-  const normalized = path.normalize('NFC')
-  return platform === 'linux' ? normalized : normalized.toLocaleLowerCase('en-US')
+function containsControlCharacter(value: string): boolean {
+  return [...value].some((character) => character.codePointAt(0)! <= 31)
 }
 
 function fileInfo(path: string): RenameFileInfo {
@@ -137,7 +138,7 @@ export function inspectRenamePlan(
       inspection.error = '新名称与批次中的其他文件重复'
     } else if (
       inspection.changed &&
-      existsSync(inspection.targetPath) &&
+      pathEntryExists(inspection.targetPath) &&
       !sourceKeys.has(targetKey)
     ) {
       inspection.valid = false
@@ -154,15 +155,15 @@ function rollback(
   const failures: string[] = []
   for (const item of [...committed].reverse()) {
     try {
-      if (existsSync(item.targetPath)) renameSync(item.targetPath, item.temporaryPath)
+      if (pathEntryExists(item.targetPath)) renameSync(item.targetPath, item.temporaryPath)
     } catch (error) {
       failures.push(`${item.targetPath}：${error instanceof Error ? error.message : String(error)}`)
     }
   }
   for (const item of [...staged].reverse()) {
     try {
-      if (existsSync(item.temporaryPath)) {
-        if (existsSync(item.sourcePath)) throw new Error('原路径已被占用')
+      if (pathEntryExists(item.temporaryPath)) {
+        if (pathEntryExists(item.sourcePath)) throw new Error('原路径已被占用')
         renameSync(item.temporaryPath, item.sourcePath)
       }
     } catch (error) {
@@ -203,7 +204,7 @@ export function renameFiles(
 
   for (const operation of operations) {
     if (operation.sourcePath === operation.targetPath) continue
-    if (existsSync(operation.targetPath) && !sourceKeys.has(operation.targetKey)) {
+    if (pathEntryExists(operation.targetPath) && !sourceKeys.has(operation.targetKey)) {
       throw new Error(`目标文件已存在：${operation.targetPath}`)
     }
   }
@@ -216,12 +217,12 @@ export function renameFiles(
       let temporaryPath: string
       do {
         temporaryPath = join(dirname(operation.sourcePath), `.vvtools-rename-${randomUUID()}`)
-      } while (existsSync(temporaryPath))
+      } while (pathEntryExists(temporaryPath))
       renameSync(operation.sourcePath, temporaryPath)
       staged.push({ sourcePath: operation.sourcePath, temporaryPath })
     }
     for (const [index, operation] of changed.entries()) {
-      if (existsSync(operation.targetPath))
+      if (pathEntryExists(operation.targetPath))
         throw new Error(`目标文件已存在：${operation.targetPath}`)
       renameSync(staged[index].temporaryPath, operation.targetPath)
       committed.push({

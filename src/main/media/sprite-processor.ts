@@ -2,10 +2,11 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { mkdirSync, statSync } from 'fs'
 import { rename, rm, stat } from 'fs/promises'
 import { join } from 'path'
-import type { MediaTask, SpriteOptions, TaskCommand } from '../../shared/types'
+import type { MediaTask, SpriteOptions } from '../../shared/types'
 import { FailureLogService } from '../services/failure-log'
 import { MediaProcessError, TaskCancelledError } from './errors'
 import { ffmpegInputThreads } from './ffmpeg-threads'
+import { createTaskCommand } from './task-command'
 import { getFfmpegPath } from './ffmpeg-runtime'
 import { probeVideo, type VideoProbe } from './video-processor'
 
@@ -83,14 +84,6 @@ export function createSpritePlan(options: SpriteOptions, probe: VideoProbe): Spr
     frameHeight,
     sheetWidth,
     sheetHeight
-  }
-}
-
-function taskCommand(executable: string, args: string[]): TaskCommand {
-  return {
-    executable,
-    args: [...args],
-    display: [executable, ...args].map((value) => JSON.stringify(value)).join(' ')
   }
 }
 
@@ -172,7 +165,7 @@ async function runSpriteCommand(
   onFrames?: (frames: number) => void
 ): Promise<void> {
   const executable = getFfmpegPath()
-  const command = taskCommand(executable, args)
+  const command = createTaskCommand(executable, args)
   const log = failureLogs.create(task, command)
   await new Promise<void>((resolve, reject) => {
     let child: ChildProcessWithoutNullStreams

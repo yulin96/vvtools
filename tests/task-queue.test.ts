@@ -1,3 +1,4 @@
+import { markOutputDirectory, OUTPUT_DIRECTORY_MARKER } from '../src/main/media/output-directory'
 import {
   existsSync,
   mkdirSync,
@@ -15,8 +16,10 @@ import { FailureLogService } from '../src/main/services/failure-log'
 import { TaskQueue, type TaskRunner } from '../src/main/services/task-queue'
 import { MediaProcessError, TaskCancelledError, TaskSkippedError } from '../src/main/media/errors'
 import {
+  DEFAULT_AUDIO_OPTIONS,
   DEFAULT_FONT_OPTIONS,
   DEFAULT_IMAGE_OPTIONS,
+  DEFAULT_PDF_OPTIONS,
   DEFAULT_SPRITE_OPTIONS,
   DEFAULT_VIDEO_OPTIONS
 } from '../src/shared/constants'
@@ -56,6 +59,52 @@ afterEach(() => {
 })
 
 describe('TaskQueue', () => {
+  it('runs a smaller waiting job while another kind waits for memory', async () => {
+    const paths = fixture()
+    let finish!: () => void
+    const hold = new Promise<void>((resolve) => (finish = resolve))
+    const queue = new TaskQueue(
+      concurrency(2),
+      async (task, signal, progress) => {
+        if (task.kind === 'font') await hold
+        return successfulRunner(task, signal, progress)
+      },
+      new FailureLogService(paths.userData),
+      undefined,
+      { cpu: 4, memoryBytes: 300 * 1024 ** 2 }
+    )
+    const output = {
+      outputMode: 'custom' as const,
+      outputDirectory: paths.output,
+      outputSuffix: ''
+    }
+    queue.create({
+      ...output,
+      kind: 'font',
+      sources: [{ path: paths.source, outputFormat: 'woff2' }],
+      options: DEFAULT_FONT_OPTIONS
+    })
+    const [image] = queue.create({
+      ...output,
+      kind: 'image',
+      sources: [{ path: paths.source, relativeDirectory: '' }],
+      options: DEFAULT_IMAGE_OPTIONS
+    })
+    try {
+      const [audio] = queue.create({
+        ...output,
+        kind: 'audio',
+        sourcePaths: [paths.source],
+        options: DEFAULT_AUDIO_OPTIONS
+      })
+      await waitFor(() => queue.list().find((task) => task.id === audio.id)?.status === 'completed')
+      expect(queue.list().find((task) => task.id === image.id)?.status).toBe('pending')
+    } finally {
+      finish()
+      await waitFor(() => queue.activeCount() === 0)
+    }
+  })
+
   it('shares CPU admission across media kinds and releases it after cancellation', async () => {
     const paths = fixture()
     const queue = new TaskQueue(
@@ -401,7 +450,7 @@ describe('TaskQueue', () => {
     const queue = new TaskQueue(concurrency(1), runner, new FailureLogService(paths.userData))
     const [original] = queue.create({
       kind: 'image',
-      sources: [{ path: paths.source, relativeDirectory: '' }],
+      sources: [{ path: paths.source, relativeDirectory: 'album' }],
       batchItemIds: ['image-row-1'],
       outputMode: 'custom',
       outputDirectory: paths.output,
@@ -413,6 +462,8 @@ describe('TaskQueue', () => {
     expect(queue.list()[0].failure?.logPath).toBeTruthy()
     shouldFail = false
     const retry = queue.retry(original.id)
+    expect(retry?.relativeDirectory).toBe('album')
+    expect(dirname(retry!.outputPath)).toBe(dirname(original.outputPath))
     expect(retry?.retryOf).toBe(original.id)
     expect(retry?.batchInputId).toBe('image-row-1')
     expect(retry?.batchItemId).toBe('image-row-1')
@@ -549,6 +600,158 @@ describe('TaskQueue', () => {
 
     expect(second.outputPath).toBe(first.outputPath)
     expect(queue.list()).toEqual([expect.objectContaining({ id: second.id })])
+  })
+
+  it('keeps the output reservation of another workspace when replacing settled rows', async () => {
+    const paths = fixture()
+    const pdf = join(dirname(paths.source), 'album.pdf')
+    const video = join(dirname(paths.source), 'album.mp4')
+    writeFileSync(pdf, 'pdf')
+    writeFileSync(video, 'video')
+    let release!: () => void
+    const wait = new Promise<void>((resolve) => (release = resolve))
+    const queue = new TaskQueue(
+      concurrency(2),
+      async (task) => {
+        if (task.kind === 'sprite') await wait
+        mkdirSync(task.outputPath)
+        return 0
+      },
+      new FailureLogService(paths.userData),
+      async (path) => rmSync(path, { recursive: true })
+    )
+    const common = {
+      outputMode: 'custom' as const,
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      outputConflictPolicy: 'overwrite' as const
+    }
+    const request = {
+      ...common,
+      kind: 'pdf' as const,
+      sourcePaths: [pdf],
+      pageNumbers: [1],
+      options: { ...DEFAULT_PDF_OPTIONS, operation: 'toImage' as const }
+    }
+    const [old] = queue.create(request)
+    await waitFor(() => queue.activeCount() === 0)
+    const [sprite] = queue.create({
+      ...common,
+      kind: 'sprite',
+      sourcePaths: [video],
+      options: DEFAULT_SPRITE_OPTIONS
+    })
+    try {
+      expect(sprite.outputPath).toBe(old.outputPath)
+      expect(queue.create(request)[0].outputPath).toBe(join(paths.output, 'album_1'))
+    } finally {
+      release()
+      await waitFor(() => queue.activeCount() === 0)
+    }
+  })
+
+  it('protects omitted batch inputs during submission and retry', async () => {
+    const paths = fixture()
+    const rejected = join(paths.output, 'source.jpg')
+    mkdirSync(paths.output)
+    writeFileSync(rejected, 'original')
+    const trash = vi.fn(async () => {})
+    const runner = vi
+      .fn<TaskRunner>()
+      .mockRejectedValueOnce(new Error('failed'))
+      .mockImplementation(successfulRunner)
+    const queue = new TaskQueue(
+      concurrency(1),
+      runner,
+      new FailureLogService(paths.userData),
+      trash
+    )
+    const [first] = queue.create({
+      kind: 'image',
+      sources: [{ path: paths.source, relativeDirectory: '' }],
+      excludedSourcePaths: [rejected],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      outputConflictPolicy: 'overwrite',
+      options: DEFAULT_IMAGE_OPTIONS
+    })
+    expect(first.outputPath).toBe(join(paths.output, 'source_1.jpg'))
+    await waitFor(() => queue.activeCount() === 0)
+    expect(queue.retry(first.id)?.outputPath).toBe(first.outputPath)
+    await waitFor(() => queue.activeCount() === 0)
+    expect(readFileSync(rejected, 'utf8')).toBe('original')
+    expect(trash).not.toHaveBeenCalled()
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'processes a valid long filename without extending the temporary filename beyond the filesystem limit',
+    async () => {
+      const paths = fixture()
+      const source = join(dirname(paths.source), 'a'.repeat(230) + '.jpg')
+      writeFileSync(source, 'source')
+      const queue = new TaskQueue(
+        concurrency(1),
+        successfulRunner,
+        new FailureLogService(paths.userData)
+      )
+      const [task] = queue.create({
+        kind: 'image',
+        sources: [{ path: source, relativeDirectory: '' }],
+        outputMode: 'custom',
+        outputDirectory: paths.output,
+        outputSuffix: '',
+        options: DEFAULT_IMAGE_OPTIONS
+      })
+      await waitFor(() => queue.activeCount() === 0)
+      expect(readFileSync(task.outputPath, 'utf8')).toBe('processed')
+    }
+  )
+
+  it('retains completed rows when submitting remaining staged files', async () => {
+    const paths = fixture()
+    const queue = new TaskQueue(
+      concurrency(1),
+      successfulRunner,
+      new FailureLogService(paths.userData)
+    )
+    const request = {
+      kind: 'image' as const,
+      sources: [{ path: paths.source, relativeDirectory: '' }],
+      outputMode: 'custom' as const,
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: DEFAULT_IMAGE_OPTIONS
+    }
+    const [first] = queue.create(request)
+    await waitFor(() => queue.activeCount() === 0)
+    expect(queue.create({ ...request, outputConflictPolicy: 'skip' })).toEqual([])
+    const [second] = queue.create({ ...request, continueBatchTaskId: first.id })
+    await waitFor(() => queue.activeCount() === 0)
+    expect(queue.list().map((task) => task.id)).toEqual([first.id, second.id])
+  })
+
+  it('cancels waiting tasks on shutdown without starting another processor', async () => {
+    const paths = fixture()
+    const runner = vi.fn<TaskRunner>(
+      async (_task, signal) =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new TaskCancelledError()), { once: true })
+        })
+    )
+    const queue = new TaskQueue(concurrency(1), runner, new FailureLogService(paths.userData))
+    queue.create({
+      kind: 'image',
+      sources: [1, 2].map(() => ({ path: paths.source, relativeDirectory: '' })),
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      options: DEFAULT_IMAGE_OPTIONS
+    })
+    queue.shutdown()
+    await waitFor(() => queue.activeCount() === 0)
+    expect(runner).toHaveBeenCalledOnce()
+    expect(queue.list().map((task) => task.status)).toEqual(['cancelled', 'cancelled'])
   })
 
   it('replaces a source file only after processing succeeds', async () => {
@@ -907,6 +1110,7 @@ describe('TaskQueue', () => {
 
     await waitFor(() => queue.list()[0]?.status === 'completed')
     expect(readdirSync(join(paths.output, 'document'))).toEqual([
+      OUTPUT_DIRECTORY_MARKER,
       'document-page-001.png',
       'document-page-002.png',
       'document-page-003.png'
@@ -942,9 +1146,50 @@ describe('TaskQueue', () => {
     ])
     await waitFor(() => queue.list()[0]?.status === 'completed')
     expect(readdirSync(join(paths.output, 'clip_sprite'))).toEqual([
+      OUTPUT_DIRECTORY_MARKER,
       'clip_sprite_1.png',
       'clip_sprite_2.png'
     ])
+  })
+
+  it('renumbers all pages if an unrelated directory appears during export', async () => {
+    const paths = fixture()
+    const source = join(dirname(paths.source), 'document.pdf')
+    writeFileSync(source, '%PDF')
+    const existing = join(paths.output, 'document')
+    const trash = vi.fn()
+    const queue = new TaskQueue(
+      concurrency(1),
+      async (task) => {
+        mkdirSync(existing, { recursive: true })
+        writeFileSync(join(existing, 'keep.txt'), 'keep')
+        mkdirSync(task.outputPath)
+        for (const path of task.outputPaths!) writeFileSync(path, 'page')
+        return 8
+      },
+      new FailureLogService(paths.userData),
+      trash
+    )
+    queue.create({
+      kind: 'pdf',
+      sourcePaths: [source],
+      outputMode: 'custom',
+      outputDirectory: paths.output,
+      outputSuffix: '',
+      outputNameTemplate: '{name}-{page}',
+      outputConflictPolicy: 'overwrite',
+      pageNumbers: [1, 2],
+      options: { operation: 'toImage', imageFormat: 'png', dpi: 144, imageQuality: 90 }
+    })
+    await waitFor(() => queue.list()[0]?.status === 'completed')
+    const task = queue.list()[0]
+    expect(task.outputPath).toBe(existing + '_1')
+    expect(task.outputPaths).toEqual(
+      ['document-001.png', 'document-002.png'].map((name) => join(task.outputPath, name))
+    )
+    for (const path of task.outputPaths!) expect(readFileSync(path, 'utf8')).toBe('page')
+    expect(trash).not.toHaveBeenCalled()
+    expect(readFileSync(join(existing, 'keep.txt'), 'utf8')).toBe('keep')
   })
 
   it('moves an existing PDF image folder to the trash before replacing it', async () => {
@@ -955,6 +1200,7 @@ describe('TaskQueue', () => {
     writeFileSync(source, '%PDF fixture')
     mkdirSync(existingOutput, { recursive: true })
     writeFileSync(join(existingOutput, 'old-page.png'), 'old')
+    markOutputDirectory(existingOutput)
     const pdfRunner: TaskRunner = async (task) => {
       mkdirSync(task.outputPath, { recursive: true })
       for (const outputPath of task.outputPaths ?? []) writeFileSync(outputPath, 'new')

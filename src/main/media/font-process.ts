@@ -20,7 +20,7 @@ interface FontWorkerResult {
 
 const childSource = String.raw`
 const { access, readFile, writeFile } = require('node:fs/promises')
-const { dirname, join } = require('node:path')
+const { dirname, extname, join } = require('node:path')
 
 async function readRequest() {
   const chunks = []
@@ -53,9 +53,15 @@ async function main() {
   const { subset, instantiateVariableFont } = require(request.fonttoolsModulePath)
   let input = await readFile(request.sourcePath)
   if (request.staticAxes) input = await instantiateVariableFont(input, request.staticAxes)
-  const output = await subset(input, request.subsetOptions)
+  const extension = extname(request.outputPath).toLowerCase()
+  const flavor = extension === '.woff' || extension === '.woff2' ? extension.slice(1) : 'none'
+  const output = await subset(input, { ...request.subsetOptions, flavor })
   if (!output.byteLength) throw new Error('字体处理器没有生成有效输出')
-  await writeFile(request.outputPath, Buffer.from(output))
+  const buffer = Buffer.from(output.buffer, output.byteOffset, output.byteLength)
+  const signature = buffer.toString('latin1', 0, 4)
+  const format = { 'wOFF': '.woff', 'wOF2': '.woff2', 'OTTO': '.otf', 'true': '.ttf', '\x00\x01\x00\x00': '.ttf' }[signature]
+  if (format !== extension) throw new Error('字体输出内容与目标格式不匹配')
+  await writeFile(request.outputPath, buffer)
   process.stdout.write(JSON.stringify({ version, outputSize: output.byteLength }))
 }
 

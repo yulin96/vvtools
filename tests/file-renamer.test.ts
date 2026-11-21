@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync
+} from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -70,6 +78,19 @@ describe('file renamer', () => {
     )
     expect(readFileSync(source, 'utf8')).toBe('SOURCE')
     expect(readFileSync(existing, 'utf8')).toBe('EXISTING')
+  })
+
+  it.skipIf(process.platform === 'win32')('keeps a dangling link at the proposed target', () => {
+    const directory = workspace()
+    const sourcePath = join(directory, 'input.txt')
+    const target = join(directory, 'link.txt')
+    writeFileSync(sourcePath, 'source')
+    symlinkSync('missing.txt', target)
+    const plan = [{ sourcePath, targetName: 'link.txt' }]
+    expect(inspectRenamePlan(plan)[0].valid).toBe(false)
+    expect(() => renameFiles(plan)).toThrow('目标文件已存在')
+    expect(readlinkSync(target)).toBe('missing.txt')
+    expect(readFileSync(sourcePath, 'utf8')).toBe('source')
   })
 
   it('previews duplicate targets and files blocked by active media tasks', () => {

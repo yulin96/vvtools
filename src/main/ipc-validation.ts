@@ -50,12 +50,11 @@ const FONT_INSTANCE_MODES = new Set(['named', 'default'])
 const FONT_SUBSET_MODES = new Set(['latin', 'chinese', 'custom'])
 const FONT_SUBSET_CHINESE_LEVELS = new Set(['3500', '6500', '8105'])
 
-export function validateSourcePath(path: string, kind: TaskKind): void {
+export function validateSourcePath(path: string, kind: TaskKind, checkFile = true): void {
   if (
     typeof path !== 'string' ||
     !isAbsolute(path) ||
-    !existsSync(path) ||
-    !statSync(path).isFile()
+    (checkFile && !statSync(path, { throwIfNoEntry: false })?.isFile())
   ) {
     throw new Error(`文件不存在或不可访问：${path}`)
   }
@@ -72,7 +71,10 @@ export function validateSourcePath(path: string, kind: TaskKind): void {
   if (!extensions.has(extname(path).toLowerCase())) throw new Error(`不支持的文件格式：${path}`)
 }
 
-export function validateCreateRequest(value: unknown): CreateTasksRequest {
+export function validateCreateRequest(
+  value: unknown,
+  phase: 'create' | 'inspect' = 'create'
+): CreateTasksRequest {
   if (!value || typeof value !== 'object') throw new Error('任务参数无效')
   const request = value as CreateTasksRequest
   if (!['video', 'sprite', 'image', 'audio', 'pdf', 'font'].includes(request.kind)) {
@@ -100,14 +102,14 @@ export function validateCreateRequest(value: unknown): CreateTasksRequest {
       throw new Error('请至少选择一个视频文件')
     }
     if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
-    request.sourcePaths.forEach((path) => validateSourcePath(path, 'video'))
+    request.sourcePaths.forEach((path) => validateSourcePath(path, 'video', phase === 'create'))
     validateVideoOptions(request.options, '视频任务参数无效')
   } else if (request.kind === 'sprite') {
     if (!Array.isArray(request.sourcePaths) || request.sourcePaths.length === 0) {
       throw new Error('请至少选择一个视频文件')
     }
     if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
-    request.sourcePaths.forEach((path) => validateSourcePath(path, 'sprite'))
+    request.sourcePaths.forEach((path) => validateSourcePath(path, 'sprite', phase === 'create'))
     validateSpriteOptions(request.options, '雪碧图任务参数无效')
   } else if (request.kind === 'image') {
     if (!Array.isArray(request.sources) || request.sources.length === 0) {
@@ -116,7 +118,7 @@ export function validateCreateRequest(value: unknown): CreateTasksRequest {
     if (request.sources.length > 500) throw new Error('单次最多添加 500 张图片')
     for (const source of request.sources) {
       if (!source || typeof source !== 'object') throw new Error('图片来源参数无效')
-      validateSourcePath(source.path, 'image')
+      validateSourcePath(source.path, 'image', phase === 'create')
       validateRelativeDirectory(source.relativeDirectory)
       if (
         source.outputFormat !== undefined &&
@@ -130,14 +132,14 @@ export function validateCreateRequest(value: unknown): CreateTasksRequest {
       throw new Error('请至少选择一个音频或视频文件')
     }
     if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
-    request.sourcePaths.forEach((path) => validateSourcePath(path, 'audio'))
+    request.sourcePaths.forEach((path) => validateSourcePath(path, 'audio', phase === 'create'))
     validateAudioOptions(request.options, '音频任务参数无效')
   } else if (request.kind === 'pdf') {
     if (!Array.isArray(request.sourcePaths) || request.sourcePaths.length === 0) {
       throw new Error('请至少选择一个 PDF 文件')
     }
     if (request.sourcePaths.length > 500) throw new Error('单次最多添加 500 个文件')
-    request.sourcePaths.forEach((path) => validateSourcePath(path, 'pdf'))
+    request.sourcePaths.forEach((path) => validateSourcePath(path, 'pdf', phase === 'create'))
     validatePdfOptions(request.options, 'PDF 任务参数无效')
     request.pageNumbers = sanitizeIndexes(request.pageNumbers, 1, 'PDF 页面编号无效')
   } else {
@@ -155,7 +157,7 @@ export function validateCreateRequest(value: unknown): CreateTasksRequest {
       ) {
         throw new Error('字体来源参数无效')
       }
-      validateSourcePath(source.path, 'font')
+      validateSourcePath(source.path, 'font', phase === 'create')
     })
     validateFontOptions(request.options, '字体任务参数无效')
     request.fontIndexes = sanitizeIndexes(request.fontIndexes, 0, '字体编号无效')
@@ -165,6 +167,20 @@ export function validateCreateRequest(value: unknown): CreateTasksRequest {
     request.kind === 'image' || request.kind === 'font'
       ? request.sources.map((source) => source.path)
       : request.sourcePaths
+  if (
+    request.continueBatchTaskId !== undefined &&
+    (typeof request.continueBatchTaskId !== 'string' || request.continueBatchTaskId.length > 100)
+  )
+    throw new Error('批次任务标识无效')
+  if (
+    request.excludedSourcePaths !== undefined &&
+    (!Array.isArray(request.excludedSourcePaths) ||
+      request.excludedSourcePaths.length + sourcePaths.length > 500 ||
+      request.excludedSourcePaths.some(
+        (path) => typeof path !== 'string' || !isAbsolute(path) || path.length > 8192
+      ))
+  )
+    throw new Error('未提交的源文件路径无效')
   request.batchItemIds = sanitizeBatchItemIds(request.batchItemIds, sourcePaths.length)
   request.inputMetadata = sanitizeInputMetadata(
     request.inputMetadata,

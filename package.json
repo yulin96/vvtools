@@ -31,7 +31,6 @@
     "build:linux": "pnpm stage:media && pnpm build && electron-builder --linux"
   },
   "dependencies": {
-    "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@hyzyla/pdfium": "^2.1.13",
     "@lucide/lab": "^0.1.2",

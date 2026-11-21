@@ -9,6 +9,9 @@ import { FailureLogService } from '../src/main/services/failure-log'
 import { DEFAULT_FONT_OPTIONS, DEFAULT_PDF_OPTIONS } from '../src/shared/constants'
 import type { CreateTasksRequest } from '../src/shared/types'
 
+vi.mock('../src/main/media/font-output-formats', () => ({
+  readFontFormatSupport: async () => ({ collection: false, formats: ['ttf', 'woff', 'woff2'] })
+}))
 vi.mock('../src/main/media/font-processor', () => ({
   probeFont: vi.fn(async () => ({
     format: 'ttc',
@@ -102,6 +105,27 @@ describe('preflight and queue planning contract', () => {
       }
     }
   )
+
+  it('rejects incompatible native formats while probing a quick-conversion source only once', async () => {
+    const { source, output } = fixture()
+    vi.mocked(probeFont).mockClear()
+    const inspection = await inspectTasks({
+      kind: 'font',
+      sources: [
+        { path: source, outputFormat: 'ttf' },
+        { path: source, outputFormat: 'otf' },
+        { path: source, outputFormat: 'woff2' }
+      ],
+      outputMode: 'custom',
+      outputDirectory: output,
+      outputSuffix: '',
+      outputNameTemplate: '{name}',
+      options: { ...DEFAULT_FONT_OPTIONS, operation: 'convert' }
+    })
+    expect(inspection.map((row) => row.valid)).toEqual([true, false, true])
+    expect(inspection[1].error).toContain('不支持所选格式')
+    expect(probeFont).toHaveBeenCalledTimes(1)
+  })
 
   it('groups PDF pages identically using output dimensions for filename variables', async () => {
     const { source, output, queue } = fixture('pdf')

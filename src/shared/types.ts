@@ -177,6 +177,11 @@ export interface FontInputFile {
   subsetPreset?: FontConversionSubsetPreset
 }
 
+export interface FontFormatSupport {
+  collection: boolean
+  formats: FontFormat[]
+}
+
 export interface FontInspectionAxis {
   tag: string
   name: string
@@ -489,7 +494,12 @@ export interface MediaInputMetadata {
   fontInstances?: FontInstance[]
 }
 
-export type CreateTasksRequest =
+export type CreateTasksRequest = TaskRequest & {
+  excludedSourcePaths?: string[]
+  continueBatchTaskId?: string
+}
+
+type TaskRequest =
   | {
       kind: 'video'
       sourcePaths: string[]
@@ -618,6 +628,7 @@ export interface VVToolsApi {
   selectImageDirectory: () => Promise<ImageInputFile[]>
   expandImageInputs: (paths: string[]) => Promise<ImageInputFile[]>
   inspectImageInput: (path: string) => Promise<ImageSourceMetadata>
+  getFontFormatSupport: (path: string) => Promise<FontFormatSupport>
   inspectFont: (path: string) => Promise<FontInspection>
   saveEditedFont: (path: string, edits: FontEditValues) => Promise<SaveEditedFontResult | null>
   inspectRenameFiles: (paths: string[]) => Promise<InspectRenameFilesResult>

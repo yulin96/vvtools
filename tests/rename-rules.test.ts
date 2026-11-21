@@ -21,6 +21,13 @@ function settings(patch: Partial<RenameSettings>): RenameSettings {
 }
 
 describe('rename rules', () => {
+  it('uses filesystem-specific Unicode comparison for the preview', () => {
+    const rows = ['café.txt', 'cafe\u0301.txt'].map((name) => file(name, '2026-01-01T00:00:00Z'))
+    const options = settings({ mode: 'custom', sequenceEnabled: false })
+    expect(buildRenamePreview(rows, options, 'linux').every((row) => !row.error)).toBe(true)
+    expect(buildRenamePreview(rows, options, 'darwin').every((row) => row.error)).toBe(true)
+  })
+
   it('combines replacement, case, prefix, suffix and sequence rules', () => {
     const [row] = buildRenamePreview(
       [file('holiday photo.JPG', '2026-01-01T00:00:00.000Z')],

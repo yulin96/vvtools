@@ -60,9 +60,9 @@ async function main(): Promise<void> {
 
     packageJson.version = nextVersion
     const nextReleaseNotes = archiveUnreleasedReleaseNotes(originalReleaseNotes, nextVersion)
+    filesUpdated = true
     await writeFile(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8')
     await writeFile(releaseNotesPath, nextReleaseNotes, 'utf8')
-    filesUpdated = true
 
     runPnpm(['release-notes:prepare'])
     runPnpm(['typecheck'])

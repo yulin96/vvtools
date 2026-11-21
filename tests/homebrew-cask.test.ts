@@ -61,6 +61,13 @@ describe('Homebrew release cask', () => {
     expect(await readFile(template, 'utf8')).toBe(original)
   })
 
+  it('rejects a template that cannot be updated', async () => {
+    const { template, assets, output } = await fixture()
+    await writeFile(template, 'cask "vvtools" do\nend\n')
+    await expect(prepareHomebrewCask(template, assets, version, output)).rejects.toThrow('配方缺少')
+    await expect(readFile(output)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
   it('does not generate a cask when a native DMG is missing', async () => {
     const { template, assets, output } = await fixture()
     await rm(join(assets, `vvtools-${version}-x64.dmg`))

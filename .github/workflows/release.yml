@@ -132,7 +132,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Download packaged files
         uses: actions/download-artifact@v4
@@ -182,6 +182,12 @@ jobs:
       - name: Update Homebrew cask
         working-directory: homebrew-tap
         run: |
+          current_version="$(sed -nE 's/^  version "([0-9]+\.[0-9]+\.[0-9]+)"$/\1/p' Casks/vvtools.rb)"
+          test -n "${current_version}"
+          if ! printf '%s\n' "${current_version}" "${GITHUB_REF_NAME#v}" | sort -V -C; then
+            echo "Keeping newer Homebrew cask ${current_version}."
+            exit 0
+          fi
           cp ../.release/vvtools.rb Casks/vvtools.rb
           git add -- Casks/vvtools.rb
           if git diff --cached --quiet; then

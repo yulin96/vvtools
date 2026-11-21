@@ -20,6 +20,7 @@ const api: VVToolsApi = {
   selectImageDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.selectImageDirectory),
   expandImageInputs: (paths) => ipcRenderer.invoke(IPC_CHANNELS.expandImageInputs, paths),
   inspectImageInput: (path) => ipcRenderer.invoke(IPC_CHANNELS.inspectImageInput, path),
+  getFontFormatSupport: (path) => ipcRenderer.invoke(IPC_CHANNELS.getFontFormatSupport, path),
   inspectFont: (path) => ipcRenderer.invoke(IPC_CHANNELS.inspectFont, path),
   saveEditedFont: (path, edits) => ipcRenderer.invoke(IPC_CHANNELS.saveEditedFont, path, edits),
   inspectRenameFiles: (paths) => ipcRenderer.invoke(IPC_CHANNELS.inspectRenameFiles, paths),

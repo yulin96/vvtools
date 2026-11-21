@@ -1,5 +1,6 @@
+import { isReplaceableOutputDirectory, markOutputDirectory } from '../media/output-directory'
 import { randomUUID } from 'crypto'
-import { mkdirSync, rmSync, statSync } from 'fs'
+import { lstatSync, mkdirSync, rmSync, statSync } from 'fs'
 import { basename, dirname, join } from 'path'
 import { EventEmitter } from 'events'
 import { TASK_KINDS } from '../../shared/types'
@@ -21,7 +22,11 @@ import type {
 import { FailureLogService } from './failure-log'
 import { taskResources, type TaskResourceBudget, type TaskResources } from './task-resources'
 import { MediaProcessError, TaskCancelledError, TaskSkippedError } from '../media/errors'
-import { getProtectedSourcePaths, outputContainsSourcePath } from '../media/output-path'
+import {
+  getProtectedSourcePaths,
+  outputContainsSourcePath,
+  resolveOutputPath
+} from '../media/output-path'
 import { commitStagedOutput, createStagingOutputPath } from '../media/output-commit'
 import {
   planSourceOutputs,
@@ -41,6 +46,8 @@ export class TaskQueue extends EventEmitter {
   private readonly running = new Map<string, AbortController>()
   private readonly reservedPaths = new Set<string>()
   private readonly lastProgressNotifications = new Map<string, { at: number; progress: number }>()
+  private readonly batchSources = new WeakMap<MediaTask, string[]>()
+  private stopping = false
   private notificationSequence = 0
   private readonly resources = new Map<string, TaskResources>()
   private nextResourceKind = 0
@@ -81,21 +88,22 @@ export class TaskQueue extends EventEmitter {
   }
 
   create(request: CreateTasksRequest, desktopRequestId?: string): MediaTask[] {
-    return this.createInternal(request, true, desktopRequestId)
+    const previous = request.continueBatchTaskId
+      ? this.tasks.get(request.continueBatchTaskId)
+      : undefined
+    return this.createInternal(request, previous?.kind !== request.kind, desktopRequestId)
   }
 
   private createInternal(
     request: CreateTasksRequest,
     replaceSettledBatch: boolean,
-    desktopRequestId?: string
+    desktopRequestId?: string,
+    retryOf?: MediaTask
   ): MediaTask[] {
+    if (this.stopping) throw new Error('应用正在退出，无法提交任务')
     const discardedTaskIds = replaceSettledBatch ? this.settledBatchTaskIds(request.kind) : []
     const stagedTasks = new Map<string, MediaTask>()
     const stagedReservedPaths = new Set(this.reservedPaths)
-    for (const taskId of discardedTaskIds) {
-      const task = this.tasks.get(taskId)
-      if (task) stagedReservedPaths.delete(task.outputPath)
-    }
     const sources = taskSources(request)
     const metadata = new Map(request.inputMetadata?.map((item) => [item.path, item]))
     const activeTasks = [...this.tasks.values()].filter(
@@ -112,8 +120,20 @@ export class TaskQueue extends EventEmitter {
       throw new Error(`源文件正在被其他任务覆盖，暂时无法提交：${blockedSource.path}`)
     }
     const activeSourcePaths = new Set(activeTasks.map((task) => task.sourcePath))
-    const sourcePaths = sources.map((source) => source.path)
-    const created = sources.flatMap((source, sourceIndex) => {
+    const sourcePaths = [
+      ...sources.map((source) => source.path),
+      ...(request.excludedSourcePaths ?? [])
+    ]
+    if (request.continueBatchTaskId) {
+      const selected = new Set(sourcePaths)
+      for (const task of this.tasks.values()) {
+        if (task.kind === request.kind && !selected.has(task.sourcePath)) {
+          sourcePaths.push(task.sourcePath)
+          selected.add(task.sourcePath)
+        }
+      }
+    }
+    sources.forEach((source, sourceIndex) => {
       const sourcePath = source.path
       const sourceMetadata = metadata.get(sourcePath)
       const protectedSourcePaths = getProtectedSourcePaths(
@@ -129,12 +149,14 @@ export class TaskQueue extends EventEmitter {
         stagedReservedPaths,
         protectedSourcePaths
       )
-      return plan.units.map((unit, unitIndex) => {
+      const sourceSize = plan.units.length ? statSync(sourcePath).size : 0
+      plan.units.forEach((unit, unitIndex) => {
         const task: MediaTask = {
           ...(desktopRequestId ? { desktopRequestId } : {}),
           id: randomUUID(),
           kind: request.kind,
-          batchInputId: source.batchItemId,
+          retryOf: retryOf?.id,
+          batchInputId: retryOf?.batchInputId ?? source.batchItemId,
           batchItemId:
             source.batchItemId === undefined
               ? undefined
@@ -147,7 +169,7 @@ export class TaskQueue extends EventEmitter {
                 frameCount: sourceMetadata?.frameCount,
                 sourceFrameCount: sourceMetadata?.sourceFrameCount
               }
-            : { relativeDirectory: source.relativeDirectory }),
+            : { relativeDirectory: retryOf?.relativeDirectory ?? source.relativeDirectory }),
           ...unit,
           fontInstance: unit.fontInstance ? structuredClone(unit.fontInstance) : undefined,
           status: 'pending',
@@ -166,24 +188,23 @@ export class TaskQueue extends EventEmitter {
           sourceHeight: sourceMetadata?.height,
           inputWidth: sourceMetadata?.inputWidth,
           inputHeight: sourceMetadata?.inputHeight,
-          sourceSize: statSync(sourcePath).size,
+          sourceSize,
           createdAt: new Date().toISOString()
         }
         stagedTasks.set(task.id, task)
         stagedReservedPaths.add(task.outputPath)
-        return structuredClone(task)
+        if (sourcePaths.length > 1 && request.outputConflictPolicy === 'overwrite')
+          this.batchSources.set(task, sourcePaths)
       })
     })
+    if (!stagedTasks.size) return []
     for (const taskId of discardedTaskIds) this.tasks.delete(taskId)
     for (const task of stagedTasks.values()) this.tasks.set(task.id, task)
     this.reservedPaths.clear()
     for (const path of stagedReservedPaths) this.reservedPaths.add(path)
     this.changed([...stagedTasks.values()], discardedTaskIds)
     this.dispatch()
-    return created.flatMap((createdTask) => {
-      const latest = stagedTasks.get(createdTask.id)
-      return latest ? [structuredClone(latest)] : []
-    })
+    return structuredClone([...stagedTasks.values()])
   }
 
   cancel(taskId: string): boolean {
@@ -204,150 +225,106 @@ export class TaskQueue extends EventEmitter {
   retry(taskId: string): MediaTask | null {
     const original = this.tasks.get(taskId)
     if (!original || original.status !== 'failed') return null
-    const request: CreateTasksRequest =
-      original.kind === 'video'
-        ? {
-            kind: 'video',
-            sourcePaths: [original.sourcePath],
-            outputMode: 'custom',
-            outputDirectory: dirname(original.outputPath),
-            outputSuffix: original.outputSuffix ?? '',
-            outputNameTemplate: original.outputNameTemplate,
-            outputConflictPolicy: original.outputConflictPolicy,
-            presetName: original.presetName,
-            inputMetadata: [
-              {
-                path: original.sourcePath,
-                width: original.sourceWidth,
-                inputWidth: original.inputWidth,
-                inputHeight: original.inputHeight,
-                height: original.sourceHeight
-              }
-            ],
-            options: structuredClone(original.options) as VideoOptions
-          }
-        : original.kind === 'sprite'
-          ? {
-              kind: 'sprite',
-              sourcePaths: [original.sourcePath],
-              outputMode: 'custom',
-              outputDirectory: dirname(original.outputPath),
-              outputSuffix: original.outputSuffix ?? '',
-              outputNameTemplate: original.outputNameTemplate,
-              outputConflictPolicy: original.outputConflictPolicy,
-              presetName: original.presetName,
-              inputMetadata: [
-                {
-                  path: original.sourcePath,
-                  width: original.sourceWidth,
-                  inputWidth: original.inputWidth,
-                  inputHeight: original.inputHeight,
-                  height: original.sourceHeight,
-                  sheetCount: original.outputPaths?.length ?? 1,
-                  frameCount: original.frameCount,
-                  sourceFrameCount: original.sourceFrameCount
-                }
-              ],
-              options: structuredClone(original.options) as SpriteOptions
-            }
-          : original.kind === 'image'
-            ? {
-                kind: 'image',
-                sources: [{ path: original.sourcePath, relativeDirectory: '' }],
-                outputMode: 'custom',
-                outputDirectory: dirname(original.outputPath),
-                outputSuffix: original.outputSuffix ?? '',
-                outputNameTemplate: original.outputNameTemplate,
-                outputConflictPolicy: original.outputConflictPolicy,
-                presetName: original.presetName,
-                inputMetadata: [
-                  {
-                    path: original.sourcePath,
-                    width: original.sourceWidth,
-                    inputWidth: original.inputWidth,
-                    inputHeight: original.inputHeight,
-                    height: original.sourceHeight
-                  }
-                ],
-                options: structuredClone(original.options) as ImageOptions
-              }
-            : original.kind === 'audio'
-              ? {
-                  kind: 'audio',
-                  sourcePaths: [original.sourcePath],
-                  outputMode: 'custom',
-                  outputDirectory: dirname(original.outputPath),
-                  outputSuffix: original.outputSuffix ?? '',
-                  outputNameTemplate: original.outputNameTemplate,
-                  outputConflictPolicy: original.outputConflictPolicy,
-                  presetName: original.presetName,
-                  options: structuredClone(original.options) as AudioOptions
-                }
-              : original.kind === 'pdf'
-                ? {
-                    kind: 'pdf',
-                    sourcePaths: [original.sourcePath],
-                    outputMode: 'custom',
-                    outputDirectory: dirname(original.outputPath),
-                    outputSuffix: original.outputSuffix ?? '',
-                    outputNameTemplate: original.outputNameTemplate,
-                    outputConflictPolicy: original.outputConflictPolicy,
-                    presetName: original.presetName,
-                    inputMetadata: [
-                      {
-                        path: original.sourcePath,
-                        width: original.sourceWidth,
-                        inputWidth: original.inputWidth,
-                        inputHeight: original.inputHeight,
-                        height: original.sourceHeight,
-                        pageCount:
-                          original.pageNumbers?.length && original.pageNumbers.length > 0
-                            ? Math.max(...original.pageNumbers)
-                            : (original.pageNumber ?? 1)
-                      }
-                    ],
-                    pageNumbers:
-                      original.pageNumbers ??
-                      (original.pageNumber === undefined ? undefined : [original.pageNumber]),
-                    options: structuredClone(original.options) as PdfOptions
-                  }
-                : {
-                    kind: 'font',
-                    sources: [
-                      {
-                        path: original.sourcePath,
-                        outputFormat: (original.options as FontOptions).outputFormat
-                      }
-                    ],
-                    outputMode: 'custom',
-                    outputDirectory: dirname(original.outputPath),
-                    outputSuffix: original.outputSuffix ?? '',
-                    outputNameTemplate: original.outputNameTemplate,
-                    outputConflictPolicy: original.outputConflictPolicy,
-                    presetName: original.presetName,
-                    inputMetadata: [
-                      {
-                        path: original.sourcePath,
-                        fontCount: original.fontIndex === undefined ? 1 : original.fontIndex + 1,
-                        fontInstances: original.fontInstance ? [original.fontInstance] : undefined
-                      }
-                    ],
-                    fontIndexes:
-                      original.fontIndex === undefined ? undefined : [original.fontIndex],
-                    fontInstances: original.fontInstance ? [original.fontInstance] : undefined,
-                    options: structuredClone(original.options) as FontOptions
-                  }
-    if (original.batchItemId) request.batchItemIds = [original.batchItemId]
-    const task = this.createInternal(request, false, original.desktopRequestId)[0]
-    if (!task) return null
-    const stored = this.tasks.get(task.id)
-    if (stored) {
-      stored.retryOf = original.id
-      stored.batchInputId = original.batchInputId
-      stored.batchItemId = original.batchItemId
+    const dimensions = {
+      path: original.sourcePath,
+      width: original.sourceWidth,
+      height: original.sourceHeight,
+      inputWidth: original.inputWidth,
+      inputHeight: original.inputHeight
     }
-    if (stored) this.changed([stored])
-    return stored ? structuredClone(stored) : null
+    const common = {
+      outputMode: 'custom' as const,
+      outputDirectory: dirname(original.outputPath),
+      outputSuffix: original.outputSuffix ?? '',
+      outputNameTemplate: original.outputNameTemplate,
+      outputConflictPolicy: original.outputConflictPolicy,
+      presetName: original.presetName
+    }
+    const sourcePaths = [original.sourcePath]
+    let request: CreateTasksRequest
+    switch (original.kind) {
+      case 'image':
+        request = {
+          ...common,
+          kind: 'image',
+          sources: [{ path: original.sourcePath, relativeDirectory: '' }],
+          inputMetadata: [dimensions],
+          options: original.options as ImageOptions
+        }
+        break
+      case 'video':
+        request = {
+          ...common,
+          kind: 'video',
+          sourcePaths,
+          inputMetadata: [dimensions],
+          options: original.options as VideoOptions
+        }
+        break
+      case 'audio':
+        request = {
+          ...common,
+          kind: 'audio',
+          sourcePaths,
+          options: original.options as AudioOptions
+        }
+        break
+      case 'sprite':
+        request = {
+          ...common,
+          kind: 'sprite',
+          sourcePaths,
+          inputMetadata: [
+            {
+              ...dimensions,
+              sheetCount: original.outputPaths?.length ?? 1,
+              frameCount: original.frameCount,
+              sourceFrameCount: original.sourceFrameCount
+            }
+          ],
+          options: original.options as SpriteOptions
+        }
+        break
+      case 'pdf': {
+        const pages =
+          original.pageNumbers ??
+          (original.pageNumber === undefined ? undefined : [original.pageNumber])
+        request = {
+          ...common,
+          kind: 'pdf',
+          sourcePaths,
+          pageNumbers: pages,
+          inputMetadata: [
+            { ...dimensions, pageCount: pages?.reduce((max, page) => Math.max(max, page), 1) ?? 1 }
+          ],
+          options: original.options as PdfOptions
+        }
+        break
+      }
+      case 'font': {
+        const options = original.options as FontOptions
+        const fontInstances = original.fontInstance ? [original.fontInstance] : undefined
+        request = {
+          ...common,
+          kind: 'font',
+          sources: [{ path: original.sourcePath, outputFormat: options.outputFormat }],
+          inputMetadata: [
+            { path: original.sourcePath, fontCount: (original.fontIndex ?? 0) + 1, fontInstances }
+          ],
+          fontIndexes: original.fontIndex === undefined ? undefined : [original.fontIndex],
+          fontInstances,
+          options
+        }
+        break
+      }
+    }
+    if (original.batchItemId) request.batchItemIds = [original.batchItemId]
+    const batchSources = this.batchSources.get(original)
+    if (batchSources) {
+      const index = batchSources.indexOf(original.sourcePath)
+      request.excludedSourcePaths = batchSources.filter((_, i) => i !== index)
+    }
+    return this.createInternal(request, false, original.desktopRequestId, original)[0] ?? null
   }
 
   setConcurrency(value: TaskConcurrencyLimits): void {
@@ -356,77 +333,75 @@ export class TaskQueue extends EventEmitter {
   }
 
   shutdown(): void {
+    this.stopping = true
+    for (const task of this.tasks.values()) {
+      if (task.status === 'pending') this.cancel(task.id)
+    }
     for (const controller of this.running.values()) controller.abort()
   }
 
   private dispatch(): void {
-    while (true) {
-      const candidates = [...this.tasks.values()].filter(
-        (item) =>
-          item.status === 'pending' && this.runningCount(item.kind) < this.concurrency[item.kind]
-      )
-      const task = this.resourceBudget
-        ? TASK_KINDS.map(
-            (_, offset) => TASK_KINDS[(this.nextResourceKind + offset) % TASK_KINDS.length]
-          )
-            .map((kind) => candidates.find((item) => item.kind === kind))
-            .find((item) => item !== undefined)
-        : candidates[0]
-      if (!task) return
-      let allocation: TaskResources | undefined
-      if (this.resourceBudget) {
-        const activeTasks = [...this.tasks.values()].filter(
-          (item) => item.status === 'pending' || item.status === 'processing'
-        )
-        const used = [...this.resources.values()].reduce(
-          (total, item) => ({
-            cpu: total.cpu + item.cpu,
-            memoryBytes: total.memoryBytes + item.memoryBytes
-          }),
-          { cpu: 0, memoryBytes: 0 }
-        )
-        const waitingJobs = TASK_KINDS.reduce(
-          (count, kind) =>
-            count +
-            Math.min(
-              Math.max(0, this.concurrency[kind] - this.runningCount(kind)),
-              activeTasks.filter((item) => item.kind === kind && item.status === 'pending').length
-            ),
-          0
-        )
-        const memoryPerJob = taskResources(task, this.resourceBudget, 1).memoryBytes
-        const memorySlots = Math.max(
-          1,
-          Math.floor((this.resourceBudget.memoryBytes - used.memoryBytes) / memoryPerJob)
-        )
-        allocation = taskResources(
-          task,
-          this.resourceBudget,
-          Math.min(waitingJobs, memorySlots),
-          Math.max(1, this.resourceBudget.cpu - used.cpu)
-        )
-        if (
-          used.cpu + allocation.cpu > this.resourceBudget.cpu ||
-          used.memoryBytes + allocation.memoryBytes > this.resourceBudget.memoryBytes
-        )
-          return
-        this.nextResourceKind = (TASK_KINDS.indexOf(task.kind) + 1) % TASK_KINDS.length
+    while (!this.stopping) {
+      const running = new Map<MediaTask['kind'], number>()
+      for (const id of this.running.keys()) {
+        const kind = this.tasks.get(id)!.kind
+        running.set(kind, (running.get(kind) ?? 0) + 1)
       }
-      void this.run(task, allocation)
+      const next = new Map<MediaTask['kind'], MediaTask>()
+      const pending = new Map<MediaTask['kind'], number>()
+      for (const task of this.tasks.values()) {
+        if (
+          task.status !== 'pending' ||
+          (running.get(task.kind) ?? 0) >= this.concurrency[task.kind]
+        )
+          continue
+        if (!next.has(task.kind)) next.set(task.kind, task)
+        pending.set(task.kind, (pending.get(task.kind) ?? 0) + 1)
+      }
+      const first = next.values().next().value
+      if (!first) return
+      if (!this.resourceBudget) {
+        void this.run(first)
+        continue
+      }
+      const budget = this.resourceBudget
+      let availableCpu = budget.cpu
+      let availableMemory = budget.memoryBytes
+      for (const allocation of this.resources.values()) {
+        availableCpu -= allocation.cpu
+        availableMemory -= allocation.memoryBytes
+      }
+      if (availableCpu < 1) return
+      let waitingJobs = 0
+      for (const [kind, count] of pending) {
+        waitingJobs += Math.min(count, this.concurrency[kind] - (running.get(kind) ?? 0))
+      }
+      let started = false
+      for (let offset = 0; offset < TASK_KINDS.length; offset++) {
+        const index = (this.nextResourceKind + offset) % TASK_KINDS.length
+        const task = next.get(TASK_KINDS[index])
+        if (!task) continue
+        const memory = taskResources(task, budget, 1).memoryBytes
+        if (memory > availableMemory) continue
+        const slots = Math.min(waitingJobs, Math.floor(availableMemory / memory))
+        const allocation = taskResources(task, budget, slots, availableCpu)
+        if (allocation.cpu > availableCpu) continue
+        this.nextResourceKind = (index + 1) % TASK_KINDS.length
+        void this.run(task, allocation)
+        started = true
+        break
+      }
+      if (!started) return
     }
-  }
-
-  private runningCount(kind: MediaTask['kind']): number {
-    let count = 0
-    for (const taskId of this.running.keys()) {
-      if (this.tasks.get(taskId)?.kind === kind) count += 1
-    }
-    return count
   }
 
   private async run(task: MediaTask, allocation?: TaskResources): Promise<void> {
     const controller = new AbortController()
-    const stagingPath = createStagingOutputPath(task.outputPath, task.id)
+    const stagingPath = createStagingOutputPath(
+      task.outputPath,
+      task.id,
+      Boolean(task.outputPaths?.length)
+    )
     const processingTask = structuredClone(task)
     if (allocation) {
       this.resources.set(task.id, allocation)
@@ -448,6 +423,25 @@ export class TaskQueue extends EventEmitter {
         this.progressChanged(task)
       })
       if (controller.signal.aborted) throw new TaskCancelledError()
+      if (task.outputPaths?.length) {
+        markOutputDirectory(stagingPath)
+        if (
+          task.outputConflictPolicy === 'overwrite' &&
+          lstatSync(task.outputPath, { throwIfNoEntry: false }) &&
+          !isReplaceableOutputDirectory(task.outputPath)
+        ) {
+          const next = resolveOutputPath({
+            sourcePath: task.sourcePath,
+            outputDirectory: dirname(task.outputPath),
+            outputSuffix: task.outputSuffix,
+            extension: '',
+            reservedPaths: this.reservedPaths
+          })
+          this.reservedPaths.delete(task.outputPath)
+          task.outputPath = next.path
+          task.outputPaths = task.outputPaths.map((path) => join(next.path, basename(path)))
+        }
+      }
       await commitStagedOutput(
         stagingPath,
         task.outputPath,
@@ -476,7 +470,11 @@ export class TaskQueue extends EventEmitter {
         task.failure = failure
       }
     } finally {
-      rmSync(stagingPath, { recursive: true, force: true })
+      try {
+        rmSync(stagingPath, { recursive: true, force: true })
+      } catch (error) {
+        console.error('清理任务临时输出失败', stagingPath, error)
+      }
       task.completedAt = new Date().toISOString()
       this.running.delete(task.id)
       this.resources.delete(task.id)

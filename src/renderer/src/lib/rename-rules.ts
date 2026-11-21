@@ -1,3 +1,4 @@
+import { pathKey } from '../../../shared/path-key'
 import type { RenameFileInfo, RenameSettings, RenameSortField } from '../../../shared/types'
 
 export interface RenamePreviewRow {
@@ -106,8 +107,11 @@ function filenameError(name: string): string | undefined {
   return undefined
 }
 
-function directory(path: string): string {
-  const index = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+function directory(path: string, platform: string): string {
+  const index =
+    platform === 'win32'
+      ? Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+      : path.lastIndexOf('/')
   return index < 0 ? '' : path.slice(0, index)
 }
 
@@ -128,13 +132,11 @@ export function buildRenamePreview(
   })
   const names = new Map<string, number>()
   for (const row of rows) {
-    const path = `${directory(row.file.path)}/${row.targetName}`.normalize('NFC')
-    const key = platform === 'linux' ? path : path.toLocaleLowerCase('en-US')
+    const key = pathKey(`${directory(row.file.path, platform)}/${row.targetName}`, platform)
     names.set(key, (names.get(key) ?? 0) + 1)
   }
   for (const row of rows) {
-    const path = `${directory(row.file.path)}/${row.targetName}`.normalize('NFC')
-    const key = platform === 'linux' ? path : path.toLocaleLowerCase('en-US')
+    const key = pathKey(`${directory(row.file.path, platform)}/${row.targetName}`, platform)
     if ((names.get(key) ?? 0) > 1) row.error = '新名称与批次中的其他文件重复'
   }
   return rows
