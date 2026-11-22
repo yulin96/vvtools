@@ -1,9 +1,9 @@
 cask "vvtools" do
   arch arm: "arm64", intel: "x64"
 
-  version "0.0.24"
-  sha256 arm: "3a32d37d1cd1b5ad5e69bc6fbe8fe843b94be855b5abbc6e23ac89ffb44c4869",
-         intel: "6e543cc860572c9a59c73beecfe65720dd2290f8d627959614254ea322d1253b"
+  version "0.0.25"
+  sha256 arm: "b7786886a77c4087aa26ad52c93a355c30953ac93e4b788f5c145b312ba5e1c4",
+         intel: "69933e188b1a18704930114b7ffd9c95e75c01632679e0817250cc279d0cd843"
 
   url "https://github.com/yulin96/vvtools/releases/download/v#{version}/vvtools-#{version}-#{arch}.dmg"
   name "VVTools"
